@@ -1,0 +1,305 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Export from XD',  body: 'File → Export → All Artboards → SVG format. Each artboard becomes one .svg file.' },
+  { heading: 'Drag to reorder', body: 'Figma imports SVGs alphabetically — this tool numbers files to control the order.' },
+  { heading: 'Import to Figma', body: 'Unzip the package, then drag all SVG files onto a Figma canvas at once.' },
+  { heading: 'Naming tip',      body: 'Files are numbered 01_, 02_, … so Figma\'s alphabetical sort matches your chosen screen order.' },
+];
+
+const faq = [
+  { question: 'Why does the order matter in Figma?', answer: 'Figma imports multiple dragged files in alphabetical order. This tool prefixes each SVG with a zero-padded number so you control the order.' },
+  { question: 'Does this convert XD to Figma natively?', answer: 'No — it packages your XD-exported SVG artboards into a numbered ZIP so Figma can import them in the correct sequence. Complex XD-specific styles may not transfer perfectly.' },
+  { question: 'Are my files uploaded?', answer: 'No. Everything runs locally in your browser using the File API and JSZip. Nothing is sent to any server.' },
+  { question: 'What file types are accepted?', answer: 'Only .svg files. Export your artboards from Adobe XD as SVG before using this tool.' },
+];
+---
+
+<MainLayout
+  title="XD to Figma — Package SVG Artboards | Toolbox"
+  description="Package Adobe XD SVG exports into a numbered ZIP for ordered import into Figma. Drag to reorder screens. No uploads."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="XD → Figma" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">XD → Figma Packager</h1>
+        <p class="mt-1 text-sm text-slate-500">Number and ZIP your XD SVG exports for ordered import into Figma.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div id="xdDropZone"
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            role="button" tabindex="0" aria-label="Drop SVG files or click to browse"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop SVG files here</p>
+            <p class="mt-1 text-xs text-slate-400">Multiple files accepted — XD artboard exports</p>
+            <input id="xdFileInput" type="file" class="sr-only" accept=".svg,image/svg+xml" multiple />
+          </div>
+
+          <!-- Controls bar -->
+          <div id="xdControls" hidden class="mb-4 flex items-center justify-between">
+            <span id="xdScreenCount" class="text-sm font-medium text-slate-700"></span>
+            <button id="xdClearBtn"
+              class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">
+              Clear all
+            </button>
+          </div>
+
+          <!-- File list -->
+          <div id="xdFileList" class="mb-4 flex flex-col gap-2" role="list" aria-label="Screen list"></div>
+
+          <!-- Import hint -->
+          <div id="xdImportHint" hidden
+            class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <strong>Next step:</strong> Unzip <code class="font-mono text-xs">xd-screens.zip</code> and drag all SVG files onto a Figma canvas at once. Figma imports alphabetically, so the numbered prefix preserves your order.
+          </div>
+
+          <!-- Progress -->
+          <div id="xdPBar" class="mb-4 hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div id="xdPFill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+          </div>
+
+          <button id="xdPackBtn"
+            class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            disabled
+          >
+            Pack for Figma &amp; Download ZIP
+          </button>
+
+          <p id="xdStatus" class="mt-4 hidden text-center text-sm"></p>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About XD → Figma Packager</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Adobe XD exports artboards as individual SVG files. When you drag multiple SVGs into Figma, it imports them in alphabetical order — which may not match your intended screen flow. This tool lets you drag-to-reorder your screens, then downloads a ZIP where each file is prefixed with a zero-padded number (01_, 02_, …) so Figma's alphabetical sort respects your chosen order.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Keywords: xd to figma, adobe xd export, figma import order, svg artboard packager, figma migration</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  import JSZip from 'jszip';
+
+  type XdFile = { file: File; objUrl: string };
+
+  let xdFiles: XdFile[] = [];
+  let xdDragSrc: number | null = null;
+  let helpfulCount = 0;
+
+  function baseName(name: string): string { return name.replace(/\.[^.]+$/, ''); }
+
+  function showStatus(msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById('xdStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mt-4 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mt-4 text-center text-sm text-rose-500'
+        : 'mt-4 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function setProgress(pct: number) {
+    const bar = document.getElementById('xdPBar')!;
+    const fill = document.getElementById('xdPFill')!;
+    if (pct > 0) { bar.classList.remove('hidden'); fill.style.width = pct + '%'; }
+    else { bar.classList.add('hidden'); fill.style.width = '0%'; }
+  }
+
+  /* ── Drop zone ── */
+  const zone = document.getElementById('xdDropZone')!;
+  const fileInput = document.getElementById('xdFileInput') as HTMLInputElement;
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400', 'bg-purple-50/50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400', 'bg-purple-50/50'));
+  zone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    zone.classList.remove('border-purple-400', 'bg-purple-50/50');
+    addFiles([...(e.dataTransfer?.files ?? [])]);
+  });
+  fileInput.addEventListener('change', () => {
+    addFiles([...fileInput.files!]);
+    fileInput.value = '';
+  });
+
+  function addFiles(files: File[]) {
+    const svgs = files.filter(f => /\.svg$/i.test(f.name) || f.type === 'image/svg+xml');
+    if (!svgs.length) { showStatus('✕ No SVG files found. Export artboards from XD as SVG first.', 'err'); return; }
+    xdFiles.push(...svgs.map(file => ({ file, objUrl: URL.createObjectURL(file) })));
+    renderList();
+    document.getElementById('xdControls')!.hidden = false;
+    (document.getElementById('xdPackBtn') as HTMLButtonElement).disabled = false;
+    showStatus(`${xdFiles.length} screen${xdFiles.length !== 1 ? 's' : ''} loaded — drag rows to reorder.`, 'info');
+  }
+
+  /* ── Clear ── */
+  document.getElementById('xdClearBtn')!.addEventListener('click', () => {
+    xdFiles.forEach(f => URL.revokeObjectURL(f.objUrl));
+    xdFiles = [];
+    document.getElementById('xdFileList')!.innerHTML = '';
+    document.getElementById('xdControls')!.hidden = true;
+    document.getElementById('xdImportHint')!.hidden = true;
+    (document.getElementById('xdPackBtn') as HTMLButtonElement).disabled = true;
+    const st = document.getElementById('xdStatus')!;
+    st.textContent = '';
+    st.classList.add('hidden');
+    setProgress(0);
+  });
+
+  /* ── Drag-to-reorder list ── */
+  function renderList() {
+    const list = document.getElementById('xdFileList')!;
+    list.innerHTML = '';
+    const pad = Math.max(2, String(xdFiles.length).length);
+
+    xdFiles.forEach(({ file, objUrl }, i) => {
+      const item = document.createElement('div');
+      item.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-grab select-none';
+      item.draggable = true;
+      item.setAttribute('role', 'listitem');
+
+      item.innerHTML = `
+        <span class="text-slate-300 text-base" aria-hidden="true">⠿</span>
+        <span class="font-mono text-xs text-slate-400 shrink-0">${String(i + 1).padStart(pad, '0')}</span>
+        <img src="${objUrl}" alt="" class="h-8 w-8 shrink-0 rounded object-cover border border-slate-100" aria-hidden="true" onerror="this.style.display='none'" />
+        <span class="flex-1 truncate text-slate-700" title="${file.name}">${baseName(file.name)}</span>
+        <button class="shrink-0 text-slate-300 hover:text-rose-400 transition-colors text-lg leading-none" aria-label="Remove ${file.name}">×</button>
+      `;
+
+      item.querySelector('button')!.addEventListener('click', () => {
+        URL.revokeObjectURL(xdFiles[i].objUrl);
+        xdFiles.splice(i, 1);
+        if (!xdFiles.length) {
+          document.getElementById('xdControls')!.hidden = true;
+          (document.getElementById('xdPackBtn') as HTMLButtonElement).disabled = true;
+        } else {
+          showStatus(`${xdFiles.length} screen${xdFiles.length !== 1 ? 's' : ''} loaded.`, 'info');
+        }
+        renderList();
+      });
+
+      item.addEventListener('dragstart', (e: DragEvent) => {
+        xdDragSrc = i;
+        e.dataTransfer!.effectAllowed = 'move';
+        e.dataTransfer!.setData('text/plain', String(i));
+        setTimeout(() => item.classList.add('opacity-50'), 0);
+      });
+      item.addEventListener('dragend', () => {
+        document.querySelectorAll('#xdFileList > div').forEach(el => el.classList.remove('opacity-50', 'border-purple-400'));
+        xdDragSrc = null;
+      });
+      item.addEventListener('dragover', (e: DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer!.dropEffect = 'move';
+        if (xdDragSrc === i) return;
+        document.querySelectorAll('#xdFileList > div').forEach(el => el.classList.remove('border-purple-400'));
+        item.classList.add('border-purple-400');
+      });
+      item.addEventListener('dragleave', () => item.classList.remove('border-purple-400'));
+      item.addEventListener('drop', (e: DragEvent) => {
+        e.preventDefault();
+        if (xdDragSrc === null || xdDragSrc === i) return;
+        const [moved] = xdFiles.splice(xdDragSrc, 1);
+        xdFiles.splice(i, 0, moved);
+        renderList();
+        showStatus(`${xdFiles.length} screens — order updated.`, 'info');
+      });
+
+      list.appendChild(item);
+    });
+
+    document.getElementById('xdScreenCount')!.textContent =
+      `${xdFiles.length} screen${xdFiles.length !== 1 ? 's' : ''}`;
+  }
+
+  /* ── Pack ── */
+  document.getElementById('xdPackBtn')!.addEventListener('click', async () => {
+    if (!xdFiles.length) return;
+    const btn = document.getElementById('xdPackBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      setProgress(10);
+      showStatus('Packing…', 'info');
+
+      const zip = new JSZip();
+      const pad = Math.max(2, String(xdFiles.length).length);
+
+      for (let i = 0; i < xdFiles.length; i++) {
+        const { file } = xdFiles[i];
+        const prefix = String(i + 1).padStart(pad, '0');
+        zip.file(`${prefix}_${file.name}`, file);
+        setProgress(10 + Math.round((i + 1) / xdFiles.length * 75));
+      }
+
+      setProgress(90);
+      showStatus('Generating ZIP…', 'info');
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+
+      setProgress(100);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'xd-screens.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+      showStatus('✓ Downloaded xd-screens.zip — unzip and import all SVGs into Figma. Alphabetical = your screen order.', 'ok');
+      document.getElementById('xdImportHint')!.hidden = false;
+    } catch (err: any) {
+      showStatus('✕ ' + err.message, 'err');
+      setProgress(0);
+    }
+    setTimeout(() => setProgress(0), 1500);
+    btn.disabled = false;
+  });
+
+  /* ── Helpful ── */
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    helpfulCount++;
+    const btn = document.getElementById('helpfulBtn')!;
+    btn.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const countEl = document.getElementById('helpfulCount')!;
+    countEl.textContent = String(helpfulCount);
+    countEl.classList.remove('hidden');
+  });
+</script>

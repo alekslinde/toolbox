@@ -1,0 +1,333 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Base font',  body: 'Enter any Google Font name (e.g. "Inter", "Playfair Display"). The role you select determines whether it\'s used for headings or body text.' },
+  { heading: 'Heading',    body: 'Choose "Heading" when you want the base font at display sizes and the pairing at body size.' },
+  { heading: 'Body',       body: 'Choose "Body" to lock the base font at reading size and get heading suggestions.' },
+  { heading: 'Copy CSS',   body: 'Each card has a "Copy CSS" button that copies a @import + h1–h6 + body rule block ready to paste.' },
+];
+
+const faq = [
+  { question: 'What font names can I enter?', answer: 'Any Google Font name works best. Common system fonts (Arial, Georgia, etc.) will also return suggestions, but previews use a fallback stack.' },
+  { question: 'How are pairings generated?', answer: 'The /fontpair endpoint uses AI to suggest complementary typefaces based on the base font\'s category, weight range and visual personality.' },
+  { question: 'Are fonts loaded from Google Fonts?', answer: 'Yes — when results include Google Fonts, a stylesheet link is added to load them for the in-page preview. No fonts are bundled with the tool.' },
+];
+---
+
+<MainLayout
+  title="Font Pairs — Free In-Browser Tool | Toolbox"
+  description="Get AI-powered font pairing suggestions for any Google Font. Preview heading and body combinations and copy the CSS."
+  alpine={false}
+>
+  <Fragment slot="head">
+    <!-- Turnstile: replace SITE_KEY with yours from dash.cloudflare.com → Turnstile -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async></script>
+  </Fragment>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Font Pairs" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Font Pairs</h1>
+        <p class="mt-1 text-sm text-slate-500">Get AI-powered pairing suggestions for any Google Font.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Controls -->
+          <div class="mb-5 flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-48">
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Base font name</label>
+              <input id="fpBaseFontInput" type="text" placeholder="e.g. Inter, Playfair Display"
+                class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Role</label>
+              <div class="flex gap-2">
+                {[['heading','Heading'],['body','Body']].map(([v,l]) => (
+                  <label class="fp-role-opt flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                    <input type="radio" name="fpRole" value={v} checked={v==='heading'} class="sr-only" />
+                    <span>{l}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button id="fpFindBtn"
+              class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+              Find Pairings
+            </button>
+          </div>
+
+          <div id="fpResult"></div>
+          <div id="ts-widget" aria-hidden="true"></div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Font Pairs</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Enter a base font name and choose whether it will be used as a heading or body font. The AI pairing engine suggests complementary typefaces, previews them together and generates a CSS snippet you can paste directly into your project. Preview fonts are loaded from Google Fonts. Works best with Google Fonts names.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/font-inspector" class="text-purple-500 hover:underline">Font Inspector</a> · <a href="/tools/font-converter" class="text-purple-500 hover:underline">Font Converter</a></p>
+          <p class="mt-2">Keywords: font pairing, Google Fonts pairs, heading body font combination, typography pairing tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .fp-role-opt:has(input:checked) { border-color: #a855f7; background: #faf5ff; color: #7c3aed; }
+
+  .fp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .fp-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; background: white; }
+  .fp-preview { padding: 1.25rem; background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
+  .fp-preview-heading { font-size: 1.2rem; line-height: 1.4; color: #1e293b; margin-bottom: 0.4rem; }
+  .fp-preview-body    { font-size: 0.85rem; line-height: 1.6; color: #475569; }
+  .fp-card-footer { padding: 0.875rem; }
+  .fp-names { margin-bottom: 0.5rem; }
+  .fp-name-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; flex-wrap: wrap; }
+  .fp-name-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; width: 4rem; flex-shrink: 0; }
+  .fp-name-val { font-size: 0.8rem; font-weight: 600; color: #1e293b; text-decoration: none; }
+  a.fp-name-val { color: #a855f7; }
+  a.fp-name-val:hover { text-decoration: underline; }
+  .fp-cat-tag { font-size: 0.6rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: #f1f5f9; color: #64748b; }
+  .fp-cat-serif   { background: #fef3c7; color: #92400e; }
+  .fp-cat-sans    { background: #dbeafe; color: #1e40af; }
+  .fp-cat-display { background: #fae8ff; color: #86198f; }
+  .fp-cat-mono    { background: #f0fdf4; color: #166534; }
+  .fp-note { font-size: 0.7rem; color: #64748b; margin: 0.4rem 0 0.6rem; line-height: 1.5; }
+  .fp-copy-btn { width: 100%; border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.35rem; font-size: 0.75rem; color: #475569; cursor: pointer; transition: all 0.15s; }
+  .fp-copy-btn:hover { border-color: #a855f7; color: #7c3aed; }
+  .fp-copy-btn.fp-copied { border-color: #10b981; color: #065f46; }
+  .fp-base-note { font-size: 0.75rem; color: #94a3b8; font-style: italic; margin-bottom: 0.75rem; }
+  .fp-loading { padding: 2rem; text-align: center; font-size: 0.875rem; color: #94a3b8; }
+  .fp-result-err  { border: 1px solid #fecdd3; background: #fff1f2; color: #9f1239; border-radius: 0.5rem; padding: 0.75rem 1rem; font-size: 0.85rem; }
+  .fp-result-warn { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; border-radius: 0.5rem; padding: 0.75rem 1rem; font-size: 0.85rem; }
+</style>
+
+<script>
+  // ── Turnstile ──────────────────────────────────────────────────────────────
+  // IMPORTANT: replace with your site key from dash.cloudflare.com → Turnstile
+  // Use test key 1x00000000000000000000AA to verify the flow end-to-end first.
+  const TURNSTILE_SITE_KEY = '0x4AAAAAADKkTF_wmSeKKVIp';
+
+  let tsWidgetId: string | null = null;
+  let tsPendingResolve: ((t: string) => void) | null = null;
+
+  function initTurnstile() {
+    const ts = (window as any).turnstile;
+    if (!ts || tsWidgetId) return;
+    tsWidgetId = ts.render('#ts-widget', {
+      sitekey: TURNSTILE_SITE_KEY,
+      appearance: 'interaction-only',
+      execution: 'execute',
+      callback:          (t: string) => { tsPendingResolve?.(t);  tsPendingResolve = null; },
+      'error-callback':   ()         => { tsPendingResolve?.(''); tsPendingResolve = null; },
+      'expired-callback': ()         => { tsPendingResolve?.(''); tsPendingResolve = null; },
+    });
+  }
+
+  async function getTurnstileToken(): Promise<string> {
+    if (!tsWidgetId) return '';
+    const ts = (window as any).turnstile;
+    if (!ts) return '';
+    ts.reset(tsWidgetId);
+    return new Promise<string>((resolve) => {
+      tsPendingResolve = resolve;
+      ts.execute(tsWidgetId!);
+      setTimeout(() => { tsPendingResolve?.(''); tsPendingResolve = null; }, 10_000);
+    });
+  }
+
+  if ((window as any).turnstile) initTurnstile();
+  else (window as any).onTurnstileLoad = initTurnstile;
+  // ────────────────────────────────────────────────────────────────────────────
+
+  let _data: any = null;
+
+  const CAT_CLASS: Record<string,string> = {
+    'serif': 'fp-cat-serif', 'sans-serif': 'fp-cat-sans',
+    'display': 'fp-cat-display', 'monospace': 'fp-cat-mono', 'script': 'fp-cat-display',
+  };
+  const CAT_STACK: Record<string,string> = { 'serif': 'Georgia, serif' };
+  function fpStack(cat: string): string { return CAT_STACK[cat] || 'Arial, sans-serif'; }
+
+  function loadGoogleFonts(data: any) {
+    const seen: Record<string,boolean> = {};
+    const params: string[] = [];
+    if (data.baseFontGoogleFont && data.baseFontGfParam) {
+      seen[data.baseFontGfParam] = true;
+      params.push('family=' + data.baseFontGfParam);
+    }
+    (data.suggestions || []).forEach((s: any) => {
+      if (s.googleFont && s.gfParam && !seen[s.gfParam]) {
+        seen[s.gfParam] = true;
+        params.push('family=' + s.gfParam);
+      }
+    });
+    if (!params.length) return;
+    const prev = document.getElementById('fpFontsLink');
+    if (prev) prev.remove();
+    const link = document.createElement('link');
+    link.id = 'fpFontsLink'; link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?' + params.join('&') + '&display=swap';
+    document.head.appendChild(link);
+  }
+
+  function renderResults(data: any) {
+    const suggestions = data.suggestions || [];
+    const baseFont    = data.baseFont     || '';
+    const baseRole    = data.baseFontRole || 'heading';
+    const baseIsGF    = data.baseFontGoogleFont;
+    const baseCat     = data.baseFontCategory || '';
+    const previewText = 'The quick brown fox jumps over the lazy dog';
+    const resultEl    = document.getElementById('fpResult')!;
+
+    let html = '';
+    if (!baseIsGF) {
+      html += '<p class="fp-base-note">"' + baseFont + '" preview uses a system font fallback — pairing suggestions are loaded from Google Fonts.</p>';
+    }
+
+    html += '<div class="fp-grid">';
+    suggestions.forEach((s: any, i: number) => {
+      const hFont = baseRole === 'heading' ? baseFont : s.name;
+      const bFont = baseRole === 'heading' ? s.name   : baseFont;
+      const hIsGF = baseRole === 'heading' ? baseIsGF : s.googleFont;
+      const bIsGF = baseRole === 'heading' ? s.googleFont : baseIsGF;
+      const hCat  = baseRole === 'heading' ? baseCat  : s.category;
+      const bCat  = baseRole === 'heading' ? s.category : baseCat;
+      const hCls  = CAT_CLASS[hCat] || '';
+      const bCls  = CAT_CLASS[bCat] || '';
+      const hGfUrl = 'https://fonts.google.com/specimen/' + hFont.replace(/ /g, '+');
+      const bGfUrl = 'https://fonts.google.com/specimen/' + bFont.replace(/ /g, '+');
+
+      html += '<div class="fp-card">'
+        + '<div class="fp-preview">'
+        + '<div class="fp-preview-heading" style="font-family:\'' + hFont + '\',' + fpStack(hCat) + ';">' + previewText + '</div>'
+        + '<div class="fp-preview-body"    style="font-family:\'' + bFont + '\',' + fpStack(bCat) + ';">' + previewText + '</div>'
+        + '</div>'
+        + '<div class="fp-card-footer">'
+        + '<div class="fp-names">'
+        + '<div class="fp-name-row"><span class="fp-name-label">Heading</span>'
+        + (hIsGF ? '<a class="fp-name-val" href="' + hGfUrl + '" target="_blank" rel="noopener noreferrer">' + hFont + '</a>' : '<span class="fp-name-val">' + hFont + '</span>')
+        + (hCat ? '<span class="fp-cat-tag' + (hCls ? ' ' + hCls : '') + '">' + hCat + '</span>' : '')
+        + '</div>'
+        + '<div class="fp-name-row"><span class="fp-name-label">Body</span>'
+        + (bIsGF ? '<a class="fp-name-val" href="' + bGfUrl + '" target="_blank" rel="noopener noreferrer">' + bFont + '</a>' : '<span class="fp-name-val">' + bFont + '</span>')
+        + (bCat ? '<span class="fp-cat-tag' + (bCls ? ' ' + bCls : '') + '">' + bCat + '</span>' : '')
+        + '</div></div>'
+        + '<p class="fp-note">' + (s.rationale || '') + '</p>'
+        + '<button class="fp-copy-btn" onclick="fpCopyResult(' + i + ', this)">Copy CSS</button>'
+        + '</div></div>';
+    });
+    html += '</div>';
+    resultEl.innerHTML = html;
+  }
+
+  (window as any).fpCopyResult = (idx: number, btn: HTMLButtonElement) => {
+    if (!_data) return;
+    const s        = _data.suggestions[idx];
+    const baseFont = _data.baseFont;
+    const baseRole = _data.baseFontRole;
+    const baseIsGF = _data.baseFontGoogleFont;
+    const baseGfP  = _data.baseFontGfParam;
+    const baseCat  = _data.baseFontCategory;
+
+    let hFont: string, hGfP: string, hCat: string, bFont: string, bGfP: string, bCat: string;
+    if (baseRole === 'heading') {
+      hFont = baseFont; hGfP = baseGfP; hCat = baseCat;
+      bFont = s.name;   bGfP = s.gfParam; bCat = s.category;
+    } else {
+      hFont = s.name;   hGfP = s.gfParam; hCat = s.category;
+      bFont = baseFont; bGfP = baseGfP;   bCat = baseCat;
+    }
+
+    const params: string[] = [];
+    if (baseIsGF && baseGfP) params.push('family=' + baseGfP);
+    if (s.googleFont && s.gfParam) params.push('family=' + s.gfParam);
+
+    const css = (params.length
+      ? '@import url(\'https://fonts.googleapis.com/css2?' + params.join('&') + '&display=swap\');\n\n'
+      : '')
+      + 'h1, h2, h3, h4, h5, h6 {\n  font-family: \'' + hFont + '\', ' + fpStack(hCat) + ';\n}\n\n'
+      + 'body, p {\n  font-family: \'' + bFont + '\', ' + fpStack(bCat) + ';\n}';
+
+    navigator.clipboard.writeText(css).then(() => {
+      const prev = btn.textContent!;
+      btn.textContent = 'Copied!'; btn.classList.add('fp-copied');
+      setTimeout(() => { btn.textContent = prev; btn.classList.remove('fp-copied'); }, 2000);
+    });
+  };
+
+  async function findPairs() {
+    const fontName = (document.getElementById('fpBaseFontInput') as HTMLInputElement).value.trim();
+    if (!fontName) {
+      document.getElementById('fpResult')!.innerHTML = '<div class="fp-result-warn">Please enter a font name.</div>';
+      return;
+    }
+    const role = (document.querySelector('input[name="fpRole"]:checked') as HTMLInputElement).value;
+    const btn  = document.getElementById('fpFindBtn') as HTMLButtonElement;
+    btn.disabled = true; btn.textContent = 'Finding…';
+    document.getElementById('fpResult')!.innerHTML = '<div class="fp-loading">Finding pairings for ' + fontName + '…</div>';
+
+    try {
+      const turnstileToken = await getTurnstileToken();
+      const res  = await fetch('/fontpair', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ font: fontName, role, turnstileToken }),
+      });
+      const data = await res.json();
+      btn.disabled = false; btn.textContent = 'Find Pairings';
+      if (data.error) {
+        const cls = data.rateLimited ? 'fp-result-warn' : 'fp-result-err';
+        document.getElementById('fpResult')!.innerHTML = '<div class="' + cls + '">' + data.error + '</div>';
+        return;
+      }
+      _data = data;
+      loadGoogleFonts(data);
+      renderResults(data);
+    } catch {
+      btn.disabled = false; btn.textContent = 'Find Pairings';
+      document.getElementById('fpResult')!.innerHTML = '<div class="fp-result-err">Could not reach the pairing service. Please try again.</div>';
+    }
+  }
+
+  document.getElementById('fpBaseFontInput')!.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') findPairs(); });
+  document.getElementById('fpFindBtn')!.addEventListener('click', findPairs);
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

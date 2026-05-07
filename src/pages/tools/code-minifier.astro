@@ -1,0 +1,259 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'JS',   body: 'String-aware minifier — preserves string contents, template literals and licence comments (/*!).' },
+  { heading: 'CSS',  body: 'Strips comments and collapses whitespace around selectors and declarations.' },
+  { heading: 'HTML', body: 'Removes non-conditional comments and collapses whitespace between tags.' },
+  { heading: 'Zero dependencies', body: 'All three minifiers run as pure JavaScript — no CDN calls, no uploads.' },
+];
+
+const faq = [
+  { question: 'Is my code uploaded?', answer: 'No. All three minifiers are pure JavaScript running in your browser. Nothing leaves your device.' },
+  { question: 'Does the JS minifier handle TypeScript?', answer: 'It handles the syntax-level whitespace and comment removal that is common to JS and TS. Type annotations are left as-is; use a proper TS compiler for full transpilation.' },
+  { question: 'Are licence comments preserved?', answer: 'Yes — JS blocks starting with /*! are kept. Standard block comments (/* … */) and line comments (//) are removed.' },
+];
+---
+
+<MainLayout
+  title="Code Minifier — Free In-Browser Tool | Toolbox"
+  description="Minify JavaScript, CSS and HTML in your browser. Pure JS — no uploads, no CDN."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Code Minifier" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Code Minifier</h1>
+        <p class="mt-1 text-sm text-slate-500">Strip whitespace and comments from JS, CSS and HTML — entirely in your browser.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Language selector -->
+          <div class="mb-4 flex flex-wrap gap-2">
+            {['js','css','html'].map(l => (
+              <label class="min-lang-label flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                <input type="radio" name="minLang" value={l} checked={l==='js'} class="sr-only" />
+                <span>{l.toUpperCase()}</span>
+              </label>
+            ))}
+          </div>
+
+          <!-- Input -->
+          <div class="mb-3">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Input</label>
+              <button id="minClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+            <textarea id="minInput" rows="10" spellcheck="false" placeholder="Paste your code here…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <button id="minBtn"
+            class="mb-4 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            Minify Code
+          </button>
+
+          <p id="minStatus" class="hidden mb-3 text-center text-sm"></p>
+          <p id="minStats"  class="mb-3 text-xs text-slate-400"></p>
+
+          <!-- Output -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Output</label>
+              <button id="minCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+            </div>
+            <textarea id="minOutput" rows="10" readonly spellcheck="false"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Code Minifier</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Minify JavaScript, CSS and HTML with pure in-browser implementations — no external libraries, no uploads. The JS minifier is string-aware (handles template literals, quoted strings and escape sequences) and preserves licence comments. The CSS minifier removes block comments and collapses whitespace around punctuation. The HTML minifier removes non-conditional HTML comments and whitespace between tags.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a> · <a href="/tools/scss-compiler" class="text-purple-500 hover:underline">SCSS Compiler</a></p>
+          <p class="mt-2">Keywords: code minifier, minify JS CSS HTML, browser minifier, no upload minifier</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .min-lang-label:has(input:checked) { border-color: #a855f7; background: #faf5ff; color: #7c3aed; }
+  #minStats .cstat-saved  { color: #059669; font-weight: 600; }
+  #minStats .cstat-larger { color: #d97706; font-weight: 600; }
+</style>
+
+<script>
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('minStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-3 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-3 text-center text-sm text-rose-500'
+        : 'mb-3 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function showStats(origLen: number, newLen: number) {
+    const el = document.getElementById('minStats')!;
+    const diff = origLen - newLen;
+    const pct = origLen > 0 ? ((Math.abs(diff) / origLen) * 100).toFixed(1) : '0.0';
+    if (diff > 0)
+      el.innerHTML = `<span class="cstat-saved">↓ ${pct}% smaller</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else if (diff < 0)
+      el.innerHTML = `<span class="cstat-larger">↑ ${pct}% larger</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else
+      el.innerHTML = `No size change — ${fmtBytes(newLen)}`;
+  }
+
+  function minifyCSS(src: string): string {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([{};:,>~+])\s*/g, '$1')
+      .replace(/;}/g, '}')
+      .trim();
+  }
+
+  function minifyHTML(src: string): string {
+    return src
+      .replace(/<!--(?!\[if)[\s\S]*?-->/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      .trim();
+  }
+
+  function minifyJS(src: string): string {
+    let out = '';
+    let i = 0;
+    const len = src.length;
+    while (i < len) {
+      const c = src[i], n = src[i + 1];
+
+      if (c === '"' || c === "'" || c === '`') {
+        let s = c; i++;
+        while (i < len) {
+          const sc = src[i];
+          if (sc === '\\' && i + 1 < len) { s += sc + src[i + 1]; i += 2; continue; }
+          s += sc; i++;
+          if (sc === c) break;
+        }
+        out += s; continue;
+      }
+
+      if (c === '/' && n === '/') {
+        while (i < len && src[i] !== '\n') i++;
+        continue;
+      }
+
+      if (c === '/' && n === '*') {
+        const isLic = src[i + 2] === '!';
+        i += 2;
+        let block = '/*';
+        while (i < len - 1 && !(src[i] === '*' && src[i + 1] === '/')) block += src[i++];
+        block += '*/'; i += 2;
+        if (isLic) out += block;
+        continue;
+      }
+
+      if (/\s/.test(c)) {
+        const last = out[out.length - 1] || '';
+        if (/[\w$]/.test(last)) {
+          let j = i;
+          while (j < len && /\s/.test(src[j])) j++;
+          if (j < len && /[\w$]/.test(src[j])) out += ' ';
+          i = j;
+        } else {
+          while (i < len && /\s/.test(src[i])) i++;
+        }
+        continue;
+      }
+
+      out += c; i++;
+    }
+    return out.trim();
+  }
+
+  document.getElementById('minBtn')!.addEventListener('click', () => {
+    const input = (document.getElementById('minInput') as HTMLTextAreaElement).value;
+    if (!input.trim()) { showStatus('Paste some code first.', 'err'); return; }
+    const lang = (document.querySelector('input[name="minLang"]:checked') as HTMLInputElement).value;
+    const btn = document.getElementById('minBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    document.getElementById('minStats')!.innerHTML = '';
+    try {
+      let result: string;
+      if (lang === 'js')        result = minifyJS(input);
+      else if (lang === 'css')  result = minifyCSS(input);
+      else                      result = minifyHTML(input);
+      (document.getElementById('minOutput') as HTMLTextAreaElement).value = result;
+      showStats(input.length, result.length);
+      showStatus('✓ Done.', 'ok');
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('minClearBtn')!.addEventListener('click', () => {
+    (document.getElementById('minInput') as HTMLTextAreaElement).value = '';
+  });
+
+  document.getElementById('minCopyBtn')!.addEventListener('click', function(this: HTMLElement) {
+    const val = (document.getElementById('minOutput') as HTMLTextAreaElement).value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = this.textContent!;
+      this.textContent = '✓ Copied'; this.classList.add('text-emerald-600');
+      setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+    });
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

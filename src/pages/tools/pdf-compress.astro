@@ -1,0 +1,551 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Screen',   body: 'Aggressive compression (40% JPEG quality). Best for email attachments or web previews.' },
+  { heading: 'eBook',    body: 'Balanced (60% quality). Good for digital reading on tablets and phones.' },
+  { heading: 'Printer',  body: 'High quality (78%). Suitable for desktop printing.' },
+  { heading: 'Prepress', body: 'Near-lossless (92%). Retains metadata. For professional print workflows.' },
+];
+
+const faq = [
+  { question: 'Is my PDF uploaded anywhere?', answer: 'No. Compression happens entirely in your browser using pdf-lib. Your file never leaves your device.' },
+  { question: 'How does compression work?', answer: 'The tool re-encodes embedded JPEG and PNG images at lower quality and smaller dimensions, strips metadata (for Screen/eBook/Printer levels), and reserialises the PDF using object streams.' },
+  { question: 'Why is the output sometimes similar in size?', answer: 'Text-only PDFs have very little image data to compress. Savings are largest on PDFs with many embedded photographs.' },
+  { question: 'Is encryption supported?', answer: 'Encrypted PDFs are loaded with ignoreEncryption — content is processed but the output is unencrypted.' },
+];
+
+const levels = [
+  { key: 'screen',   label: 'Screen',   sub: '~40% JPEG quality · strips metadata',          checked: false },
+  { key: 'ebook',    label: 'eBook',    sub: '~60% JPEG quality · strips metadata',          checked: true },
+  { key: 'printer',  label: 'Printer',  sub: '~78% JPEG quality · strips metadata',          checked: false },
+  { key: 'prepress', label: 'Prepress', sub: '~92% JPEG quality · keeps metadata',           checked: false },
+  { key: 'default',  label: 'Default',  sub: 'No image re-encode · object-stream pack only', checked: false },
+];
+---
+
+<MainLayout
+  title="PDF Compressor — Free In-Browser Tool | Toolbox"
+  description="Compress PDF files in your browser. Re-encodes embedded images at lower quality. No uploads. Powered by pdf-lib."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="PDF Compressor" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">PDF Compressor</h1>
+        <p class="mt-1 text-sm text-slate-500">Reduce PDF file size by re-encoding images — all in your browser.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div id="pdfDropZone"
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            role="button" tabindex="0"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop a PDF here</p>
+            <p class="mt-1 text-xs text-slate-400">PDF files only</p>
+            <input id="pdfFileInput" type="file" class="sr-only" accept=".pdf,application/pdf" />
+          </div>
+
+          <p id="pdfFileInfo" class="mb-4 hidden text-xs text-slate-500"></p>
+
+          <!-- Loaded panel -->
+          <div id="pdfLayout" class="hidden flex-col gap-6">
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="rounded-md border border-slate-100 bg-slate-50 p-3 text-center">
+                <p class="text-xs text-slate-400">Original</p>
+                <p id="pdfOrigSize" class="mt-1 font-semibold text-slate-800">—</p>
+              </div>
+              <div class="rounded-md border border-slate-100 bg-slate-50 p-3 text-center">
+                <p class="text-xs text-slate-400">Pages</p>
+                <p id="pdfOrigPages" class="mt-1 font-semibold text-slate-800">—</p>
+              </div>
+              <div class="rounded-md border border-slate-100 bg-slate-50 p-3 text-center">
+                <p class="text-xs text-slate-400">Est. output</p>
+                <p id="pdfEstSize" class="mt-1 font-semibold text-slate-800">—</p>
+              </div>
+              <div class="rounded-md border border-slate-100 bg-purple-50 p-3 text-center">
+                <p class="text-xs text-slate-400">Saving</p>
+                <p id="pdfEstSaving" class="mt-1 text-xs font-semibold text-purple-600">—</p>
+              </div>
+            </div>
+
+            <!-- Level selector -->
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">Compression level</p>
+              <div class="flex flex-col gap-2">
+                {levels.map(l => (
+                  <label class="comp-level flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-4 py-3 transition-colors hover:border-purple-300">
+                    <input type="radio" name="pdfLevel" value={l.key} checked={l.checked} class="accent-purple-500" />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-slate-800">{l.label}</p>
+                      <p class="text-xs text-slate-400">{l.sub}</p>
+                    </div>
+                    <div id={`size-${l.key}`} class="text-right text-xs">
+                      <span class="comp-size-val text-slate-500">—</span>
+                      <span class="comp-size-pct block text-slate-400"></span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <!-- Progress -->
+            <div id="pdfPBar" class="hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div id="pdfPFill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+            </div>
+
+            <button id="pdfCompressBtn"
+              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            >
+              Compress &amp; Download
+            </button>
+
+            <p id="pdfStatus" class="hidden text-center text-sm"></p>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About PDF Compressor</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Reduce PDF file size by re-encoding embedded JPEG and PNG images at lower quality, optionally scaling them down and stripping metadata. Uses pdf-lib running entirely in the browser — your file is never uploaded to a server. Works best on image-heavy PDFs; text-only PDFs will see little change.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/image-compress" class="text-purple-500 hover:underline">Image Compressor</a> · <a href="/tools/file-diff" class="text-purple-500 hover:underline">File Diff</a></p>
+          <p class="mt-2">Keywords: PDF compressor, compress PDF browser, reduce PDF size, PDF optimiser, no upload PDF tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .comp-level:has(input:checked) { border-color: #a855f7; background: #faf5ff; }
+  .comp-size-val.computing { color: #94a3b8; font-style: italic; }
+</style>
+
+<script>
+  import { PDFDocument, PDFName, PDFDict, PDFString, PDFRawStream, PDFRef } from 'pdf-lib';
+
+  let pdfFile: File | null = null;
+  let pdfBytes: Uint8Array | null = null;
+  let pdfCompressedCache: Record<string, { estimatedSize: number; pct: number }> = {};
+
+  const PDF_LEVELS: Record<string, { label: string; imgQ: number; maxPx: number; strip: boolean }> = {
+    screen:   { label: 'Screen',   imgQ: 0.40, maxPx: 1280, strip: true  },
+    ebook:    { label: 'eBook',    imgQ: 0.60, maxPx: 1920, strip: true  },
+    printer:  { label: 'Printer',  imgQ: 0.78, maxPx: 2560, strip: true  },
+    prepress: { label: 'Prepress', imgQ: 0.92, maxPx: 4096, strip: false },
+    default:  { label: 'Default',  imgQ: 1.00, maxPx: 9999, strip: false },
+  };
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+  function baseName(n: string): string { return n.replace(/\.[^.]+$/, ''); }
+
+  function showStatus(msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById('pdfStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'text-center text-sm text-rose-500'
+        : 'text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function setProgress(pct: number) {
+    const bar = document.getElementById('pdfPBar')!;
+    const fill = document.getElementById('pdfPFill')!;
+    if (pct > 0) { bar.classList.remove('hidden'); fill.style.width = pct + '%'; }
+    else { bar.classList.add('hidden'); fill.style.width = '0%'; }
+  }
+
+  function estimateLevelSize(bytes: Uint8Array, levelKey: string): number {
+    const cfg = PDF_LEVELS[levelKey];
+    const origSize = bytes.length;
+    const imgSavingFactor = cfg.imgQ >= 1.0 ? 0 : (1 - cfg.imgQ) * 0.65;
+    const scan = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(origSize, 1 << 20)));
+    const xs = scan.indexOf('<?xpacket begin');
+    const xe = xs !== -1 ? scan.indexOf('<?xpacket end', xs) : -1;
+    const xmpSize = xe !== -1 ? xe - xs + 60 : 0;
+    const metaSavings = cfg.strip ? Math.min(origSize * 0.01, 2048) + xmpSize : 0;
+    return Math.max(Math.round(origSize * (1 - imgSavingFactor) - metaSavings), Math.round(origSize * 0.05));
+  }
+
+  async function computeAllLevelSizes() {
+    if (!pdfBytes) return;
+    for (const lk of Object.keys(PDF_LEVELS)) {
+      const el = document.getElementById('size-' + lk);
+      if (!el) continue;
+      const valEl = el.querySelector('.comp-size-val') as HTMLElement;
+      const pctEl = el.querySelector('.comp-size-pct') as HTMLElement;
+      valEl.className = 'comp-size-val computing'; valEl.textContent = 'computing…'; pctEl.textContent = '';
+      await new Promise(r => setTimeout(r, 60));
+      const est = estimateLevelSize(pdfBytes!, lk);
+      const pct = ((1 - est / pdfBytes!.length) * 100).toFixed(0);
+      valEl.className = 'comp-size-val text-slate-500'; valEl.textContent = fmtBytes(est);
+      pctEl.textContent = parseInt(pct) > 0 ? '↓ ' + pct + '%' : 'similar';
+      pdfCompressedCache[lk] = { estimatedSize: est, pct: parseInt(pct) };
+    }
+    updateSelectedLevelStat();
+  }
+
+  function updateSelectedLevelStat() {
+    const sel = document.querySelector('input[name="pdfLevel"]:checked') as HTMLInputElement | null;
+    if (!sel || !pdfCompressedCache[sel.value]) return;
+    const cached = pdfCompressedCache[sel.value];
+    document.getElementById('pdfEstSize')!.textContent   = fmtBytes(cached.estimatedSize);
+    document.getElementById('pdfEstSaving')!.textContent = cached.pct > 0 ? '↓ ' + cached.pct + '% smaller' : 'similar to original';
+  }
+
+  /* ── Drop zone ── */
+  const zone = document.getElementById('pdfDropZone')!;
+  const fileInput = document.getElementById('pdfFileInput') as HTMLInputElement;
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400', 'bg-purple-50/50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400', 'bg-purple-50/50'));
+  zone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault(); zone.classList.remove('border-purple-400', 'bg-purple-50/50');
+    const file = e.dataTransfer?.files[0];
+    if (file) loadPdf(file);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files?.[0]) loadPdf(fileInput.files[0]); });
+
+  function loadPdf(file: File) {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      showStatus('Please upload a PDF file.', 'err'); return;
+    }
+    pdfFile = file; pdfCompressedCache = {};
+    const infoEl = document.getElementById('pdfFileInfo')!;
+    infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
+    infoEl.classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      pdfBytes = new Uint8Array(ev.target!.result as ArrayBuffer);
+      const layout = document.getElementById('pdfLayout')!;
+      layout.classList.remove('hidden');
+      layout.style.display = 'flex';
+      document.getElementById('pdfOrigSize')!.textContent = fmtBytes(file.size);
+      try {
+        const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+        const n = doc.getPageCount();
+        document.getElementById('pdfOrigPages')!.textContent = n + ' page' + (n === 1 ? '' : 's');
+      } catch {
+        document.getElementById('pdfOrigPages')!.textContent = '—';
+      }
+      computeAllLevelSizes();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /* Level radio buttons */
+  document.querySelectorAll('input[name="pdfLevel"]').forEach(radio => {
+    radio.addEventListener('change', updateSelectedLevelStat);
+  });
+
+  /* ── pdf-lib helpers ── */
+
+  function collectImgRefs(pdfDoc: any, node: any, visited: Set<string>, depth: number): any[] {
+    const refs: any[] = [];
+    if (depth > 4) return refs;
+    try {
+      const resources = pdfDoc.context.lookup(node.get(PDFName.of('Resources')), PDFDict);
+      if (!resources) return refs;
+      const xobjDict = pdfDoc.context.lookup(resources.get(PDFName.of('XObject')), PDFDict);
+      if (!xobjDict) return refs;
+      xobjDict.entries().forEach(([, val]: [any, any]) => {
+        if (!(val instanceof PDFRef)) return;
+        const obj = pdfDoc.context.lookup(val);
+        if (!(obj instanceof PDFRawStream)) return;
+        const sub = obj.dict.get(PDFName.of('Subtype'))?.toString();
+        if (sub === '/Image') {
+          refs.push(val);
+        } else if (sub === '/Form' && !visited.has(val.toString())) {
+          visited.add(val.toString());
+          refs.push(...collectImgRefs(pdfDoc, obj.dict, visited, depth + 1));
+        }
+      });
+    } catch {}
+    return refs;
+  }
+
+  async function inflateBytes(bytes: Uint8Array): Promise<Uint8Array> {
+    const ds = new (DecompressionStream as any)('deflate');
+    const wr = ds.writable.getWriter(), rd = ds.readable.getReader();
+    wr.write(bytes); wr.close();
+    const chunks: Uint8Array[] = [];
+    for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); }
+    const out = new Uint8Array(chunks.reduce((n: number, c: Uint8Array) => n + c.length, 0));
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out;
+  }
+
+  function pngDefilter(raw: Uint8Array, w: number, h: number, bpp: number): Uint8Array {
+    const stride = w * bpp;
+    const out = new Uint8Array(h * stride);
+    let ri = 0;
+    for (let y = 0; y < h; y++) {
+      const f    = raw[ri++];
+      const prev = y ? out.subarray((y - 1) * stride, y * stride) : new Uint8Array(stride);
+      const cur  = out.subarray(y * stride, (y + 1) * stride);
+      for (let x = 0; x < stride; x++) {
+        const b = raw[ri++], a = x >= bpp ? cur[x - bpp] : 0;
+        const c = prev[x],   d = x >= bpp ? prev[x - bpp] : 0;
+        switch (f) {
+          case 0: cur[x] = b; break;
+          case 1: cur[x] = (b + a) & 0xFF; break;
+          case 2: cur[x] = (b + c) & 0xFF; break;
+          case 3: cur[x] = (b + ((a + c) >> 1)) & 0xFF; break;
+          case 4: { const p = a+c-d, pa = Math.abs(p-a), pb = Math.abs(p-c), pc = Math.abs(p-d);
+            cur[x] = (b + (pa <= pb && pa <= pc ? a : pb <= pc ? c : d)) & 0xFF; break; }
+          default: cur[x] = b;
+        }
+      }
+    }
+    return out;
+  }
+
+  async function reencodeFlate(stream: any, w: number, h: number, quality: number, maxPx: number): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+    const csStr = (stream.dict.get(PDFName.of('ColorSpace')) ?? '').toString();
+    const isGray = csStr === '/DeviceGray' || csStr.includes('Gray');
+    const isRGB  = csStr === '/DeviceRGB'  || csStr.includes('RGB') || csStr === '';
+    if (!isGray && !isRGB) return null;
+    const channels = isGray ? 1 : 3;
+    if (parseInt(stream.dict.get(PDFName.of('BitsPerComponent'))?.toString() || '8', 10) !== 8) return null;
+
+    const dpRaw = stream.dict.get(PDFName.of('DecodeParms'));
+    const dp = dpRaw?.get ? dpRaw : (dpRaw?.array?.[0]?.get ? dpRaw.array[0] : null);
+    const predictor = dp ? parseInt(dp.get?.(PDFName.of('Predictor'))?.toString() || '1', 10) : 1;
+
+    let raw: Uint8Array;
+    try { raw = await inflateBytes(stream.contents); } catch { return null; }
+    if (predictor >= 10) { try { raw = pngDefilter(raw, w, h, channels); } catch { return null; } }
+
+    const src = document.createElement('canvas');
+    src.width = w; src.height = h;
+    const imgData = src.getContext('2d')!.createImageData(w, h);
+    for (let i = 0, n = w * h; i < n; i++) {
+      const s = i * channels, d = i * 4;
+      imgData.data[d]   = raw[s];
+      imgData.data[d+1] = isGray ? raw[s] : raw[s + 1];
+      imgData.data[d+2] = isGray ? raw[s] : raw[s + 2];
+      imgData.data[d+3] = 255;
+    }
+    src.getContext('2d')!.putImageData(imgData, 0, 0);
+
+    let out: HTMLCanvasElement = src;
+    if (Math.max(w, h) > maxPx) {
+      const sc = maxPx / Math.max(w, h);
+      out = document.createElement('canvas');
+      out.width = Math.round(w * sc); out.height = Math.round(h * sc);
+      out.getContext('2d')!.drawImage(src, 0, 0, out.width, out.height);
+    }
+    return new Promise(res => {
+      out.toBlob(blob => {
+        if (!blob) { res(null); return; }
+        blob.arrayBuffer().then(
+          buf => res({ bytes: new Uint8Array(buf), width: out.width, height: out.height }),
+          ()  => res(null)
+        );
+      }, 'image/jpeg', quality);
+    });
+  }
+
+  function reencodeJpeg(jpegBytes: Uint8Array, origW: number, origH: number, quality: number, maxPx: number): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+    return new Promise(resolve => {
+      let binary = '';
+      for (let i = 0; i < jpegBytes.length; i += 0x8000)
+        binary += String.fromCharCode(...(jpegBytes.subarray(i, i + 0x8000) as any));
+      const dataUrl = 'data:image/jpeg;base64,' + btoa(binary);
+
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth || origW, h = img.naturalHeight || origH;
+        if (Math.max(w, h) > maxPx) {
+          if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else        { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => {
+          if (!blob) { resolve(null); return; }
+          blob.arrayBuffer().then(
+            buf => resolve({ bytes: new Uint8Array(buf), width: w, height: h }),
+            ()  => resolve(null)
+          );
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
+  async function compressPdf(bytes: Uint8Array, levelKey: string, onProgress?: (done: number, total: number) => void): Promise<Uint8Array> {
+    const cfg = PDF_LEVELS[levelKey];
+    const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+
+    if (cfg.strip) {
+      try {
+        const infoRef = (pdfDoc.context as any).trailerInfo.Info;
+        if (infoRef) {
+          const info = pdfDoc.context.lookup(infoRef, PDFDict);
+          for (const k of ['Title', 'Author', 'Subject', 'Keywords', 'Creator'])
+            info.delete(PDFName.of(k));
+          info.set(PDFName.of('Producer'), PDFString.of('Toolbox'));
+        }
+      } catch {}
+      (pdfDoc.catalog as any).delete(PDFName.of('Metadata'));
+      for (const page of pdfDoc.getPages())
+        (page.node as any).delete(PDFName.of('Thumb'));
+    }
+
+    if (cfg.imgQ < 1.0) {
+      const seen = new Set<string>();
+      const allRefs: any[] = [];
+      for (const page of pdfDoc.getPages()) {
+        for (const ref of collectImgRefs(pdfDoc, (page as any).node, new Set(), 0)) {
+          const key = `${ref.objectNumber}/${ref.generationNumber}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          allRefs.push(ref);
+        }
+      }
+
+      for (let i = 0; i < allRefs.length; i++) {
+        onProgress?.(i + 1, allRefs.length);
+        const ref = allRefs[i];
+        const stream = pdfDoc.context.lookup(ref);
+        if (!(stream instanceof PDFRawStream)) continue;
+
+        const subtype = stream.dict.get(PDFName.of('Subtype'))?.toString();
+        if (subtype !== '/Image') continue;
+
+        const filter = stream.dict.get(PDFName.of('Filter'));
+        if (!filter) continue;
+        const filterStr = filter.toString();
+        const isJpeg  = filterStr === '/DCTDecode';
+        const isFlate = filterStr === '/FlateDecode';
+        if (!isJpeg && !isFlate) continue;
+
+        const w = parseInt(stream.dict.get(PDFName.of('Width'))?.toString()  || '0', 10);
+        const h = parseInt(stream.dict.get(PDFName.of('Height'))?.toString() || '0', 10);
+        if (!w || !h) continue;
+
+        try {
+          const result = isJpeg
+            ? await reencodeJpeg(stream.contents, w, h, cfg.imgQ, cfg.maxPx)
+            : await reencodeFlate(stream, w, h, cfg.imgQ, cfg.maxPx);
+          if (!result || result.bytes.length >= stream.contents.length) continue;
+
+          const newDict = pdfDoc.context.obj({});
+          stream.dict.entries().forEach(([k, v]: [any, any]) => newDict.set(k, v));
+          newDict.set(PDFName.of('Filter'), PDFName.of('DCTDecode'));
+          newDict.set(PDFName.of('Length'), pdfDoc.context.obj(result.bytes.length));
+          newDict.set(PDFName.of('Width'),  pdfDoc.context.obj(result.width));
+          newDict.set(PDFName.of('Height'), pdfDoc.context.obj(result.height));
+          newDict.delete(PDFName.of('DecodeParms'));
+          if (isFlate) {
+            newDict.set(PDFName.of('ColorSpace'),       PDFName.of('DeviceRGB'));
+            newDict.set(PDFName.of('BitsPerComponent'), pdfDoc.context.obj(8));
+          }
+
+          pdfDoc.context.assign(ref, PDFRawStream.of(newDict, result.bytes));
+        } catch { /* leave original */ }
+      }
+    }
+
+    return pdfDoc.save({ useObjectStreams: true, addDefaultPage: false });
+  }
+
+  /* ── Compress button ── */
+  document.getElementById('pdfCompressBtn')!.addEventListener('click', async () => {
+    if (!pdfBytes || !pdfFile) { showStatus('Please load a PDF first.', 'err'); return; }
+    const levelKey = (document.querySelector('input[name="pdfLevel"]:checked') as HTMLInputElement).value;
+    const btn = document.getElementById('pdfCompressBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      setProgress(10); showStatus('Analysing PDF structure…', 'info');
+      await new Promise(r => setTimeout(r, 30));
+      setProgress(25);
+
+      const compressed = await compressPdf(pdfBytes, levelKey, (done, total) => {
+        setProgress(25 + Math.round(60 * done / total));
+        showStatus(`Re-encoding image ${done} of ${total}…`, 'info');
+      });
+
+      setProgress(90);
+      const outName = baseName(pdfFile.name) + '_' + levelKey + '.pdf';
+      const blob = new Blob([compressed], { type: 'application/pdf' });
+      setProgress(100);
+
+      document.getElementById('pdfEstSize')!.textContent = fmtBytes(compressed.length);
+      const saving = pdfBytes.length - compressed.length, pct = ((saving / pdfBytes.length) * 100).toFixed(1);
+      document.getElementById('pdfEstSaving')!.textContent = saving > 0
+        ? '↓ ' + pct + '% smaller'
+        : 'similar size — images may already be well-compressed';
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = outName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+      showStatus('✓ Compressed to ' + fmtBytes(compressed.length) + ' — downloaded as ' + outName, 'ok');
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+      setProgress(0);
+    }
+    setTimeout(() => setProgress(0), 1500);
+    btn.disabled = false;
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

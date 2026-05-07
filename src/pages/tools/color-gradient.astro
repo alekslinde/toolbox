@@ -1,0 +1,269 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Linear',  body: 'Most common gradient — straight line transition between stops.' },
+  { heading: 'Radial',  body: 'Radiates outward from a centre point — great for spotlight effects.' },
+  { heading: 'Conic',   body: 'Sweeps around a centre point — useful for pie charts and colour wheels.' },
+  { heading: 'Stops',   body: 'Add up to 8 stops. Drag-free position sliders give you exact control.' },
+];
+
+const faq = [
+  { question: 'Can I use the output directly in CSS?', answer: 'Yes — click "Copy CSS" and paste the two-line output into your stylesheet. Both background and background-image are included for compatibility.' },
+  { question: 'How many colour stops can I add?', answer: 'You can add as many stops as you like by clicking "Add stop". Each stop has its own colour picker and position slider.' },
+];
+---
+
+<MainLayout
+  title="CSS Gradient Generator — Free In-Browser Tool | Toolbox"
+  description="Build linear, radial and conic CSS gradients with multiple stops. Copy the CSS output instantly."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="CSS Gradient Generator" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">CSS Gradient Generator</h1>
+        <p class="mt-1 text-sm text-slate-500">Build linear, radial and conic gradients with multiple stops.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Preview -->
+          <div id="gradientPreview" class="mb-6 h-32 w-full rounded-md border border-slate-200"
+            style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%)"></div>
+
+          <!-- Type -->
+          <div class="mb-5">
+            <p class="mb-2 text-xs font-medium text-slate-600">Type</p>
+            <div class="flex gap-2">
+              {['linear','radial','conic'].map(t => (
+                <label class="grad-type-label flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                  <input type="radio" name="gradType" value={t} class="sr-only" checked={t==='linear'} />
+                  <span>{t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <!-- Angle (linear/conic) -->
+          <div id="gradAngleGroup" class="mb-5 flex items-center gap-3">
+            <label class="text-xs font-medium text-slate-600 shrink-0">Angle</label>
+            <input id="gradAngle" type="range" min="0" max="360" value="135" class="flex-1 accent-purple-500" />
+            <span id="gradAngleVal" class="w-12 text-right font-mono text-sm text-slate-700">135°</span>
+          </div>
+
+          <!-- Position (radial) -->
+          <div id="gradPosGroup" class="mb-5 hidden items-center gap-3">
+            <label class="text-xs font-medium text-slate-600 shrink-0">Position</label>
+            <select id="gradPos"
+              class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none">
+              <option value="circle at center">Circle · center</option>
+              <option value="circle at top left">Circle · top left</option>
+              <option value="circle at top right">Circle · top right</option>
+              <option value="ellipse at center">Ellipse · center</option>
+              <option value="ellipse at top">Ellipse · top</option>
+            </select>
+          </div>
+
+          <!-- Stops -->
+          <div class="mb-4">
+            <p class="mb-2 text-xs font-medium text-slate-600">Colour stops</p>
+            <div id="gradientStops" class="flex flex-col gap-2"></div>
+          </div>
+
+          <button id="gradAddStopBtn"
+            class="mb-5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600">
+            + Add stop
+          </button>
+
+          <!-- CSS output -->
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-slate-600">CSS output</label>
+            <textarea id="gradientCssOut" readonly rows="2"
+              class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none resize-none"></textarea>
+            <button id="gradCopyCSSBtn"
+              class="mt-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+              Copy CSS
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About CSS Gradient Generator</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Build linear, radial and conic CSS gradients with any number of colour stops. The preview updates in real time and the CSS output is ready to paste directly into your stylesheet. No dependencies, no uploads — everything runs in the browser.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/tints-shades" class="text-purple-500 hover:underline">Tints &amp; Shades</a> · <a href="/tools/wcag-contrast" class="text-purple-500 hover:underline">WCAG Contrast Checker</a></p>
+          <p class="mt-2">Keywords: CSS gradient generator, linear gradient tool, radial gradient, conic gradient, colour stop builder</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .grad-stop-row { display: flex; align-items: center; gap: 0.5rem; }
+  .grad-stop-row input[type="color"] { height: 2rem; width: 3rem; cursor: pointer; border-radius: 4px; border: 1px solid #e2e8f0; }
+  .grad-stop-hex { width: 6rem; font-family: 'DM Mono', monospace; font-size: 0.8rem; }
+  .grad-stop-pos { width: 4rem; font-family: 'DM Mono', monospace; font-size: 0.8rem; }
+  .grad-stop-pct { font-size: 0.75rem; color: #64748b; }
+  .grad-stop-rm  { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1rem; padding: 0 0.25rem; }
+  .grad-stop-rm:hover { color: #ef4444; }
+  .grad-stop-rm-ph { width: 1.5rem; }
+  .grad-type-label:has(input:checked) { border-color: #a855f7; background: #faf5ff; color: #7c3aed; }
+</style>
+
+<script>
+  function hexToRgb(hex: string) {
+    hex = hex.replace('#','');
+    if (hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+    const n=parseInt(hex,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function rgbToHex(r: number, g: number, b: number) {
+    return '#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+  }
+  function isValidHex(h: string) { return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(h); }
+
+  type Stop = { id: number; color: string; pos: number };
+  let stops: Stop[] = [
+    { id: 0, color: '#6366f1', pos: 0 },
+    { id: 1, color: '#a855f7', pos: 100 },
+  ];
+  let idSeq = 2;
+
+  function buildCSS(): string {
+    const type = (document.querySelector('input[name="gradType"]:checked') as HTMLInputElement).value;
+    const sorted = [...stops].sort((a, b) => a.pos - b.pos);
+    const stopsStr = sorted.map(s => `${s.color} ${s.pos}%`).join(', ');
+    const angle = (document.getElementById('gradAngle') as HTMLInputElement).value;
+    const pos   = (document.getElementById('gradPos') as HTMLSelectElement).value;
+    if (type === 'linear') return `linear-gradient(${angle}deg, ${stopsStr})`;
+    if (type === 'radial')  return `radial-gradient(${pos}, ${stopsStr})`;
+    return `conic-gradient(from ${angle}deg at center, ${stopsStr})`;
+  }
+
+  function render() {
+    const css = buildCSS();
+    document.getElementById('gradientPreview')!.style.background = css;
+    (document.getElementById('gradientCssOut') as HTMLTextAreaElement).value =
+      `background: ${css};\nbackground-image: ${css};`;
+  }
+
+  function renderStops() {
+    document.getElementById('gradientStops')!.innerHTML = stops.map(s =>
+      `<div class="grad-stop-row" data-id="${s.id}">
+        <input type="color" value="${s.color}" oninput="updateStop(${s.id},'color',this.value)">
+        <input type="text" class="grad-stop-hex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 focus:border-purple-400 focus:outline-none" value="${s.color}" maxlength="9" spellcheck="false" oninput="syncHex(${s.id},this.value)">
+        <input type="number" class="grad-stop-pos rounded-md border border-slate-200 bg-slate-50 px-2 py-1 focus:border-purple-400 focus:outline-none" value="${s.pos}" min="0" max="100" oninput="updateStop(${s.id},'pos',+this.value)">
+        <span class="grad-stop-pct">%</span>
+        ${stops.length > 2
+          ? `<button class="grad-stop-rm" onclick="removeStop(${s.id})" aria-label="Remove">×</button>`
+          : `<span class="grad-stop-rm-ph"></span>`}
+      </div>`
+    ).join('');
+  }
+
+  (window as any).updateStop = function (id: number, key: string, val: string | number) {
+    const s = stops.find(s => s.id === id);
+    if (!s) return;
+    (s as any)[key] = val;
+    if (key === 'color') {
+      const row = document.querySelector<HTMLElement>(`.grad-stop-row[data-id="${id}"]`);
+      if (row) (row.querySelector('.grad-stop-hex') as HTMLInputElement).value = String(val);
+    }
+    render();
+  };
+
+  (window as any).syncHex = function (id: number, val: string) {
+    const hex = val.trim().startsWith('#') ? val.trim() : '#' + val.trim();
+    if (!isValidHex(hex)) return;
+    const s = stops.find(s => s.id === id);
+    if (!s) return;
+    s.color = hex;
+    const row = document.querySelector<HTMLElement>(`.grad-stop-row[data-id="${id}"]`);
+    if (row) (row.querySelector('input[type="color"]') as HTMLInputElement).value = hex;
+    render();
+  };
+
+  (window as any).removeStop = function (id: number) {
+    if (stops.length <= 2) return;
+    stops = stops.filter(s => s.id !== id);
+    renderStops(); render();
+  };
+
+  document.getElementById('gradAddStopBtn')!.addEventListener('click', () => {
+    const sorted = [...stops].sort((a, b) => a.pos - b.pos);
+    const last = sorted[sorted.length - 1], prev = sorted[sorted.length - 2];
+    const newPos = Math.round((last.pos + prev.pos) / 2);
+    const c1 = hexToRgb(prev.color), c2 = hexToRgb(last.color);
+    const mid = rgbToHex(Math.round((c1.r+c2.r)/2), Math.round((c1.g+c2.g)/2), Math.round((c1.b+c2.b)/2));
+    stops.push({ id: idSeq++, color: mid, pos: newPos });
+    renderStops(); render();
+  });
+
+  document.querySelectorAll('input[name="gradType"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const type = (document.querySelector('input[name="gradType"]:checked') as HTMLInputElement).value;
+      document.getElementById('gradAngleGroup')!.style.display = type === 'radial' ? 'none' : 'flex';
+      document.getElementById('gradPosGroup')!.style.display   = type === 'radial' ? 'flex' : 'none';
+      render();
+    });
+  });
+
+  document.getElementById('gradAngle')!.addEventListener('input', function (this: HTMLInputElement) {
+    document.getElementById('gradAngleVal')!.textContent = this.value + '°';
+    render();
+  });
+
+  document.getElementById('gradPos')!.addEventListener('change', render);
+
+  document.getElementById('gradCopyCSSBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
+    const val = (document.getElementById('gradientCssOut') as HTMLTextAreaElement).value;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = this.textContent!;
+      this.textContent = '✓ Copied'; this.classList.add('text-emerald-600');
+      setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+    });
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+
+  renderStops();
+  render();
+</script>

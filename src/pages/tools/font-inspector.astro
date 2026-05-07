@@ -1,0 +1,330 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Screenshots',     body: 'Upload a screenshot or photo containing text. The image is resized to 1200px and sent as JPEG.' },
+  { heading: 'Mixfont Lens',    body: 'Uses Mixfont Lens — a neural net trained on 1,000+ open-source font families — to identify the closest match.' },
+  { heading: 'Google Fonts',    body: 'All matches are open-source fonts. Results link directly to their Google Fonts specimen page.' },
+  { heading: 'Match score',     body: 'Each result shows a match percentage. Scores above 50% are high confidence; below 20% are low confidence.' },
+];
+
+const faq = [
+  { question: 'Is my image uploaded?', answer: 'Yes — the image is compressed to JPEG, temporarily hosted for the duration of the analysis, then the URL expires. Images are not stored by this tool.' },
+  { question: 'What image formats are supported?', answer: 'Any image format the browser can display: PNG, JPEG, WebP, GIF, AVIF.' },
+  { question: 'How accurate is the identification?', answer: 'Mixfont Lens achieves 91% accuracy on its training set of Google Fonts. Rare typefaces, heavily stylised text and display fonts may return lower-confidence results.' },
+];
+---
+
+<MainLayout
+  title="Font Inspector — Free In-Browser Tool | Toolbox"
+  description="Identify fonts from screenshots using AI vision. Upload an image containing text and get font name, category and Google Fonts links."
+  alpine={false}
+>
+  <Fragment slot="head">
+    <!-- Turnstile: replace SITE_KEY with yours from dash.cloudflare.com → Turnstile -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async></script>
+  </Fragment>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Font Inspector" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Font Inspector</h1>
+        <p class="mt-1 text-sm text-slate-500">Upload a screenshot to identify fonts using Mixfont Lens.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div id="fidDropZone"
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            role="button" tabindex="0"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop an image here</p>
+            <p class="mt-1 text-xs text-slate-400">PNG · JPEG · WebP · any image</p>
+            <input id="fidFileInput" type="file" class="sr-only" accept="image/*" />
+          </div>
+
+          <!-- Preview -->
+          <div id="fidPreviewWrap" class="hidden mb-6">
+            <div class="flex items-start gap-4">
+              <img id="fidImgPreview" src="" alt="Preview" class="max-h-48 max-w-full rounded-md border border-slate-200 object-contain" />
+              <button id="fidResetBtn"
+                class="shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-300 hover:text-rose-500">
+                ✕ Remove
+              </button>
+            </div>
+          </div>
+
+          <button id="fidIdentifyBtn" disabled
+            class="mb-4 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            Identify Font
+          </button>
+
+          <div id="fidResult"></div>
+          <div id="ts-widget" aria-hidden="true"></div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Font Inspector</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Upload a screenshot containing text and Font Inspector runs it through Mixfont Lens — a neural network trained on over 1,000 open-source font families. Results include ranked matches with confidence scores and direct links to each font on Google Fonts.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/font-pairs" class="text-purple-500 hover:underline">Font Pairs</a> · <a href="/tools/font-converter" class="text-purple-500 hover:underline">Font Converter</a></p>
+          <p class="mt-2">Keywords: font identifier, identify font from image, what font is this, font recognition AI</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .fid-id-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; margin-bottom: 0.75rem; background: white; }
+  .fid-id-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+  .fid-id-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+  .fid-id-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .fid-id-foundry { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.4rem; }
+  .fid-id-chars { font-size: 0.8rem; color: #475569; margin: 0.25rem 0 0.5rem; }
+  .fid-alts { margin-top: 0.5rem; }
+  .fid-alts-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: block; margin-bottom: 0.25rem; }
+  .fid-alt-link { display: inline-block; margin: 0 0.25rem 0.25rem 0; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid #e2e8f0; font-size: 0.7rem; color: #475569; text-decoration: none; }
+  .fid-alt-link:hover { border-color: #a855f7; color: #7c3aed; }
+  .fid-gf-link { display: inline-block; margin-top: 0.6rem; font-size: 0.75rem; color: #a855f7; text-decoration: none; }
+  .fid-gf-link:hover { text-decoration: underline; }
+
+  .fid-cat-badge { display: inline-flex; align-items: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.65rem; font-weight: 600; text-transform: capitalize; }
+  .fid-cat-serif  { background: #fef3c7; color: #92400e; }
+  .fid-cat-sans   { background: #dbeafe; color: #1e40af; }
+  .fid-cat-mono   { background: #f0fdf4; color: #166534; }
+  .fid-cat-deco   { background: #fae8ff; color: #86198f; }
+  .fid-cat-script { background: #fff1f2; color: #9f1239; }
+
+  .fid-conf-badge { display: inline-flex; align-items: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.65rem; }
+  .fid-conf-high { background: #d1fae5; color: #065f46; }
+  .fid-conf-med  { background: #fef3c7; color: #92400e; }
+  .fid-conf-low  { background: #fee2e2; color: #991b1b; }
+
+  .fid-loading { padding: 2rem; text-align: center; font-size: 0.875rem; color: #94a3b8; }
+  .fid-result-err  { border: 1px solid #fecdd3; background: #fff1f2; color: #9f1239; border-radius: 0.5rem; padding: 0.75rem 1rem; font-size: 0.85rem; }
+  .fid-result-warn { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; border-radius: 0.5rem; padding: 0.75rem 1rem; font-size: 0.85rem; }
+  .fid-id-notes { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; font-style: italic; }
+</style>
+
+<script>
+  // ── Turnstile ──────────────────────────────────────────────────────────────
+  // IMPORTANT: replace with your site key from dash.cloudflare.com → Turnstile
+  const TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+
+  let tsWidgetId: string | null = null;
+  let tsPendingResolve: ((t: string) => void) | null = null;
+
+  function initTurnstile() {
+    const ts = (window as any).turnstile;
+    if (!ts || tsWidgetId) return;
+    tsWidgetId = ts.render('#ts-widget', {
+      sitekey: TURNSTILE_SITE_KEY,
+      appearance: 'interaction-only',
+      execution: 'execute',
+      callback:          (t: string) => { tsPendingResolve?.(t);  tsPendingResolve = null; },
+      'error-callback':   ()         => { tsPendingResolve?.(''); tsPendingResolve = null; },
+      'expired-callback': ()         => { tsPendingResolve?.(''); tsPendingResolve = null; },
+    });
+  }
+
+  async function getTurnstileToken(): Promise<string> {
+    if (!tsWidgetId) return '';
+    const ts = (window as any).turnstile;
+    if (!ts) return '';
+    ts.reset(tsWidgetId);
+    return new Promise<string>((resolve) => {
+      tsPendingResolve = resolve;
+      ts.execute(tsWidgetId!);
+      setTimeout(() => { tsPendingResolve?.(''); tsPendingResolve = null; }, 10_000);
+    });
+  }
+
+  if ((window as any).turnstile) initTurnstile();
+  else (window as any).onTurnstileLoad = initTurnstile;
+  // ────────────────────────────────────────────────────────────────────────────
+
+  let _b64: string | null = null;
+  let _mime: string | null = null;
+
+  const zone      = document.getElementById('fidDropZone')!;
+  const fileInput = document.getElementById('fidFileInput') as HTMLInputElement;
+  const prevWrap  = document.getElementById('fidPreviewWrap')!;
+  const preview   = document.getElementById('fidImgPreview') as HTMLImageElement;
+  const btn       = document.getElementById('fidIdentifyBtn') as HTMLButtonElement;
+  const result    = document.getElementById('fidResult')!;
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400','bg-purple-50/50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400','bg-purple-50/50'));
+  zone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault(); zone.classList.remove('border-purple-400','bg-purple-50/50');
+    const file = e.dataTransfer?.files[0];
+    if (file) loadImage(file);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files?.[0]) loadImage(fileInput.files[0]); });
+
+  function loadImage(file: File) {
+    if (!file.type.startsWith('image/')) {
+      result.innerHTML = '<div class="fid-result-err">Please upload an image file (PNG, JPEG, WebP, etc.)</div>';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        _b64  = dataUrl.split(',')[1];
+        _mime = 'image/jpeg';
+        preview.src = dataUrl;
+        prevWrap.classList.remove('hidden');
+        zone.style.display = 'none';
+        btn.disabled = false;
+        result.innerHTML = '';
+      };
+      img.src = ev.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById('fidResetBtn')!.addEventListener('click', () => {
+    _b64 = null; _mime = null;
+    preview.src = '';
+    prevWrap.classList.add('hidden');
+    zone.style.display = '';
+    btn.disabled = true;
+    btn.textContent = 'Identify Font';
+    result.innerHTML = '';
+    fileInput.value = '';
+  });
+
+  const CAT_CLASS: Record<string,string> = {
+    'serif': 'fid-cat-serif', 'sans-serif': 'fid-cat-sans',
+    'monospace': 'fid-cat-mono', 'display': 'fid-cat-deco',
+    'script': 'fid-cat-script', 'handwriting': 'fid-cat-script',
+  };
+  const CONF_CLASS: Record<string,string> = { high: 'fid-conf-high', medium: 'fid-conf-med', low: 'fid-conf-low' };
+  const CONF_LABEL: Record<string,string> = { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' };
+
+  function renderResults(data: any) {
+    const fonts = data.fonts || [];
+    if (!fonts.length) {
+      result.innerHTML = '<div class="fid-result-warn">No font could be identified.'
+        + (data.notes ? ' ' + data.notes : '') + '</div>';
+      return;
+    }
+
+    let html = fonts.map((f: any) => {
+      const catCls  = CAT_CLASS[f.category]    || '';
+      const confCls = CONF_CLASS[f.confidence] || 'fid-conf-low';
+      const confLbl = CONF_LABEL[f.confidence] || 'Low confidence';
+      const gfUrl   = f.googleFont
+        ? 'https://fonts.google.com/specimen/' + encodeURIComponent(f.name).replace(/%20/g, '+')
+        : null;
+
+      let alts = '';
+      if (f.alternatives?.length) {
+        alts = '<div class="fid-alts"><span class="fid-alts-label">Similar fonts</span>'
+          + f.alternatives.map((a: string) =>
+              '<a class="fid-alt-link" href="https://fonts.google.com/search?query=' + encodeURIComponent(a)
+              + '" target="_blank" rel="noopener noreferrer">' + a + '</a>'
+            ).join('')
+          + '</div>';
+      }
+
+      return '<div class="fid-id-card">'
+        + '<div class="fid-id-header">'
+        + '<div class="fid-id-name">' + f.name + '</div>'
+        + '<div class="fid-id-badges">'
+        + (f.category ? '<span class="fid-cat-badge' + (catCls ? ' ' + catCls : '') + '">' + f.category + '</span>' : '')
+        + '<span class="fid-conf-badge ' + confCls + '">' + confLbl + '</span>'
+        + '</div></div>'
+        + (f.foundry ? '<div class="fid-id-foundry">' + f.foundry + '</div>' : '')
+        + (f.characteristics ? '<p class="fid-id-chars">' + f.characteristics + '</p>' : '')
+        + alts
+        + (gfUrl ? '<a class="fid-gf-link" href="' + gfUrl + '" target="_blank" rel="noopener noreferrer">View on Google Fonts →</a>' : '')
+        + '</div>';
+    }).join('');
+
+    if (data.notes) html += '<p class="fid-id-notes">' + data.notes + '</p>';
+    result.innerHTML = html;
+  }
+
+  btn.addEventListener('click', async () => {
+    if (!_b64) return;
+    btn.disabled = true;
+    btn.textContent = 'Identifying…';
+    result.innerHTML = '<div class="fid-loading">Analysing typography…</div>';
+
+    try {
+      const turnstileToken = await getTurnstileToken();
+      const res = await fetch('/fontid', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: _b64, mimeType: _mime, turnstileToken }),
+      });
+      const data = await res.json();
+      btn.disabled = false;
+      btn.textContent = 'Identify Font';
+      if (data.error) {
+        const cls = data.rateLimited ? 'fid-result-warn' : 'fid-result-err';
+        result.innerHTML = '<div class="' + cls + '">' + data.error + '</div>';
+        return;
+      }
+      renderResults(data);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Identify Font';
+      result.innerHTML = '<div class="fid-result-err">Could not reach the font identification service. Please try again.</div>';
+    }
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

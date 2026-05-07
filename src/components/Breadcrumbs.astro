@@ -1,0 +1,36 @@
+---
+interface Props {
+  tool: string;
+  category?: string;
+  categoryHref?: string;
+}
+
+const { tool, category, categoryHref } = Astro.props;
+
+const categoryAnchors: Record<string, string> = {
+  'Images & Documents': '/#images',
+  'Typography & Color': '/#typography',
+  'Code & Web':         '/#code',
+};
+const resolvedHref = categoryHref ?? (category ? (categoryAnchors[category] ?? '/') : undefined);
+---
+
+<nav aria-label="Breadcrumb">
+  <ol class="flex items-center gap-1.5 text-sm text-slate-500">
+    <li>
+      <a href="/" class="transition-colors hover:text-slate-900">All Tools</a>
+    </li>
+    {category && resolvedHref && (
+      <>
+        <li aria-hidden="true"><span class="text-slate-300">/</span></li>
+        <li>
+          <a href={resolvedHref} class="transition-colors hover:text-slate-900">{category}</a>
+        </li>
+      </>
+    )}
+    <li aria-hidden="true"><span class="text-slate-300">/</span></li>
+    <li>
+      <span class="font-medium text-slate-900" aria-current="page">{tool}</span>
+    </li>
+  </ol>
+</nav>

@@ -1,0 +1,131 @@
+---
+import { tools } from '@/data/tools';
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+export function getStaticPaths() {
+  // Dedicated .astro files take priority — exclude them from the fallback route
+  const implemented = new Set([
+    'image-compress',
+    'image-resize',
+    'image-convert',
+    'ico-generator',
+    'xd-to-figma',
+    'file-diff',
+    'wcag-contrast',
+    'color-palette',
+    'color-gradient',
+    'tints-shades',
+    'font-converter',
+    'font-inspector',
+    'font-pairs',
+    'pdf-compress',
+    'brand-assets',
+    'code-formatter',
+    'code-minifier',
+    'scss-compiler',
+    'semantic-html',
+    'token-defluffer',
+  ]);
+  return tools
+    .filter((t) => !implemented.has(t.slug))
+    .map((tool) => ({ params: { slug: tool.slug }, props: { tool } }));
+}
+
+const { tool } = Astro.props;
+
+const categoryLabel: Record<string, string> = {
+  images:     'Images & Documents',
+  typography: 'Typography & Color',
+  code:       'Code & Web',
+};
+---
+
+<MainLayout
+  title={`${tool.title} — Free In-Browser Tool | Toolbox`}
+  description={tool.description}
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <!-- Top bar -->
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs
+          tool={tool.title}
+          category={categoryLabel[tool.category]}
+        />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{tool.title}</h1>
+        <p class="mt-1 text-sm text-slate-500">{tool.description}</p>
+      </div>
+
+      <button
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+        onclick="this.classList.add('border-purple-300','bg-purple-50','text-purple-600'); this.querySelector('.count').textContent = parseInt(this.querySelector('.count').textContent || '0') + 1 || '1';"
+      >
+        <span>👍</span>
+        <span>This helped me</span>
+        <span class="count font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <!-- Left: Tool workstation -->
+      <div class="lg:col-span-8">
+        <div class="flex min-h-64 flex-col items-center justify-center rounded-md border border-slate-200 bg-white/80 p-10 shadow-sm backdrop-blur-sm">
+          <span class="mb-4 rounded-md bg-purple-50 px-4 py-2 font-mono text-2xl text-purple-500">
+            {tool.icon}
+          </span>
+          <h2 class="mb-2 text-base font-semibold text-slate-800">{tool.title}</h2>
+          <p class="mb-6 max-w-sm text-center text-sm text-slate-500">{tool.description}</p>
+          <span class="rounded-full bg-amber-50 px-4 py-1.5 text-xs font-medium text-amber-600">
+            Migration in progress — tool logic coming soon
+          </span>
+        </div>
+      </div>
+
+      <!-- Right: Quick reference -->
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips
+            tips={[
+              { heading: 'No uploads', body: 'All processing runs locally in your browser — nothing is sent to a server.' },
+              { heading: 'No account', body: 'These tools are always free and require no sign-up or login.' },
+            ]}
+          />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About {tool.title}</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">{tool.description}</p>
+
+        <div class="flex flex-wrap gap-2" aria-label="Related keywords">
+          {tool.tags.map((tag) => (
+            <span class="rounded-full bg-white border border-slate-200 px-3 py-1 text-xs text-slate-500">{tag}</span>
+          ))}
+        </div>
+
+        <FAQAccordion items={[
+          {
+            question: `Is ${tool.title} free?`,
+            answer: 'Yes — always. No account, no ads, no limits.',
+          },
+          {
+            question: 'Does this tool upload my files?',
+            answer: 'No. Everything runs entirely inside your browser using standard Web APIs. Your files never leave your device.',
+          },
+        ]} />
+      </div>
+    </div>
+
+  </div>
+</MainLayout>

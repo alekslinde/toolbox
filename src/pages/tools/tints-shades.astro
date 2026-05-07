@@ -1,0 +1,275 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Tints',  body: 'Mix your colour with white — the top row goes from pure white (left) to your base colour (right).' },
+  { heading: 'Shades', body: 'Mix your colour with black — left is your base colour, right is pure black.' },
+  { heading: 'Click',  body: 'Click any swatch or hex label to copy it to your clipboard.' },
+  { heading: 'Steps',  body: 'Drag the Steps slider to generate more or fewer stops in the gradient.' },
+];
+
+const faq = [
+  { question: 'How are tints and shades calculated?', answer: 'Tints linearly mix your colour with white (RGB interpolation). Shades linearly mix with black. The step slider controls how many intermediate values are generated.' },
+  { question: 'How do I copy a colour?', answer: 'Click any swatch or its hex label below it. A brief "copied" animation confirms the copy.' },
+  { question: 'Can I export all colours at once?', answer: 'Yes — use the Copy CSS or Copy JSON buttons to export all tints and shades as CSS custom properties or a JSON object.' },
+];
+---
+
+<MainLayout
+  title="Tints & Shades Generator — Free In-Browser Tool | Toolbox"
+  description="Generate tints (colour + white) and shades (colour + black) for any hex colour. Click to copy. Export CSS or JSON."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Tints & Shades" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Tints &amp; Shades</h1>
+        <p class="mt-1 text-sm text-slate-500">Generate light and dark variants of any colour. Click any swatch to copy.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Controls -->
+          <div class="mb-6 flex flex-wrap items-end gap-4">
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Base colour</label>
+              <div class="flex items-center gap-2">
+                <input id="tintsBasePicker" type="color" value="#6366f1"
+                  class="h-10 w-14 cursor-pointer rounded border border-slate-200" />
+                <input id="tintsBaseHex" type="text" value="#6366f1" maxlength="7" spellcheck="false"
+                  class="w-28 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                Steps — <span id="tintsStepsVal" class="text-purple-600 font-semibold">10</span>
+              </label>
+              <input id="tintsSteps" type="range" min="4" max="20" value="10" class="w-40 accent-purple-500" />
+            </div>
+          </div>
+
+          <!-- Tints -->
+          <div class="mb-6">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-600">Tints (white → base)</p>
+              <button id="tintsCopyCSSBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy CSS</button>
+            </div>
+            <div id="tintsStrip" class="flex h-12 overflow-hidden rounded-md border border-slate-200" role="list"></div>
+            <div id="tintsLabels" class="mt-1 flex"></div>
+          </div>
+
+          <!-- Shades -->
+          <div class="mb-5">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-600">Shades (base → black)</p>
+              <button id="shadesCopyCSSBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy CSS</button>
+            </div>
+            <div id="shadesStrip" class="flex h-12 overflow-hidden rounded-md border border-slate-200" role="list"></div>
+            <div id="shadesLabels" class="mt-1 flex"></div>
+          </div>
+
+          <button id="tintsJSONBtn"
+            class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+            Copy all as JSON
+          </button>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Tints &amp; Shades Generator</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Quickly generate the full tint (lighter) and shade (darker) range of any colour. Tints linearly mix your colour with white; shades mix with black. Click any swatch to copy the hex code. Use the Steps slider to control granularity. Export the full range as CSS custom properties or JSON.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/color-palette" class="text-purple-500 hover:underline">Colour Palette Generator</a> · <a href="/tools/wcag-contrast" class="text-purple-500 hover:underline">WCAG Contrast Checker</a></p>
+          <p class="mt-2">Keywords: tints shades generator, colour lighter darker, hex tint generator, colour mixing tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style is:global>
+  .tints-swatch { flex: 1; cursor: pointer; position: relative; transition: transform 0.1s; }
+  .tints-swatch:hover { transform: scaleY(1.08); z-index: 1; }
+  .tints-base-swatch { outline: 2px solid white; outline-offset: -3px; }
+  .tints-hex-cell { flex: 1; font-family: 'DM Mono', monospace; font-size: 0.55rem; text-align: center; color: #64748b; cursor: pointer; padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tints-hex-cell:hover { color: #6366f1; }
+  .tints-base-label { font-weight: 700; color: #6366f1; }
+  .tints-copied { opacity: 0.5; }
+</style>
+
+<script>
+  function hexToRgb(hex: string) {
+    hex = hex.replace('#','');
+    if (hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+    const n=parseInt(hex,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function rgbToHex(r: number, g: number, b: number) {
+    return '#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+  }
+  function isValidHex(h: string) { return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(h); }
+
+  function mixColors(hex1: string, hex2: string, t: number): string {
+    const c1 = hexToRgb(hex1), c2 = hexToRgb(hex2);
+    return rgbToHex(
+      Math.round(c1.r + (c2.r - c1.r) * t),
+      Math.round(c1.g + (c2.g - c1.g) * t),
+      Math.round(c1.b + (c2.b - c1.b) * t),
+    );
+  }
+
+  let tintsData: string[] = [], shadesData: string[] = [];
+  let tooltipTimer: ReturnType<typeof setTimeout>;
+
+  function getTooltip(): HTMLElement {
+    let tip = document.getElementById('tintsTooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'tintsTooltip';
+      tip.style.cssText = 'pointer-events:none;position:fixed;z-index:100;border-radius:4px;background:#1e293b;padding:2px 8px;font-family:monospace;font-size:0.7rem;color:#fff;opacity:0;transition:opacity 0.15s';
+      document.body.appendChild(tip);
+    }
+    return tip as HTMLElement;
+  }
+
+  function showTooltip(el: Element, hex: string) {
+    const tip = getTooltip();
+    tip.textContent = hex;
+    const r = el.getBoundingClientRect();
+    tip.style.left = Math.round(r.left + r.width / 2) + 'px';
+    tip.style.top  = Math.round(r.top - 8) + 'px';
+    tip.style.transform = 'translate(-50%, -100%)';
+    tip.style.opacity = '1';
+    clearTimeout(tooltipTimer);
+    tooltipTimer = setTimeout(() => { tip.style.opacity = '0'; }, 1200);
+  }
+
+  function copyHex(el: Element, hex: string) {
+    navigator.clipboard.writeText(hex).then(() => {
+      el.classList.add('tints-copied');
+      setTimeout(() => el.classList.remove('tints-copied'), 1200);
+      showTooltip(el, hex);
+    });
+  }
+
+  function renderStrip(stripId: string, labelsId: string, colors: string[], baseIdx: number) {
+    const strip = document.getElementById(stripId)!;
+    const labels = document.getElementById(labelsId)!;
+
+    strip.innerHTML = colors.map((hex, i) => {
+      const isBase = i === baseIdx;
+      return `<div class="tints-swatch${isBase ? ' tints-base-swatch' : ''}" style="background:${hex}" role="listitem" aria-label="${isBase ? 'Base — ' : ''}${hex.toUpperCase()}. Click to copy" tabindex="0"></div>`;
+    }).join('');
+
+    labels.innerHTML = colors.map((hex, i) => {
+      const isBase = i === baseIdx;
+      return `<div class="tints-hex-cell${isBase ? ' tints-base-label' : ''}" title="${hex.toUpperCase()}">${hex.slice(1).toUpperCase()}</div>`;
+    }).join('');
+
+    strip.querySelectorAll('.tints-swatch').forEach((sw, i) => {
+      sw.addEventListener('click', () => copyHex(sw, colors[i].toUpperCase()));
+    });
+    labels.querySelectorAll('.tints-hex-cell').forEach((cell, i) => {
+      cell.addEventListener('click', () => copyHex(cell, colors[i].toUpperCase()));
+    });
+  }
+
+  function render() {
+    const rawHex = (document.getElementById('tintsBaseHex') as HTMLInputElement).value.trim();
+    const hex = rawHex.startsWith('#') ? rawHex : '#' + rawHex;
+    if (!isValidHex(hex)) return;
+    const steps = parseInt((document.getElementById('tintsSteps') as HTMLInputElement).value, 10);
+
+    tintsData  = Array.from({ length: steps + 1 }, (_, i) => mixColors('#ffffff', hex, i / steps));
+    shadesData = Array.from({ length: steps + 1 }, (_, i) => mixColors(hex, '#000000', i / steps));
+
+    renderStrip('tintsStrip',  'tintsLabels',  tintsData,  steps);
+    renderStrip('shadesStrip', 'shadesLabels', shadesData, 0);
+  }
+
+  function flashBtn(btn: HTMLButtonElement, label: string) {
+    const orig = btn.textContent!;
+    btn.textContent = label; btn.classList.add('text-emerald-600');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('text-emerald-600'); }, 1500);
+  }
+
+  function setup() {
+    const picker   = document.getElementById('tintsBasePicker') as HTMLInputElement | null;
+    const hexInput = document.getElementById('tintsBaseHex')    as HTMLInputElement | null;
+    const stepsEl  = document.getElementById('tintsSteps')      as HTMLInputElement | null;
+    if (!picker) return;
+
+    picker.addEventListener('input', function (this: HTMLInputElement) {
+      hexInput!.value = this.value;
+      render();
+    });
+    hexInput!.addEventListener('input', function (this: HTMLInputElement) {
+      const hex = this.value.trim().startsWith('#') ? this.value.trim() : '#' + this.value.trim();
+      if (isValidHex(hex)) {
+        picker.value = hex;
+        render();
+      }
+    });
+    stepsEl!.addEventListener('input', function (this: HTMLInputElement) {
+      document.getElementById('tintsStepsVal')!.textContent = this.value;
+      render();
+    });
+
+    (document.getElementById('tintsCopyCSSBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
+      const out = tintsData.map((hex, i) => `  --tint-${i}: ${hex.toUpperCase()};`).join('\n');
+      navigator.clipboard.writeText(`:root {\n${out}\n}`).then(() => flashBtn(this, '✓ Copied'));
+    });
+    (document.getElementById('shadesCopyCSSBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
+      const out = shadesData.map((hex, i) => `  --shade-${i}: ${hex.toUpperCase()};`).join('\n');
+      navigator.clipboard.writeText(`:root {\n${out}\n}`).then(() => flashBtn(this, '✓ Copied'));
+    });
+    (document.getElementById('tintsJSONBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
+      const obj = {
+        tints:  tintsData.map(h  => h.toUpperCase()),
+        shades: shadesData.map(h => h.toUpperCase()),
+      };
+      navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn(this, '✓ Copied'));
+    });
+
+    document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+      let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+      document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+      const c = document.getElementById('helpfulCount')!;
+      c.textContent = String(n); c.classList.remove('hidden');
+    });
+
+    render();
+  }
+
+  document.addEventListener('astro:page-load', setup);
+</script>

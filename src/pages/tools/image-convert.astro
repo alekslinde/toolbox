@@ -1,0 +1,470 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'AVIF',  body: 'Best compression of any format — ~50% smaller than JPEG at equal quality. Chrome, Firefox, Safari 16+ support it.' },
+  { heading: 'WebP',  body: 'Well-supported modern format with ~30% better compression than JPEG.' },
+  { heading: 'BMP',   body: '24-bit uncompressed — large files, but universally compatible with legacy Windows software.' },
+  { heading: 'HEIC',  body: 'Apple\'s default photo format. This tool converts HEIC → other formats. Output HEIC is not supported.' },
+];
+
+const cheatSheet = [
+  { label: 'PNG → AVIF',  value: 'Smaller, lossy, modern' },
+  { label: 'HEIC → JPEG', value: 'Broad compatibility' },
+  { label: 'PNG → WebP',  value: 'Good compression + alpha' },
+  { label: 'Any → BMP',   value: 'Legacy Windows support' },
+];
+
+const faq = [
+  { question: 'Is my image uploaded?', answer: 'No. Conversion runs entirely in your browser using the Canvas API and createImageBitmap. Nothing is sent to a server.' },
+  { question: 'What input formats are supported?', answer: 'PNG, JPEG, WebP, AVIF, SVG, and HEIC/HEIF. RAW camera formats cannot be decoded in the browser.' },
+  { question: 'What output formats are supported?', answer: 'PNG, JPEG, WebP, AVIF (where the browser supports it), BMP (24-bit uncompressed), and single-size ICO.' },
+  { question: 'Why might AVIF output fail?', answer: 'AVIF encoding via canvas.toBlob() is only supported in Chrome 94+ and Firefox 93+. Safari does not yet support AVIF output. The tool will show an error if encoding fails.' },
+];
+---
+
+<MainLayout
+  title="Image Converter — Free In-Browser Tool | Toolbox"
+  description="Convert images between PNG, JPEG, WebP, AVIF, BMP and ICO formats in your browser. HEIC supported. No uploads."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Image Converter" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Image Converter</h1>
+        <p class="mt-1 text-sm text-slate-500">Convert between PNG, JPEG, WebP, AVIF, BMP and ICO.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div id="imgcvtDropZone"
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            role="button" tabindex="0" aria-label="Drop image or click to browse"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop an image here</p>
+            <p class="mt-1 text-xs text-slate-400">PNG · JPG · WebP · AVIF · SVG · HEIC accepted</p>
+            <input id="imgcvtFileInput" type="file" class="sr-only"
+              accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,image/heic,image/heif,.heic,.heif" />
+          </div>
+
+          <p id="imgcvtFileInfo" class="mb-4 hidden text-xs text-slate-500"></p>
+
+          <!-- Stats grid -->
+          <div id="imgcvtStatsGrid" hidden class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-md bg-slate-50 p-3">
+              <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Original size</p>
+              <p id="imgcvtOrigSize" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+            </div>
+            <div class="rounded-md bg-slate-50 p-3">
+              <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Dimensions</p>
+              <p id="imgcvtOrigDims" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+            </div>
+            <div class="rounded-md bg-slate-50 p-3">
+              <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Output size</p>
+              <p id="imgcvtOutSize" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+            </div>
+            <div class="rounded-md bg-slate-50 p-3">
+              <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Format</p>
+              <p id="imgcvtOutFmtLabel" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div id="imgcvtPreviewBox" class="mb-5 hidden overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-2">
+            <canvas class="mx-auto max-h-72 w-auto object-contain"></canvas>
+          </div>
+
+          <!-- Controls -->
+          <div id="imgcvtControls" hidden class="flex flex-col gap-4">
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="mb-1.5 block text-xs font-medium text-slate-600">Output format</label>
+                <select id="imgcvtOutFmt"
+                  class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none">
+                  <option value="avif">AVIF</option>
+                  <option value="webp">WebP</option>
+                  <option value="png">PNG</option>
+                  <option value="jpeg">JPEG</option>
+                  <option value="bmp">BMP (24-bit)</option>
+                  <option value="ico">ICO (single size)</option>
+                </select>
+              </div>
+
+              <div id="imgcvtQualityGroup">
+                <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                  Quality — <span id="imgcvtQualityValue" class="text-purple-600 font-semibold">85%</span>
+                </label>
+                <input id="imgcvtQuality" type="range" min="10" max="100" step="1" value="85"
+                  class="w-full accent-purple-500" />
+              </div>
+            </div>
+
+            <!-- Saving badge -->
+            <p id="imgcvtSavingBadge" class="hidden text-center text-sm font-semibold"></p>
+
+            <!-- Progress -->
+            <div id="imgcvtPBar" class="hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div id="imgcvtPFill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+            </div>
+
+            <button id="imgcvtConvertBtn"
+              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              disabled
+            >
+              Convert &amp; Download
+            </button>
+
+            <p id="imgcvtStatus" class="hidden text-center text-sm"></p>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Image Converter</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Convert images between all major formats directly in your browser. HEIC files from iPhone are decoded via heic2any. BMP output uses a pure-JS 24-bit uncompressed encoder. ICO output creates a single-size icon with a PNG payload inside the ICO container. AVIF encoding requires Chrome 94+ or Firefox 93+.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/image-compress" class="text-purple-500 hover:underline">Image Compressor</a> · <a href="/tools/image-resize" class="text-purple-500 hover:underline">Image Resizer</a> · <a href="/tools/ico-generator" class="text-purple-500 hover:underline">ICO Generator</a></p>
+          <p class="mt-2">Keywords: image converter, convert png to webp, heic to jpg, avif converter, bmp encoder, no upload image convert</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  /* ── State ── */
+  let imgcvtFile: File | null = null;
+  let imgcvtBitmap: ImageBitmap | null = null;
+  let imgcvtOrigW = 0, imgcvtOrigH = 0;
+  let helpfulCount = 0;
+
+  /* ── Helpers ── */
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+  function baseName(name: string): string { return name.replace(/\.[^.]+$/, ''); }
+  function extOf(name: string): string { return (name.split('.').pop() ?? '').toLowerCase(); }
+
+  function showStatus(msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById('imgcvtStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'text-center text-sm text-rose-500'
+        : 'text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function setProgress(pct: number) {
+    const bar = document.getElementById('imgcvtPBar')!;
+    const fill = document.getElementById('imgcvtPFill')!;
+    if (pct > 0) { bar.classList.remove('hidden'); fill.style.width = pct + '%'; }
+    else { bar.classList.add('hidden'); fill.style.width = '0%'; }
+  }
+
+  /* ── heic2any lazy loader ── */
+  let heic2anyLoaded = false;
+  async function loadHeic2any(): Promise<void> {
+    if (heic2anyLoaded || (window as any).heic2any) return;
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+      s.onload = () => { heic2anyLoaded = true; resolve(); };
+      s.onerror = () => reject(new Error('Could not load HEIC decoder.'));
+      document.head.appendChild(s);
+    });
+  }
+
+  /* ── Drop zone ── */
+  const zone = document.getElementById('imgcvtDropZone')!;
+  const fileInput = document.getElementById('imgcvtFileInput') as HTMLInputElement;
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400', 'bg-purple-50/50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400', 'bg-purple-50/50'));
+  zone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    zone.classList.remove('border-purple-400', 'bg-purple-50/50');
+    const file = e.dataTransfer?.files[0];
+    if (file) handleFile(file);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files?.[0]) handleFile(fileInput.files[0]); });
+
+  /* ── Quality slider ── */
+  document.getElementById('imgcvtQuality')!.addEventListener('input', function (this: HTMLInputElement) {
+    document.getElementById('imgcvtQualityValue')!.textContent = this.value + '%';
+  });
+
+  /* ── Format change ── */
+  document.getElementById('imgcvtOutFmt')!.addEventListener('change', function (this: HTMLSelectElement) {
+    const showQ = ['jpeg', 'webp', 'avif'].includes(this.value);
+    const qGroup = document.getElementById('imgcvtQualityGroup')!;
+    qGroup.hidden = !showQ;
+  });
+
+  async function handleFile(file: File) {
+    imgcvtFile = file;
+    imgcvtBitmap = null;
+    imgcvtOrigW = imgcvtOrigH = 0;
+
+    const infoEl = document.getElementById('imgcvtFileInfo')!;
+    infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
+    infoEl.classList.remove('hidden');
+
+    (document.getElementById('imgcvtConvertBtn') as HTMLButtonElement).disabled = true;
+    document.getElementById('imgcvtControls')!.hidden = true;
+    document.getElementById('imgcvtStatsGrid')!.hidden = true;
+    document.getElementById('imgcvtPreviewBox')!.classList.add('hidden');
+    document.getElementById('imgcvtSavingBadge')!.classList.add('hidden');
+
+    const ext = extOf(file.name);
+    const isRaw = /^(cr2|cr3|nef|arw|dng|orf|rw2|raf|pef|srw|raw)$/i.test(ext);
+    const isHeic = /^(heic|heif)$/i.test(ext);
+
+    if (isRaw) {
+      showStatus('RAW files cannot be decoded in the browser. Convert to DNG, PNG or JPEG first.', 'err');
+      return;
+    }
+
+    try {
+      showStatus('Loading image…', 'info');
+      let blob: Blob = file;
+
+      if (isHeic) {
+        showStatus('Decoding HEIC — loading decoder…', 'info');
+        await loadHeic2any();
+        const result = await (window as any).heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+        blob = Array.isArray(result) ? result[0] : result;
+      }
+
+      imgcvtBitmap = await createImageBitmap(blob);
+      imgcvtOrigW = imgcvtBitmap.width;
+      imgcvtOrigH = imgcvtBitmap.height;
+
+      renderPreview(imgcvtBitmap);
+      document.getElementById('imgcvtControls')!.hidden = false;
+      (document.getElementById('imgcvtConvertBtn') as HTMLButtonElement).disabled = false;
+      document.getElementById('imgcvtOrigSize')!.textContent = fmtBytes(file.size);
+      document.getElementById('imgcvtOrigDims')!.textContent = `${imgcvtOrigW} × ${imgcvtOrigH} px`;
+      document.getElementById('imgcvtStatsGrid')!.hidden = false;
+
+      autoSelectFormat(ext);
+      showStatus(`Loaded ${imgcvtOrigW}×${imgcvtOrigH} px — choose output format and convert.`, 'info');
+    } catch (err: any) {
+      showStatus('✕ ' + err.message, 'err');
+    }
+  }
+
+  function autoSelectFormat(inputExt: string) {
+    const map: Record<string, string> = {
+      png: 'avif', jpg: 'avif', jpeg: 'avif',
+      webp: 'avif', avif: 'webp', svg: 'png', heic: 'avif', heif: 'avif',
+    };
+    const sel = document.getElementById('imgcvtOutFmt') as HTMLSelectElement;
+    sel.value = map[inputExt.toLowerCase()] ?? 'png';
+    sel.dispatchEvent(new Event('change'));
+  }
+
+  function renderPreview(bitmap: ImageBitmap) {
+    const box = document.getElementById('imgcvtPreviewBox')!;
+    box.classList.remove('hidden');
+    const canvas = box.querySelector('canvas') as HTMLCanvasElement;
+    const MAX = 400;
+    const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    canvas.width  = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  }
+
+  /* ── BMP encoder (24-bit uncompressed) ── */
+  function canvasToBmp(canvas: HTMLCanvasElement): Blob {
+    const w = canvas.width, h = canvas.height;
+    const pixels = canvas.getContext('2d')!.getImageData(0, 0, w, h).data;
+    const rowSize = Math.ceil(w * 3 / 4) * 4;
+    const pixelDataSize = rowSize * h;
+    const fileSize = 54 + pixelDataSize;
+    const buf = new ArrayBuffer(fileSize);
+    const dv = new DataView(buf);
+    const u8 = new Uint8Array(buf);
+
+    u8[0] = 0x42; u8[1] = 0x4D;
+    dv.setUint32(2,  fileSize,    true);
+    dv.setUint32(6,  0,           true);
+    dv.setUint32(10, 54,          true);
+    dv.setUint32(14, 40,          true);
+    dv.setInt32 (18, w,           true);
+    dv.setInt32 (22, -h,          true);
+    dv.setUint16(26, 1,           true);
+    dv.setUint16(28, 24,          true);
+    dv.setUint32(30, 0,           true);
+    dv.setUint32(34, pixelDataSize, true);
+    dv.setInt32 (38, 2835,        true);
+    dv.setInt32 (42, 2835,        true);
+    dv.setUint32(46, 0,           true);
+    dv.setUint32(50, 0,           true);
+
+    let offset = 54;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        u8[offset++] = pixels[i + 2];
+        u8[offset++] = pixels[i + 1];
+        u8[offset++] = pixels[i];
+      }
+      const padding = rowSize - w * 3;
+      for (let p = 0; p < padding; p++) u8[offset++] = 0;
+    }
+    return new Blob([buf], { type: 'image/bmp' });
+  }
+
+  /* ── Single-size ICO encoder ── */
+  async function canvasToIco(canvas: HTMLCanvasElement): Promise<Blob> {
+    const maxDim = 256;
+    let w = canvas.width, h = canvas.height;
+    let drawCanvas = canvas;
+
+    if (w > maxDim || h > maxDim) {
+      const scale = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      drawCanvas = document.createElement('canvas');
+      drawCanvas.width = w; drawCanvas.height = h;
+      drawCanvas.getContext('2d')!.drawImage(canvas, 0, 0, w, h);
+    }
+
+    const pngBlob = await new Promise<Blob>((res, rej) =>
+      drawCanvas.toBlob(b => b ? res(b) : rej(new Error('PNG encode failed')), 'image/png')
+    );
+    const pngBuf = await pngBlob.arrayBuffer();
+    const dirSize = 6 + 16, total = dirSize + pngBuf.byteLength;
+    const out = new ArrayBuffer(total);
+    const dv = new DataView(out);
+    const u8 = new Uint8Array(out);
+
+    dv.setUint16(0, 0, true);
+    dv.setUint16(2, 1, true);
+    dv.setUint16(4, 1, true);
+    dv.setUint8 (6,  w >= 256 ? 0 : w);
+    dv.setUint8 (7,  h >= 256 ? 0 : h);
+    dv.setUint8 (8,  0); dv.setUint8(9, 0);
+    dv.setUint16(10, 1,  true);
+    dv.setUint16(12, 32, true);
+    dv.setUint32(14, pngBuf.byteLength, true);
+    dv.setUint32(18, dirSize, true);
+    u8.set(new Uint8Array(pngBuf), dirSize);
+
+    return new Blob([out], { type: 'image/x-icon' });
+  }
+
+  /* ── Convert ── */
+  document.getElementById('imgcvtConvertBtn')!.addEventListener('click', async () => {
+    if (!imgcvtBitmap || !imgcvtFile) return;
+    const btn = document.getElementById('imgcvtConvertBtn') as HTMLButtonElement;
+    const outFmt = (document.getElementById('imgcvtOutFmt') as HTMLSelectElement).value;
+    const quality = parseInt((document.getElementById('imgcvtQuality') as HTMLInputElement).value) / 100;
+
+    btn.disabled = true;
+    try {
+      setProgress(20);
+      showStatus('Converting…', 'info');
+
+      const canvas = document.createElement('canvas');
+      canvas.width = imgcvtOrigW; canvas.height = imgcvtOrigH;
+      const ctx = canvas.getContext('2d')!;
+      if (['jpeg', 'bmp'].includes(outFmt)) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      ctx.drawImage(imgcvtBitmap, 0, 0);
+      setProgress(55);
+
+      let blob: Blob, ext: string;
+      if (outFmt === 'bmp') {
+        blob = canvasToBmp(canvas);
+        ext = 'bmp';
+      } else if (outFmt === 'ico') {
+        blob = await canvasToIco(canvas);
+        ext = 'ico';
+      } else {
+        const mimeMap: Record<string, string> = { jpeg: 'image/jpeg', webp: 'image/webp', avif: 'image/avif', png: 'image/png' };
+        const mime = mimeMap[outFmt] ?? 'image/png';
+        const q = ['jpeg', 'webp', 'avif'].includes(outFmt) ? quality : undefined;
+        const result = await new Promise<Blob | null>((res) => canvas.toBlob(res, mime, q));
+        if (!result) throw new Error('Encoding failed — the browser may not support this output format.');
+        blob = result;
+        ext = outFmt === 'jpeg' ? 'jpg' : outFmt;
+      }
+      setProgress(88);
+
+      document.getElementById('imgcvtOutSize')!.textContent = fmtBytes(blob.size);
+      document.getElementById('imgcvtOutFmtLabel')!.textContent = ext.toUpperCase();
+      const saved = imgcvtFile.size - blob.size;
+      const pct = ((Math.abs(saved) / imgcvtFile.size) * 100).toFixed(1);
+      const badge = document.getElementById('imgcvtSavingBadge')!;
+      badge.textContent = saved > 0 ? `↓ ${pct}% smaller` : `↑ ${pct}% larger`;
+      badge.className = `text-center text-sm font-semibold ${saved > 0 ? 'text-emerald-600' : 'text-rose-500'}`;
+      badge.classList.remove('hidden');
+
+      const resultBitmap = await createImageBitmap(blob);
+      renderPreview(resultBitmap);
+
+      setProgress(100);
+      const outName = baseName(imgcvtFile.name) + '.' + ext;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = outName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+      showStatus(`✓ Converted and downloaded as ${outName} (${fmtBytes(blob.size)})`, 'ok');
+    } catch (err: any) {
+      showStatus('✕ ' + err.message, 'err');
+      setProgress(0);
+    }
+    setTimeout(() => setProgress(0), 1500);
+    btn.disabled = false;
+  });
+
+  /* ── Helpful ── */
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    helpfulCount++;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const countEl = document.getElementById('helpfulCount')!;
+    countEl.textContent = String(helpfulCount);
+    countEl.classList.remove('hidden');
+  });
+</script>

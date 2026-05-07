@@ -1,0 +1,214 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'JS / TS', body: 'Formats JavaScript and TypeScript. Indent size is 2 spaces.' },
+  { heading: 'CSS',     body: 'Formats CSS including properties, selectors and at-rules.' },
+  { heading: 'HTML',    body: 'Formats HTML with 2-space indent and inner-HTML indentation.' },
+  { heading: 'Powered by', body: 'js-beautify — loaded on demand from cdnjs, nothing is sent to a server.' },
+];
+
+const faq = [
+  { question: 'Is my code uploaded?', answer: 'No. Formatting runs entirely in your browser using js-beautify loaded from cdnjs. Your code never leaves your device.' },
+  { question: 'What indent size is used?', answer: 'Two spaces. The formatter normalises existing indentation to match.' },
+];
+---
+
+<MainLayout
+  title="Code Formatter — Free In-Browser Tool | Toolbox"
+  description="Format JavaScript, CSS and HTML in your browser. Powered by js-beautify. No uploads."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Code Formatter" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Code Formatter</h1>
+        <p class="mt-1 text-sm text-slate-500">Beautify JavaScript, CSS and HTML with 2-space indentation.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Language selector -->
+          <div class="mb-4 flex flex-wrap gap-2">
+            {['js','css','html'].map(l => (
+              <label class="fmt-lang-label flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                <input type="radio" name="fmtLang" value={l} checked={l==='js'} class="sr-only" />
+                <span>{l.toUpperCase()}</span>
+              </label>
+            ))}
+          </div>
+
+          <!-- Input -->
+          <div class="mb-3">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Input</label>
+              <button id="fmtClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+            <textarea id="fmtInput" rows="10" spellcheck="false" placeholder="Paste your code here…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <button id="fmtBtn"
+            class="mb-4 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            Format Code
+          </button>
+
+          <p id="fmtStatus" class="hidden mb-3 text-center text-sm"></p>
+          <p id="fmtStats"  class="mb-3 text-xs text-slate-400"></p>
+
+          <!-- Output -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Output</label>
+              <button id="fmtCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+            </div>
+            <textarea id="fmtOutput" rows="10" readonly spellcheck="false"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Code Formatter</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Paste any JavaScript, CSS or HTML and click Format to auto-indent and normalise whitespace using js-beautify, loaded on demand from cdnjs. No code is sent to a server. Use the related minifier to do the opposite — strip whitespace for production.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/code-minifier" class="text-purple-500 hover:underline">Code Minifier</a> · <a href="/tools/scss-compiler" class="text-purple-500 hover:underline">SCSS Compiler</a></p>
+          <p class="mt-2">Keywords: code formatter, beautify JS CSS HTML, js-beautify browser, online code formatter</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .fmt-lang-label:has(input:checked) { border-color: #a855f7; background: #faf5ff; color: #7c3aed; }
+  #fmtStats .cstat-saved  { color: #059669; font-weight: 600; }
+  #fmtStats .cstat-larger { color: #d97706; font-weight: 600; }
+</style>
+
+<script>
+  let _beautifyLoaded = false;
+
+  function loadScript(src: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src; s.onload = () => resolve(); s.onerror = () => reject(new Error('Could not load: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function ensureBeautify() {
+    if (_beautifyLoaded) return;
+    await Promise.all([
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-css.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-html.min.js'),
+    ]);
+    _beautifyLoaded = true;
+  }
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('fmtStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-3 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-3 text-center text-sm text-rose-500'
+        : 'mb-3 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function showStats(origLen: number, newLen: number) {
+    const el = document.getElementById('fmtStats')!;
+    const diff = origLen - newLen;
+    const pct = origLen > 0 ? ((Math.abs(diff) / origLen) * 100).toFixed(1) : '0.0';
+    if (diff > 0)
+      el.innerHTML = `<span class="cstat-saved">↓ ${pct}% smaller</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else if (diff < 0)
+      el.innerHTML = `<span class="cstat-larger">↑ ${pct}% larger</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else
+      el.innerHTML = `No size change — ${fmtBytes(newLen)}`;
+  }
+
+  document.getElementById('fmtBtn')!.addEventListener('click', async () => {
+    const input = (document.getElementById('fmtInput') as HTMLTextAreaElement).value;
+    if (!input.trim()) { showStatus('Paste some code first.', 'err'); return; }
+    const lang = (document.querySelector('input[name="fmtLang"]:checked') as HTMLInputElement).value;
+    const btn = document.getElementById('fmtBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    document.getElementById('fmtStats')!.innerHTML = '';
+    try {
+      showStatus('Loading formatter…', 'info');
+      await ensureBeautify();
+      const opts = { indent_size: 2, max_preserve_newlines: 1, end_with_newline: true };
+      let result: string;
+      if (lang === 'js')   result = (window as any).js_beautify(input, opts);
+      else if (lang === 'css')  result = (window as any).css_beautify(input, opts);
+      else result = (window as any).html_beautify(input, { ...opts, wrap_line_length: 0, indent_inner_html: true });
+      (document.getElementById('fmtOutput') as HTMLTextAreaElement).value = result;
+      showStats(input.length, result.length);
+      showStatus('✓ Done.', 'ok');
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('fmtClearBtn')!.addEventListener('click', () => {
+    (document.getElementById('fmtInput') as HTMLTextAreaElement).value = '';
+  });
+
+  document.getElementById('fmtCopyBtn')!.addEventListener('click', function(this: HTMLElement) {
+    const val = (document.getElementById('fmtOutput') as HTMLTextAreaElement).value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = this.textContent!;
+      this.textContent = '✓ Copied'; this.classList.add('text-emerald-600');
+      setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+    });
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

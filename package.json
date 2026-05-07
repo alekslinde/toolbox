@@ -1,0 +1,27 @@
+{
+  "name": "toolbox-astro",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "build:minor": "node bump.js --minor && astro build",
+    "build:major": "node bump.js --major && astro build",
+    "preview": "astro preview",
+    "deploy": "astro build && wrangler deploy"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.43.0",
+    "wrangler": "^4.86.0"
+  },
+  "dependencies": {
+    "@astrojs/tailwind": "^5.1.0",
+    "alpinejs": "^3.14.1",
+    "astro": "^4.16.0",
+    "jszip": "^3.10.1",
+    "opentype.js": "^1.3.4",
+    "pdf-lib": "^1.17.1",
+    "tailwindcss": "^3.4.17",
+    "tokenshrink": "^2.0.0"
+  }
+}

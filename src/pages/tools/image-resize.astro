@@ -1,0 +1,339 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Contain', body: 'Scales to fit inside the target box, keeping aspect ratio. Edges stay transparent.' },
+  { heading: 'Cover',   body: 'Scales to fill the box, cropping the overflow on both axes.' },
+  { heading: 'Stretch', body: 'Distorts image to fill width × height exactly — ignores aspect ratio.' },
+  { heading: 'Pad',     body: 'Like Contain, but fills the empty areas with a solid colour you choose.' },
+];
+
+const cheatSheet = [
+  { label: 'JPEG', value: 'Photos, no transparency' },
+  { label: 'PNG',  value: 'Graphics, transparency' },
+  { label: 'WebP', value: 'Best web compression' },
+];
+
+const faq = [
+  { question: 'Does resizing upload my image?', answer: 'No. Everything runs in your browser using the Canvas API. Your file never leaves your device.' },
+  { question: 'What fit modes are available?', answer: 'Contain (letterbox), Cover (crop and fill), Stretch (distort to exact size), and Pad (letterbox with a solid fill colour).' },
+  { question: 'Will locking aspect ratio change my target dimensions?', answer: 'Yes — when the lock is on, changing width recalculates height and vice versa, preserving the original aspect ratio.' },
+];
+---
+
+<MainLayout
+  title="Image Resizer — Free In-Browser Tool | Toolbox"
+  description="Resize images to exact pixel dimensions in your browser. Contain, cover, stretch or pad fit modes. PNG, JPEG and WebP output. No uploads."
+  alpine={true}
+>
+  <div class="px-8 py-10 lg:px-14" x-data="imageResizer()">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Image Resizer" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Image Resizer</h1>
+        <p class="mt-1 text-sm text-slate-500">Resize to exact dimensions. Contain · Cover · Stretch · Pad.</p>
+      </div>
+      <button
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+        @click="helpful++"
+        :class="helpful > 0 ? 'border-purple-300 bg-purple-50 text-purple-600' : ''"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span x-show="helpful > 0" class="font-semibold text-purple-600" x-text="helpful"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            :class="dragOver ? 'border-purple-400 bg-purple-50/50' : ''"
+            @dragover.prevent="dragOver = true"
+            @dragleave="dragOver = false"
+            @drop.prevent="handleDrop($event)"
+            @click="$refs.fileInput.click()"
+            role="button" tabindex="0"
+            @keydown.enter="$refs.fileInput.click()"
+            @keydown.space.prevent="$refs.fileInput.click()"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop an image here</p>
+            <p class="mt-1 text-xs text-slate-400">PNG · JPG · WebP accepted</p>
+            <input type="file" class="sr-only" accept="image/png,image/jpeg,image/webp"
+              x-ref="fileInput" @change="handleFileInput($event)" />
+          </div>
+
+          <p x-show="fileInfo" class="mb-4 text-xs text-slate-500" x-text="fileInfo"></p>
+
+          <div x-show="fileLoaded" class="flex flex-col gap-5">
+
+            <!-- Dimensions -->
+            <div class="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label class="mb-1.5 block text-xs font-medium text-slate-600">Width (px)</label>
+                <input type="number" min="1" max="8000"
+                  class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+                  x-model="w" @input="onWChange()" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-xs font-medium text-slate-600">Height (px)</label>
+                <input type="number" min="1" max="8000"
+                  class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+                  x-model="h" @input="onHChange()" />
+              </div>
+              <div class="flex items-end pb-2">
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" class="accent-purple-500" x-model="lockAspect" />
+                  Lock aspect ratio
+                </label>
+              </div>
+            </div>
+
+            <p x-show="origDims" class="text-xs text-slate-400" x-text="'Original: ' + origDims"></p>
+
+            <!-- Fit mode -->
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">Fit mode</p>
+              <div class="flex flex-wrap gap-2">
+                <template x-for="mode in ['contain','cover','stretch','pad']" :key="mode">
+                  <label
+                    class="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
+                    :class="fit === mode ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
+                  >
+                    <input type="radio" class="sr-only" :value="mode" x-model="fit" />
+                    <span x-text="mode.charAt(0).toUpperCase() + mode.slice(1)"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+
+            <!-- Pad colour -->
+            <div x-show="fit === 'pad'" class="flex items-center gap-3">
+              <label class="text-xs font-medium text-slate-600">Pad colour</label>
+              <input type="color" class="h-8 w-14 cursor-pointer rounded border border-slate-200"
+                x-model="padColor" @input="padColorHex = padColor" />
+              <input type="text" maxlength="7" placeholder="#ffffff"
+                class="w-28 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none"
+                x-model="padColorHex" @input="syncPadHex($event)" />
+            </div>
+
+            <!-- Output format -->
+            <div class="max-w-xs">
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Output format</label>
+              <select class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" x-model="format">
+                <option value="jpeg">JPEG</option>
+                <option value="png">PNG</option>
+                <option value="webp">WebP</option>
+              </select>
+            </div>
+
+            <!-- Progress -->
+            <div x-show="progress > 0" class="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div class="h-full rounded-full bg-purple-500 transition-all duration-300" :style="`width:${progress}%`"></div>
+            </div>
+
+            <!-- Action -->
+            <button
+              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              :disabled="processing"
+              @click="resize()"
+            >
+              <span x-show="!processing">Resize &amp; Download</span>
+              <span x-show="processing">Processing…</span>
+            </button>
+
+            <!-- Status -->
+            <p x-show="status" x-text="status" class="text-center text-sm"
+              :class="{ 'text-emerald-600': statusType==='ok', 'text-rose-500': statusType==='err', 'text-slate-500': statusType==='info' }"></p>
+
+            <!-- Preview -->
+            <div x-show="previewSrc" class="mt-2">
+              <p class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Output preview</p>
+              <div class="overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                <img :src="previewSrc" alt="Resized output preview" class="mx-auto max-h-96 w-auto object-contain" />
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Image Resizer</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Resize any image to exact pixel dimensions in your browser. Choose from four fit modes — Contain (letterbox with transparency), Cover (crop and fill), Stretch (distort to exact size), or Pad (letterbox with a custom fill colour). Download the result as JPEG, PNG or WebP. All processing happens locally in your browser using the Canvas API.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/image-compress" class="text-purple-500 hover:underline">Image Compressor</a> · <a href="/tools/image-convert" class="text-purple-500 hover:underline">Image Converter</a> · <a href="/tools/ico-generator" class="text-purple-500 hover:underline">ICO Generator</a></p>
+          <p class="mt-2">Keywords: resize image online, image resizer, crop image browser, contain cover stretch pad, no upload image resize</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  import Alpine from 'alpinejs';
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+  function baseName(name: string): string { return name.replace(/\.[^.]+$/, ''); }
+
+  (window as any).imageResizer = function () {
+    return {
+      helpful: 0,
+      dragOver: false,
+      fileLoaded: false,
+      processing: false,
+      fileInfo: '',
+      w: 800,
+      h: 600,
+      lockAspect: true,
+      fit: 'contain',
+      format: 'jpeg',
+      padColor: '#ffffff',
+      padColorHex: '#ffffff',
+      origDims: '',
+      progress: 0,
+      status: '',
+      statusType: 'info' as 'ok' | 'err' | 'info',
+      previewSrc: '',
+      _file: null as File | null,
+      _img: null as HTMLImageElement | null,
+
+      handleDrop(e: DragEvent) {
+        this.dragOver = false;
+        const file = e.dataTransfer?.files[0];
+        if (file) this._load(file);
+      },
+      handleFileInput(e: Event) {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) this._load(file);
+      },
+
+      _load(file: File) {
+        this._file = file;
+        this.fileInfo = `${file.name} · ${fmtBytes(file.size)}`;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            this._img = img;
+            this.w = img.naturalWidth;
+            this.h = img.naturalHeight;
+            this.origDims = `${img.naturalWidth} × ${img.naturalHeight} px`;
+            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+            this.format = ext === 'png' ? 'png' : ext === 'webp' ? 'webp' : 'jpeg';
+            this.fileLoaded = true;
+            this._setStatus('Loaded — set target size and click Resize & Download.', 'info');
+          };
+          img.src = ev.target!.result as string;
+        };
+        reader.readAsDataURL(file);
+      },
+
+      onWChange() {
+        if (!this.lockAspect || !this._img) return;
+        const v = parseInt(String(this.w));
+        if (!v) return;
+        this.h = Math.round(v / (this._img.naturalWidth / this._img.naturalHeight)) || 1;
+      },
+      onHChange() {
+        if (!this.lockAspect || !this._img) return;
+        const v = parseInt(String(this.h));
+        if (!v) return;
+        this.w = Math.round(v * (this._img.naturalWidth / this._img.naturalHeight)) || 1;
+      },
+      syncPadHex(e: Event) {
+        const val = (e.target as HTMLInputElement).value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) this.padColor = val;
+      },
+
+      async resize() {
+        if (!this._img || !this._file) return;
+        const tw = parseInt(String(this.w)), th = parseInt(String(this.h));
+        if (!tw || !th || tw < 1 || th < 1) { this._setStatus('✕ Enter valid width and height.', 'err'); return; }
+        this.processing = true;
+        this.progress = 20;
+        try {
+          const sw = this._img.naturalWidth, sh = this._img.naturalHeight;
+          const canvas = document.createElement('canvas');
+          canvas.width = tw; canvas.height = th;
+          const ctx = canvas.getContext('2d')!;
+
+          if (this.fit === 'stretch') {
+            ctx.drawImage(this._img, 0, 0, tw, th);
+          } else if (this.fit === 'contain') {
+            const scale = Math.min(tw / sw, th / sh);
+            const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
+            ctx.drawImage(this._img, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
+          } else if (this.fit === 'cover') {
+            const scale = Math.max(tw / sw, th / sh);
+            const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
+            ctx.drawImage(this._img, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
+          } else if (this.fit === 'pad') {
+            ctx.fillStyle = this.padColor;
+            ctx.fillRect(0, 0, tw, th);
+            const scale = Math.min(tw / sw, th / sh);
+            const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
+            ctx.drawImage(this._img, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
+          }
+
+          this.progress = 70;
+          const mime = this.format === 'jpeg' ? 'image/jpeg' : this.format === 'webp' ? 'image/webp' : 'image/png';
+          const blob = await new Promise<Blob | null>((res) =>
+            canvas.toBlob(res, mime, this.format === 'png' ? undefined : 0.92)
+          );
+          if (!blob) throw new Error('Encoding failed.');
+
+          const ext2 = this.format === 'jpeg' ? 'jpg' : this.format;
+          this.previewSrc = URL.createObjectURL(blob);
+          this._dl(blob, `${baseName(this._file.name)}_${tw}x${th}.${ext2}`);
+          this.progress = 100;
+          this._setStatus(`✓ Resized to ${tw}×${th} (${fmtBytes(blob.size)})`, 'ok');
+        } catch (e: any) {
+          this._setStatus('✕ ' + e.message, 'err');
+        }
+        setTimeout(() => { this.progress = 0; }, 1500);
+        this.processing = false;
+      },
+
+      _setStatus(msg: string, type: 'ok' | 'err' | 'info') { this.status = msg; this.statusType = type; },
+      _dl(blob: Blob, name: string) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      },
+    };
+  };
+
+  if (!(window as any).Alpine) {
+    (window as any).Alpine = Alpine;
+    Alpine.start();
+  }
+</script>

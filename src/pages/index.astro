@@ -1,0 +1,230 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import ToolCard from '@/components/ToolCard.astro';
+import { tools } from '@/data/tools';
+
+const images     = tools.filter((t) => t.category === 'images');
+const typography = tools.filter((t) => t.category === 'typography');
+const code       = tools.filter((t) => t.category === 'code');
+
+const categories = [
+  { id: 'images',     label: 'Images & Documents', tools: images },
+  { id: 'typography', label: 'Typography & Color',  tools: typography },
+  { id: 'code',       label: 'Code & Web',          tools: code },
+];
+---
+
+<MainLayout
+  title="Toolbox — Free Browser-Based Developer Tools"
+  description="Free, open-source browser tools by Alex Linde. Convert fonts, compress PDFs, check WCAG contrast, resize images, format code and more — zero uploads, no account required."
+>
+
+  <!-- Hero -->
+  <header class="border-b border-slate-200 bg-white px-8 pb-16 pt-14 text-center lg:px-14 lg:pt-20">
+    <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">
+      Free · Open source · No account needed
+    </p>
+
+    <h1 class="font-serif mb-5 text-[clamp(2.75rem,5.5vw,4.5rem)] font-normal leading-[1.05] tracking-tight text-slate-900">
+      Sharp tools.<br />
+      <em class="bg-gradient-to-br from-indigo-500 to-purple-500 bg-clip-text font-script not-italic text-transparent">
+        Made with care.
+      </em>
+    </h1>
+
+    <p class="mx-auto mb-10 max-w-lg text-base leading-relaxed text-slate-500">
+      Browser utilities for developers and designers. Runs entirely in your browser — nothing to install, nothing uploaded.
+    </p>
+
+    <!-- Search -->
+    <div class="relative mx-auto w-full max-w-2xl">
+      <label for="tool-search" class="sr-only">Search tools</label>
+      <input
+        id="tool-search"
+        type="search"
+        autocomplete="off"
+        class="w-full rounded-lg border border-slate-200 bg-slate-50 py-4 pl-12 pr-5 text-base text-slate-900 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+      />
+      <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/>
+      </svg>
+      <span
+        id="search-ph"
+        class="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 text-base text-slate-400 transition-opacity duration-300"
+        aria-hidden="true"
+      >Search 20 tools…</span>
+      <ul
+        id="search-results"
+        class="absolute left-0 right-0 top-full z-10 mt-1 hidden rounded-lg border border-slate-200 bg-white text-left shadow-lg"
+        role="listbox"
+      ></ul>
+    </div>
+  </header>
+
+  <!-- Tool directory -->
+  <main id="tools" class="px-8 py-14 lg:px-14">
+    {categories.map((cat) => (
+      <section id={cat.id} class="mb-14" aria-label={cat.label}>
+        <h2 class="mb-6 text-xs font-semibold uppercase tracking-widest text-slate-400">
+          {cat.label}
+        </h2>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {cat.tools.map((tool) => (
+            <ToolCard
+              href={`/tools/${tool.slug}`}
+              title={tool.title}
+              description={tool.description}
+              tags={tool.tags}
+              icon={tool.icon}
+            />
+          ))}
+        </div>
+      </section>
+    ))}
+  </main>
+
+  <!-- Use cases strip -->
+  <section class="border-t border-slate-200 bg-white px-8 py-14 lg:px-14" aria-label="Example use cases">
+    <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">// Real-world friction</p>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[
+        { quote: 'You got handed a TTF and the project needs WOFF2. Two minutes, done.', tool: 'Font Tools', href: '/tools/font-converter' },
+        { quote: 'Client wants the hero image in WebP. No Photoshop, no plugins, just drag and drop.', tool: 'Image Tools', href: '/tools/image-compress' },
+        { quote: 'Does this background/text combo pass WCAG AA? Check it before the PR review.', tool: 'Color & WCAG', href: '/tools/wcag-contrast' },
+        { quote: 'Marketing sent a 14 MB PDF. Legal needs it under 5 MB by 3 pm.', tool: 'PDF Compress', href: '/tools/pdf-compress' },
+        { quote: 'New brand guidelines dropped. What fonts and colours are they actually using?', tool: 'Brand Assets', href: '/tools/brand-assets' },
+        { quote: 'Inherited div-soup HTML. Need semantic markup before the accessibility audit.', tool: 'Code Tools', href: '/tools/semantic-html' },
+      ].map((uc) => (
+        <a
+          href={uc.href}
+          class="group flex flex-col justify-between rounded-md border border-slate-200 bg-slate-50 p-5 no-underline transition-all hover:border-purple-200 hover:bg-purple-50"
+        >
+          <p class="mb-4 text-sm italic leading-relaxed text-slate-600">"{uc.quote}"</p>
+          <span class="text-xs font-semibold text-purple-500 transition-colors group-hover:text-purple-600">
+            {uc.tool} →
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- About strip -->
+  <footer class="border-t border-slate-200 bg-sidebar px-8 py-12 text-center lg:px-14">
+    <p class="mx-auto max-w-xl text-sm leading-relaxed text-slate-400">
+      Built by <a href="https://lindetoolbox.com" class="text-purple-400 hover:text-purple-300 transition-colors">Alex Linde</a>.
+      All tools run entirely in your browser — nothing is uploaded to a server.
+      Licensed <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 transition-colors">CC BY-NC-SA 4.0</a>.
+    </p>
+  </footer>
+
+</MainLayout>
+
+<script is:inline>
+(function () {
+  // Lightweight tool search — no Alpine needed on home page
+  const allTools = [
+    { title: 'Image Compressor',        href: '/tools/image-compress',  tags: 'compress PNG JPG WebP SVG optimise' },
+    { title: 'Image Resizer',           href: '/tools/image-resize',    tags: 'resize dimensions aspect ratio' },
+    { title: 'Image Converter',         href: '/tools/image-convert',   tags: 'convert WebP AVIF HEIC format PNG' },
+    { title: 'ICO Favicon Generator',   href: '/tools/ico-generator',   tags: 'favicon ICO icon 16px 32px' },
+    { title: 'PDF Compressor',          href: '/tools/pdf-compress',    tags: 'PDF compress reduce file size' },
+    { title: 'File Diff',               href: '/tools/file-diff',       tags: 'diff compare code review text' },
+    { title: 'Font Converter',          href: '/tools/font-converter',  tags: 'font TTF OTF WOFF WOFF2 convert' },
+    { title: 'Font Inspector',          href: '/tools/font-inspector',  tags: 'font identify screenshot AI vision image' },
+    { title: 'Font Pairing Explorer',   href: '/tools/font-pairs',      tags: 'font pairing Google Fonts typography' },
+    { title: 'WCAG Contrast Checker',   href: '/tools/wcag-contrast',   tags: 'WCAG accessibility contrast HEX' },
+    { title: 'Color Palette Generator', href: '/tools/color-palette',   tags: 'palette colour HSL complementary' },
+    { title: 'CSS Gradient Builder',    href: '/tools/color-gradient',  tags: 'gradient CSS linear radial' },
+    { title: 'Tints & Shades',          href: '/tools/tints-shades',    tags: 'tints shades design tokens CSS variables' },
+    { title: 'Code Formatter',          href: '/tools/code-formatter',  tags: 'format beautify JS CSS HTML' },
+    { title: 'Code Minifier',           href: '/tools/code-minifier',   tags: 'minify compress JS CSS bundle' },
+    { title: 'SCSS Compiler',           href: '/tools/scss-compiler',   tags: 'SCSS Sass CSS compile variables nesting' },
+    { title: 'Semantic HTML Converter', href: '/tools/semantic-html',   tags: 'semantic HTML5 accessibility div-soup' },
+    { title: 'Brand Assets Extractor',  href: '/tools/brand-assets',    tags: 'brand colours fonts logos CSS extract' },
+    { title: 'XD to Figma Packager',    href: '/tools/xd-to-figma',     tags: 'XD Figma SVG reorder export' },
+    { title: 'AI Token Defluffer',      href: '/tools/token-defluffer', tags: 'tokens LLM AI optimise rewrite prompt' },
+  ];
+
+  const input   = document.getElementById('tool-search');
+  const results = document.getElementById('search-results');
+  const ph      = document.getElementById('search-ph');
+
+  if (input && results) {
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      results.innerHTML = '';
+      if (ph) ph.style.opacity = q ? '0' : '1';
+      if (!q) { results.classList.add('hidden'); return; }
+
+      const matches = allTools.filter(
+        (t) => t.title.toLowerCase().includes(q) || t.tags.toLowerCase().includes(q)
+      );
+
+      if (matches.length === 0) {
+        results.innerHTML = '<li class="px-4 py-3 text-sm text-slate-400">No tools match that search.</li>';
+      } else {
+        matches.forEach((t) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="${t.href}" class="block px-4 py-2.5 text-sm text-slate-700 no-underline hover:bg-purple-50 hover:text-purple-600">${t.title}</a>`;
+          results.appendChild(li);
+        });
+      }
+      results.classList.remove('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !results.contains(e.target)) {
+        results.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Rotating placeholder ───────────────────────────────────────────────────
+  if (input && ph) {
+    var placeholders = [
+      'Search 20 tools…',
+      'Try "compress PDF"…',
+      'Try "WOFF2 converter"…',
+      'Try "WCAG contrast"…',
+      'Try "font pairing"…',
+      'Try "minify CSS"…',
+      'Try "brand colours"…',
+      'Try "semantic HTML"…',
+      'Try "tints and shades"…',
+      'Try "token defluffer"…',
+    ];
+    var phIdx   = 0;
+    var phTimer = null;
+
+    function rotatePh() {
+      ph.style.opacity = '0';
+      setTimeout(function () {
+        phIdx = (phIdx + 1) % placeholders.length;
+        ph.textContent = placeholders[phIdx];
+        ph.style.opacity = '1';
+      }, 300);
+    }
+
+    function startPh() {
+      if (!phTimer) phTimer = setInterval(rotatePh, 3000);
+    }
+    function stopPh() {
+      clearInterval(phTimer);
+      phTimer = null;
+    }
+
+    input.addEventListener('focus', function () {
+      stopPh();
+      ph.style.opacity = '0';
+    });
+    input.addEventListener('blur', function () {
+      if (!input.value) {
+        ph.style.opacity = '1';
+        startPh();
+      }
+    });
+
+    startPh();
+  }
+}());
+</script>

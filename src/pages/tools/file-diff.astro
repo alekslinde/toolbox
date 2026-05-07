@@ -1,0 +1,538 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Auto-compare', body: 'Drop both files and the diff runs immediately — no button click needed.' },
+  { heading: 'PDF support',  body: 'PDF text is extracted via PDF.js before diffing. Useful for comparing contracts or documentation.' },
+  { heading: 'Inline diff',  body: 'Changed lines show character-level highlighting so you can see exactly what changed within a line.' },
+  { heading: 'Context collapse', body: 'Long unchanged runs are collapsed — click the ↕ button to expand any section.' },
+];
+
+const cheatSheet = [
+  { label: '+ green',  value: 'Added line (only in B)' },
+  { label: '− red',    value: 'Removed line (only in A)' },
+  { label: '  grey',   value: 'Unchanged context line' },
+  { label: 'highlight', value: 'Character-level change within line' },
+];
+
+const faq = [
+  { question: 'What file types can I diff?', answer: 'Any plain text file — source code, JSON, YAML, Markdown, CSV, config files, etc. PDF files are also supported (text is extracted first).' },
+  { question: 'Is there a file size limit?', answer: 'The diff is capped at 3,000 lines per file. Beyond that, lines are truncated and a warning is shown.' },
+  { question: 'Are my files uploaded?', answer: 'No. Text extraction and diffing run entirely in your browser. Nothing is sent to a server.' },
+  { question: 'How does the diff algorithm work?', answer: 'It uses Longest Common Subsequence (LCS) with a typed array to find the minimal edit distance between two sets of lines.' },
+];
+---
+
+<MainLayout
+  title="File Diff — Compare Two Files | Toolbox"
+  description="Compare two text files or PDFs side by side. LCS line diff with character-level inline highlighting. No uploads."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="File Diff" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">File Diff</h1>
+        <p class="mt-1 text-sm text-slate-500">Compare two text files or PDFs. Line diff with inline character highlighting.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Two drop zones -->
+          <div class="mb-6 grid gap-4 sm:grid-cols-2">
+
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">File A (original)</p>
+              <div id="diffDropA"
+                class="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30"
+                role="button" tabindex="0"
+              >
+                <span class="mb-1 text-2xl text-slate-300">A</span>
+                <p class="text-xs font-medium text-slate-600">Drop file A</p>
+                <p class="mt-0.5 text-[10px] text-slate-400">text · code · PDF</p>
+                <input id="diffFileInputA" type="file" class="sr-only" />
+              </div>
+              <p id="diffInfoA" class="mt-2 hidden text-xs text-slate-500"></p>
+            </div>
+
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">File B (changed)</p>
+              <div id="diffDropB"
+                class="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center transition-colors hover:border-emerald-300 hover:bg-emerald-50/30"
+                role="button" tabindex="0"
+              >
+                <span class="mb-1 text-2xl text-slate-300">B</span>
+                <p class="text-xs font-medium text-slate-600">Drop file B</p>
+                <p class="mt-0.5 text-[10px] text-slate-400">text · code · PDF</p>
+                <input id="diffFileInputB" type="file" class="sr-only" />
+              </div>
+              <p id="diffInfoB" class="mt-2 hidden text-xs text-slate-500"></p>
+            </div>
+
+          </div>
+
+          <p id="diffStatus" class="mb-4 hidden text-center text-sm"></p>
+
+          <button id="diffBtn"
+            class="mb-6 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            disabled
+          >
+            Compare Files
+          </button>
+
+          <!-- Results -->
+          <div id="diffResults" hidden>
+            <div id="diffSummary" class="mb-4 flex flex-wrap gap-2"></div>
+            <div id="diffOutput" class="overflow-auto rounded-md border border-slate-200 bg-slate-900 font-mono text-xs leading-5"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About File Diff</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Compare any two text-based files directly in your browser. Drop a file into slot A and slot B — the diff runs automatically. PDF files are supported: text is extracted using PDF.js before comparison. Changed lines show character-level inline highlighting. Long unchanged sections are collapsed for readability.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Keywords: file diff, compare files online, text diff, code diff, diff viewer browser, no upload diff tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  /* Diff output styles — scoped to this page */
+  .diff-line {
+    display: grid;
+    grid-template-columns: 3rem 3rem 1.5rem 1fr;
+    gap: 0;
+    min-height: 1.25rem;
+  }
+  .diff-ln {
+    padding: 0 0.5rem;
+    text-align: right;
+    color: #6b7280;
+    user-select: none;
+  }
+  .diff-sig {
+    padding: 0 0.25rem;
+    font-weight: 700;
+    user-select: none;
+  }
+  .diff-text {
+    padding: 0 0.5rem;
+    white-space: pre;
+    overflow-wrap: anywhere;
+    color: #e2e8f0;
+  }
+  .diff-line--eq  { background: transparent; }
+  .diff-line--del { background: rgba(239,68,68,0.15); }
+  .diff-line--del .diff-sig { color: #f87171; }
+  .diff-line--del .diff-text { color: #fca5a5; }
+  .diff-line--ins { background: rgba(34,197,94,0.12); }
+  .diff-line--ins .diff-sig { color: #4ade80; }
+  .diff-line--ins .diff-text { color: #86efac; }
+  .diff-hidden { display: none; }
+  .diff-collapse-row { padding: 0.25rem 0.5rem; background: rgba(99,102,241,0.08); }
+  .diff-collapse-btn {
+    background: none; border: none; cursor: pointer;
+    color: #818cf8; font-size: 0.7rem; padding: 0;
+  }
+  .diff-collapse-btn:hover { color: #a5b4fc; }
+  mark.dc-del { background: rgba(239,68,68,0.35); border-radius: 2px; }
+  mark.dc-ins { background: rgba(34,197,94,0.35);  border-radius: 2px; }
+  .diff-chip {
+    display: inline-block; border-radius: 9999px;
+    padding: 0.2rem 0.65rem; font-size: 0.72rem; font-weight: 500;
+  }
+  .diff-chip-add  { background: rgba(34,197,94,0.1);  color: #16a34a; }
+  .diff-chip-del  { background: rgba(239,68,68,0.1);  color: #dc2626; }
+  .diff-chip-eq   { background: rgba(100,116,139,0.1); color: #475569; }
+  .diff-chip-sim  { background: rgba(99,102,241,0.1); color: #4f46e5; }
+  .diff-chip-warn { background: rgba(245,158,11,0.1); color: #d97706; }
+</style>
+
+<script>
+  /* ── State ── */
+  let diffTextA: string | null = null;
+  let diffTextB: string | null = null;
+  let helpfulCount = 0;
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showStatus(msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById('diffStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-4 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-4 text-center text-sm text-rose-500'
+        : 'mb-4 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  /* ── PDF.js lazy loader ── */
+  let pdfJsReady = false;
+  async function ensurePdfJs(): Promise<void> {
+    if (pdfJsReady || (window as any).pdfjsLib) { pdfJsReady = true; return; }
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfJsReady = true;
+        resolve();
+      };
+      s.onerror = () => reject(new Error('Failed to load PDF decoder.'));
+      document.head.appendChild(s);
+    });
+  }
+
+  /* ── File type detection ── */
+  const TEXT_EXTS = new Set([
+    'txt','md','markdown','rst','csv','tsv','log','conf','cfg','ini','env',
+    'readme','license','changelog','html','htm','xhtml','xml','svg','vue','svelte',
+    'css','scss','sass','less','js','jsx','ts','tsx','mjs','cjs',
+    'py','rb','php','java','c','cpp','h','hpp','cs','go','rs','swift','kt','scala',
+    'sh','bash','zsh','ps1','bat','json','yaml','yml','toml','graphql','sql',
+    'makefile','dockerfile','gitignore','editorconfig','npmrc','eslintrc',
+  ]);
+
+  function fileExt(file: File): string {
+    const parts = file.name.split('.');
+    return parts.length > 1 ? parts.pop()!.toLowerCase() : parts[0].toLowerCase();
+  }
+
+  async function extractText(file: File): Promise<string> {
+    const ext = fileExt(file);
+    if (ext === 'pdf' || file.type === 'application/pdf') {
+      await ensurePdfJs();
+      const buf = await file.arrayBuffer();
+      const pdf = await (window as any).pdfjsLib.getDocument({ data: buf }).promise;
+      const pages: string[] = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        let last: number | null = null, line = '';
+        const lines: string[] = [];
+        for (const item of content.items) {
+          if (last !== null && Math.abs(item.transform[5] - last) > 2) { lines.push(line); line = ''; }
+          line += item.str;
+          last = item.transform[5];
+        }
+        if (line) lines.push(line);
+        pages.push(lines.join('\n'));
+      }
+      return pages.join('\n\n--- page break ---\n\n');
+    }
+    if (!TEXT_EXTS.has(ext) && !file.type.startsWith('text/')) {
+      throw new Error(`".${ext}" is not a supported type. Upload a text file, source code, or PDF.`);
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target!.result as string);
+      reader.onerror = () => reject(new Error('Could not read file.'));
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  /* ── Drop zones ── */
+  function setupDrop(zoneId: string, inputId: string, slot: 'A' | 'B') {
+    const zone = document.getElementById(zoneId)!;
+    const input = document.getElementById(inputId) as HTMLInputElement;
+
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+    zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400'));
+    zone.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault(); zone.classList.remove('border-purple-400');
+      const file = e.dataTransfer?.files[0];
+      if (file) loadSlot(file, slot);
+    });
+    input.addEventListener('change', () => { if (input.files?.[0]) loadSlot(input.files[0], slot); });
+  }
+
+  setupDrop('diffDropA', 'diffFileInputA', 'A');
+  setupDrop('diffDropB', 'diffFileInputB', 'B');
+
+  async function loadSlot(file: File, slot: 'A' | 'B') {
+    showStatus('Loading…', 'info');
+    try {
+      const text = await extractText(file);
+      const infoEl = document.getElementById(`diffInfo${slot}`)!;
+      infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
+      infoEl.classList.remove('hidden');
+
+      if (slot === 'A') diffTextA = text;
+      else diffTextB = text;
+
+      document.getElementById('diffStatus')!.classList.add('hidden');
+      (document.getElementById('diffBtn') as HTMLButtonElement).disabled = diffTextA === null || diffTextB === null;
+
+      if (diffTextA !== null && diffTextB !== null) runDiff();
+    } catch (err: any) {
+      showStatus('✕ ' + err.message, 'err');
+      if (slot === 'A') diffTextA = null;
+      else diffTextB = null;
+      (document.getElementById('diffBtn') as HTMLButtonElement).disabled = true;
+    }
+  }
+
+  /* ── Diff algorithm ── */
+  const DIFF_MAX = 3000;
+
+  function splitLines(text: string): string[] {
+    return text === '' ? [''] : text.split(/\r?\n/);
+  }
+
+  type DiffOp = { type: 'eq' | 'ins' | 'del'; a?: string; b?: string; la?: number; lb?: number };
+
+  function computeDiff(rawA: string[], rawB: string[]): { ops: DiffOp[]; truncated: boolean } {
+    const a = rawA.slice(0, DIFF_MAX), b = rawB.slice(0, DIFF_MAX);
+    const m = a.length, n = b.length, W = n + 1;
+    const dp = new Uint16Array((m + 1) * W);
+
+    for (let i = 1; i <= m; i++) {
+      const ai = a[i - 1];
+      for (let j = 1; j <= n; j++) {
+        const base = i * W + j;
+        if (ai === b[j - 1]) { dp[base] = dp[(i - 1) * W + j - 1] + 1; }
+        else { const up = dp[(i - 1) * W + j], lf = dp[i * W + j - 1]; dp[base] = up > lf ? up : lf; }
+      }
+    }
+
+    const ops: DiffOp[] = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+        ops.push({ type: 'eq', a: a[i - 1], b: b[j - 1] }); i--; j--;
+      } else if (j > 0 && (i === 0 || dp[i * W + j - 1] >= dp[(i - 1) * W + j])) {
+        ops.push({ type: 'ins', b: b[j - 1] }); j--;
+      } else {
+        ops.push({ type: 'del', a: a[i - 1] }); i--;
+      }
+    }
+    ops.reverse();
+    return { ops, truncated: rawA.length > DIFF_MAX || rawB.length > DIFF_MAX };
+  }
+
+  /* ── Char-level diff ── */
+  const CHAR_MAX = 500;
+  function hesc(s: string): string {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function charDiff(strA: string, strB: string): { ha: string; hb: string } {
+    const a = [...strA].slice(0, CHAR_MAX), b = [...strB].slice(0, CHAR_MAX);
+    const m = a.length, n = b.length, W = n + 1;
+    const dp = new Uint16Array((m + 1) * W);
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const base = i * W + j;
+        dp[base] = a[i-1] === b[j-1] ? dp[(i-1)*W+j-1]+1 : Math.max(dp[(i-1)*W+j], dp[i*W+j-1]);
+      }
+    }
+    type CharOp = { t: 'e' | 'i' | 'd'; ca?: string; cb?: string };
+    const ops: CharOp[] = [];
+    let ci = m, cj = n;
+    while (ci > 0 || cj > 0) {
+      if (ci > 0 && cj > 0 && a[ci-1] === b[cj-1]) { ops.push({ t: 'e', ca: a[ci-1], cb: b[cj-1] }); ci--; cj--; }
+      else if (cj > 0 && (ci === 0 || dp[ci*W+cj-1] >= dp[(ci-1)*W+cj])) { ops.push({ t: 'i', cb: b[cj-1] }); cj--; }
+      else { ops.push({ t: 'd', ca: a[ci-1] }); ci--; }
+    }
+    ops.reverse();
+    let ha = '', hb = '', inD = false, inI = false;
+    for (const op of ops) {
+      if (op.t === 'e') {
+        if (inD) { ha += '</mark>'; inD = false; }
+        if (inI) { hb += '</mark>'; inI = false; }
+        ha += hesc(op.ca!); hb += hesc(op.cb!);
+      } else if (op.t === 'd') {
+        if (!inD) { ha += '<mark class="dc-del">'; inD = true; } ha += hesc(op.ca!);
+      } else {
+        if (!inI) { hb += '<mark class="dc-ins">'; inI = true; } hb += hesc(op.cb!);
+      }
+    }
+    if (inD) ha += '</mark>';
+    if (inI) hb += '</mark>';
+    if (strA.length > CHAR_MAX) ha += hesc(strA.slice(CHAR_MAX));
+    if (strB.length > CHAR_MAX) hb += hesc(strB.slice(CHAR_MAX));
+    return { ha, hb };
+  }
+
+  /* ── Run diff ── */
+  document.getElementById('diffBtn')!.addEventListener('click', runDiff);
+
+  function runDiff() {
+    if (!diffTextA || !diffTextB) return;
+    const btn = document.getElementById('diffBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    showStatus('Computing diff…', 'info');
+
+    setTimeout(() => {
+      try {
+        const linesA = splitLines(diffTextA!), linesB = splitLines(diffTextB!);
+        const { ops, truncated } = computeDiff(linesA, linesB);
+
+        let added = 0, deleted = 0, unchanged = 0;
+        for (const op of ops) {
+          if (op.type === 'eq') unchanged++;
+          else if (op.type === 'ins') added++;
+          else deleted++;
+        }
+        const total = linesA.length + linesB.length;
+        const similar = total === 0 ? 100 : Math.round(2 * unchanged / total * 100);
+        const identical = added === 0 && deleted === 0;
+
+        const chip = (cls: string, label: string) =>
+          `<span class="diff-chip ${cls}">${label}</span>`;
+
+        document.getElementById('diffSummary')!.innerHTML =
+          chip('diff-chip-add', `+${added} added`) +
+          chip('diff-chip-del', `−${deleted} removed`) +
+          chip('diff-chip-eq',  `${unchanged} unchanged`) +
+          chip('diff-chip-sim', `${similar}% similar`) +
+          (truncated ? chip('diff-chip-warn', `⚠ capped at ${DIFF_MAX} lines`) : '');
+
+        document.getElementById('diffOutput')!.innerHTML = buildDiffHtml(ops);
+        document.getElementById('diffResults')!.hidden = false;
+        document.getElementById('diffResults')!.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        showStatus(
+          identical ? '✓ Files are identical.' : `✓ ${added + deleted} line${added + deleted === 1 ? '' : 's'} changed.`,
+          identical ? 'ok' : 'info'
+        );
+      } catch (err: any) {
+        showStatus('✕ ' + err.message, 'err');
+      }
+      (document.getElementById('diffBtn') as HTMLButtonElement).disabled = diffTextA === null || diffTextB === null;
+    }, 16);
+  }
+
+  /* ── Build diff HTML ── */
+  const CONTEXT = 3;
+  let cgId = 0;
+
+  function buildDiffHtml(ops: DiffOp[]): string {
+    if (!ops.length) return '<div class="p-4 text-slate-400 text-sm">No content to compare.</div>';
+
+    let la = 1, lb = 1;
+    for (const op of ops) {
+      if (op.type === 'eq')  { op.la = la++; op.lb = lb++; }
+      else if (op.type === 'del') { op.la = la++; }
+      else { op.lb = lb++; }
+    }
+
+    type Run = { type: string; items: DiffOp[] };
+    const runs: Run[] = [];
+    for (const op of ops) {
+      const last = runs[runs.length - 1];
+      if (last && last.type === op.type) last.items.push(op);
+      else runs.push({ type: op.type, items: [op] });
+    }
+
+    type Chunk = { type: string; items?: DiffOp[]; dels?: DiffOp[]; ins?: DiffOp[] };
+    const chunks: Chunk[] = [];
+    let r = 0;
+    while (r < runs.length) {
+      if (runs[r].type === 'del' && runs[r + 1]?.type === 'ins') {
+        chunks.push({ type: 'mod', dels: runs[r].items, ins: runs[r + 1].items });
+        r += 2;
+      } else { chunks.push(runs[r]); r++; }
+    }
+
+    let html = '';
+    for (const chunk of chunks) {
+      if (chunk.type === 'eq') {
+        const items = chunk.items!;
+        if (items.length > CONTEXT * 2 + 1) {
+          for (let k = 0; k < CONTEXT; k++) html += rowEq(items[k]);
+          const hidden = items.length - CONTEXT * 2;
+          const gid = 'cg' + (cgId++);
+          html += `<div class="diff-collapse-row"><button class="diff-collapse-btn" onclick="diffExpand('${gid}',this)">↕ ${hidden} unchanged line${hidden === 1 ? '' : 's'}</button></div>`;
+          for (let k = CONTEXT; k < items.length - CONTEXT; k++) {
+            html += `<div class="diff-line diff-line--eq diff-hidden" data-cg="${gid}">` +
+              `<span class="diff-ln">${items[k].la}</span><span class="diff-ln">${items[k].lb}</span>` +
+              `<span class="diff-sig"> </span><span class="diff-text">${hesc(items[k].a!)}</span></div>`;
+          }
+          for (let k = items.length - CONTEXT; k < items.length; k++) html += rowEq(items[k]);
+        } else {
+          for (const item of items) html += rowEq(item);
+        }
+      } else if (chunk.type === 'del') {
+        for (const item of chunk.items!) html += rowDel(item.la!, hesc(item.a!));
+      } else if (chunk.type === 'ins') {
+        for (const item of chunk.items!) html += rowIns(item.lb!, hesc(item.b!));
+      } else {
+        const { dels, ins } = chunk as { dels: DiffOp[]; ins: DiffOp[] };
+        const pairs = Math.min(dels.length, ins.length);
+        for (let k = 0; k < pairs; k++) {
+          const { ha, hb } = charDiff(dels[k].a!, ins[k].b!);
+          html += rowDel(dels[k].la!, ha);
+          html += rowIns(ins[k].lb!, hb);
+        }
+        for (let k = pairs; k < dels.length; k++) html += rowDel(dels[k].la!, hesc(dels[k].a!));
+        for (let k = pairs; k < ins.length;  k++) html += rowIns(ins[k].lb!,  hesc(ins[k].b!));
+      }
+    }
+    return html || '<div class="p-4 text-slate-400 text-sm">Files are identical.</div>';
+  }
+
+  function rowEq(item: DiffOp): string {
+    return `<div class="diff-line diff-line--eq"><span class="diff-ln">${item.la}</span><span class="diff-ln">${item.lb}</span><span class="diff-sig"> </span><span class="diff-text">${hesc(item.a!)}</span></div>`;
+  }
+  function rowDel(la: number, html: string): string {
+    return `<div class="diff-line diff-line--del"><span class="diff-ln">${la}</span><span class="diff-ln"></span><span class="diff-sig">−</span><span class="diff-text">${html}</span></div>`;
+  }
+  function rowIns(lb: number, html: string): string {
+    return `<div class="diff-line diff-line--ins"><span class="diff-ln"></span><span class="diff-ln">${lb}</span><span class="diff-sig">+</span><span class="diff-text">${html}</span></div>`;
+  }
+
+  (window as any).diffExpand = function (gid: string, btn: HTMLButtonElement) {
+    document.querySelectorAll(`.diff-hidden[data-cg="${gid}"]`).forEach(el => el.classList.remove('diff-hidden'));
+    btn.closest('.diff-collapse-row')?.remove();
+  };
+
+  /* ── Helpful ── */
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    helpfulCount++;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const countEl = document.getElementById('helpfulCount')!;
+    countEl.textContent = String(helpfulCount);
+    countEl.classList.remove('hidden');
+  });
+</script>

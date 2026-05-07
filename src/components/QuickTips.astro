@@ -1,0 +1,41 @@
+---
+interface Tip {
+  heading: string;
+  body: string;
+}
+
+interface Props {
+  tips: Tip[];
+  cheatSheet?: { label: string; value: string }[];
+}
+
+const { tips, cheatSheet } = Astro.props;
+---
+
+<div class="flex flex-col gap-4">
+  <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+    <h3 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Quick Tips</h3>
+    <ul class="flex flex-col gap-3">
+      {tips.map((tip) => (
+        <li class="text-sm">
+          <span class="font-medium text-slate-800">{tip.heading}</span>
+          <span class="mt-0.5 block text-slate-500">{tip.body}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+
+  {cheatSheet && cheatSheet.length > 0 && (
+    <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Format Guide</h3>
+      <dl class="flex flex-col gap-2">
+        {cheatSheet.map((row) => (
+          <div class="flex items-start justify-between gap-2 text-sm">
+            <dt class="font-mono text-xs font-medium text-purple-600">{row.label}</dt>
+            <dd class="text-right text-slate-500">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )}
+</div>

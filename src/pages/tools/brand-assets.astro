@@ -1,0 +1,829 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'How it works', body: 'Fetches page HTML via a CORS proxy, then parses all CSS for colours, fonts, meta tags and logo URLs.' },
+  { heading: 'Colours',      body: 'Extracted from hex, rgb() and hsl() values across inline styles and external stylesheets.' },
+  { heading: 'Fonts',        body: 'Detected from font-family declarations and Google Fonts CDN links.' },
+  { heading: 'Ionic palette', body: 'Generates base/shade/tint CSS variables compatible with Ionic Framework from the first three brand colours.' },
+];
+
+const faq = [
+  { question: 'Why can\'t I fetch some sites?', answer: 'Some sites block CORS proxies or serve content entirely via JavaScript. The tool works best on sites that render styles server-side.' },
+  { question: 'Are requests made from my browser?', answer: 'HTML is fetched through a public CORS proxy (api.allorigins.win). The URL you enter will be sent to that proxy service.' },
+  { question: 'What does the Ionic palette do?', answer: 'It generates base, shade and tint variants of the first three brand colours formatted as Ionic Framework CSS custom properties.' },
+  { question: 'Why are some logos missing?', answer: 'Logo detection tries several URL patterns (/logo.svg, /logo.png, og:image). If none resolve, the placeholder shows the first letter of the domain.' },
+];
+---
+
+<MainLayout
+  title="Brand Assets Extractor — Free In-Browser Tool | Toolbox"
+  description="Extract colours, fonts, logos and meta tags from any website. WCAG contrast check on colour pairs. Ionic palette export."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Brand Assets Extractor" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Brand Assets Extractor</h1>
+        <p class="mt-1 text-sm text-slate-500">Extract colours, fonts and logos from any website URL.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- URL Input -->
+          <div class="mb-4 flex gap-2">
+            <input id="brandUrl" type="url" placeholder="https://example.com"
+              class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+            <button id="brandFetchBtn"
+              class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+              Extract Brand
+            </button>
+          </div>
+
+          <p id="brandStatus" class="hidden mb-4 text-sm"></p>
+
+          <!-- Results -->
+          <div id="brandResults" class="hidden flex-col gap-8">
+
+            <!-- Header -->
+            <div id="brandHeader" class="flex items-center gap-4"></div>
+
+            <!-- Colours -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Colour Palette</p>
+              <div id="brandColors" class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"></div>
+            </div>
+
+            <!-- Colour combinations -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Colour Combinations</p>
+              <div id="brandCombos" class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"></div>
+            </div>
+
+            <!-- Ionic palette -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Ionic Framework Palette</p>
+              <div id="brandIonic" class="flex flex-col gap-3"></div>
+            </div>
+
+            <!-- Fonts -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Typography</p>
+              <div id="brandFonts" class="flex flex-col gap-3"></div>
+            </div>
+
+            <!-- Icons -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Icons &amp; Logos</p>
+              <div id="brandIcons" class="flex flex-wrap gap-3"></div>
+            </div>
+
+            <!-- Meta -->
+            <div>
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Page Meta</p>
+              <table class="brand-meta-table w-full text-sm">
+                <tbody id="brandMetaTable"></tbody>
+              </table>
+            </div>
+
+            <!-- Export -->
+            <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+              <button id="brandExportCSSBtn" class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export CSS Variables</button>
+              <button id="brandExportJSONBtn" class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export JSON</button>
+              <button id="brandExportMDBtn"  class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export Markdown</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Brand Assets Extractor</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Enter any public URL to extract brand colours, typography, logos and page metadata. Colours are ranked by CSS frequency, deduplicated to remove near-identical shades, and checked for WCAG contrast. Fonts are detected from font-family declarations and Google Fonts CDN links. Export as CSS custom properties, JSON or Markdown brand guidelines.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/wcag-contrast" class="text-purple-500 hover:underline">WCAG Contrast Checker</a> · <a href="/tools/color-palette" class="text-purple-500 hover:underline">Colour Palette Generator</a></p>
+          <p class="mt-2">Keywords: brand colour extractor, website colour palette, extract brand assets, logo extractor, Ionic palette generator</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .brand-meta-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .brand-meta-table td:first-child { font-size: 0.75rem; color: #94a3b8; white-space: nowrap; width: 8rem; }
+  .brand-meta-table td:last-child { font-size: 0.8rem; color: #334155; word-break: break-word; }
+  .brand-meta-table a { color: #a855f7; }
+
+  .brand-color-card { display: flex; flex-direction: column; border-radius: 0.5rem; overflow: hidden; border: 1px solid #e2e8f0; }
+  .brand-color-swatch { height: 4rem; display: flex; align-items: center; justify-content: center; }
+  .brand-color-copy { font-size: 0.65rem; font-family: monospace; border: 1px solid currentColor; border-radius: 0.25rem; padding: 0.1rem 0.35rem; background: none; cursor: pointer; opacity: 0.85; transition: opacity 0.15s; }
+  .brand-color-copy:hover { opacity: 1; }
+  .brand-color-info { padding: 0.5rem 0.6rem; background: white; }
+  .brand-color-hex { font-size: 0.7rem; font-family: monospace; color: #475569; }
+  .brand-color-role { font-size: 0.65rem; color: #94a3b8; }
+
+  .brand-combo-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; }
+  .brand-combo-preview { height: 3.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+  .brand-combo-preview-text { font-size: 1.4rem; font-weight: 700; }
+  .brand-combo-preview-small { font-size: 0.7rem; }
+  .brand-combo-info { padding: 0.5rem; background: white; }
+  .brand-combo-swatch-pair { display: flex; gap: 0.35rem; margin-bottom: 0.35rem; }
+  .brand-combo-chip { display: flex; align-items: center; gap: 0.25rem; border-radius: 0.25rem; padding: 0.15rem 0.4rem; cursor: pointer; font-size: 0.6rem; font-family: monospace; }
+  .brand-combo-chip-label { font-weight: 700; opacity: 0.7; }
+  .brand-combo-meta { display: flex; align-items: center; gap: 0.4rem; }
+  .brand-combo-ratio { font-size: 0.7rem; color: #64748b; }
+  .brand-combo-badge { font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 999px; }
+  .combo-aaa { background: #d1fae5; color: #065f46; }
+  .combo-aa  { background: #dbeafe; color: #1e40af; }
+  .combo-aa-lg { background: #fef3c7; color: #92400e; }
+  .combo-fail  { background: #fee2e2; color: #991b1b; }
+
+  .brand-font-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; background: white; }
+  .brand-font-preview { font-size: 1.5rem; color: #1e293b; margin-bottom: 0.4rem; }
+  .brand-font-name { font-size: 0.8rem; font-weight: 600; color: #334155; }
+  .brand-font-source { font-size: 0.7rem; color: #94a3b8; }
+
+  .brand-icon-card { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 5rem; cursor: pointer; }
+  .brand-icon-card img { width: 3rem; height: 3rem; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 0.4rem; padding: 0.25rem; }
+  .brand-icon-label { font-size: 0.6rem; color: #94a3b8; text-align: center; }
+
+  .brand-logo-box img { height: 2.5rem; max-width: 8rem; object-fit: contain; }
+  .brand-logo-placeholder { width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; background: #f1f5f9; font-size: 1.2rem; font-weight: 700; color: #64748b; }
+  .brand-meta h2 { font-size: 1.1rem; font-weight: 600; color: #1e293b; }
+  .brand-meta p { font-size: 0.8rem; color: #64748b; margin: 0.1rem 0; }
+
+  .brand-ionic-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; background: white; }
+  .brand-ionic-role { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.6rem; }
+  .brand-ionic-swatches { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .brand-ionic-swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; flex: 1; }
+  .brand-ionic-swatch { width: 100%; height: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; }
+  .brand-ionic-swatch-lg { height: 3.5rem; }
+  .brand-ionic-swatch-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .brand-ionic-hex { font-size: 0.6rem; font-family: monospace; color: #64748b; }
+  .brand-ionic-hex-base { font-weight: 700; color: #334155; }
+  .brand-ionic-vars { display: flex; flex-direction: column; gap: 0.15rem; }
+  .brand-ionic-vars code { font-size: 0.65rem; color: #475569; font-family: monospace; }
+  .brand-ionic-copy-row { margin-top: 0.75rem; }
+
+  .brand-empty-note { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
+  .brand-export-btn { border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.375rem 0.875rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: all 0.15s; }
+  .brand-export-btn:hover { border-color: #a855f7; color: #7c3aed; }
+</style>
+
+<script>
+  let brandData: any = null;
+
+  const CORS_PROXIES = [
+    (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+
+  async function fetchViaProxy(url: string): Promise<string> {
+    for (const makeProxy of CORS_PROXIES) {
+      try {
+        const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        const text = await res.text().catch(() => null);
+        if (!text) continue;
+        try { const json = JSON.parse(text); if (json?.contents) return json.contents; } catch {}
+        if (text.length > 100) return text;
+      } catch { /* try next */ }
+    }
+    throw new Error('Could not fetch the URL. The site may block external requests — try a different URL.');
+  }
+
+  async function fetchCSSText(cssUrl: string, baseUrl: string): Promise<string> {
+    const abs = toAbsolute(cssUrl, baseUrl);
+    for (const makeProxy of CORS_PROXIES) {
+      try {
+        const res = await fetch(makeProxy(abs), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const text = await res.text().catch(() => null);
+        if (!text) continue;
+        try { const json = JSON.parse(text); if (json?.contents) return json.contents; } catch {}
+        return text;
+      } catch { /* try next */ }
+    }
+    return '';
+  }
+
+  function toAbsolute(href: string, base: string): string {
+    if (!href) return '';
+    if (/^https?:\/\//i.test(href)) return href;
+    try { return new URL(href, base).href; } catch { return href; }
+  }
+
+  /* ── Colour utils ── */
+  const HEX_RE  = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
+  const RGB_RE  = /rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/g;
+  const RGBA_RE = /rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*[\d.]+\s*\)/g;
+  const HSL_RE  = /hsl\(\s*(\d{1,3})\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/g;
+
+  function hexNorm(h: string): string {
+    h = h.replace('#','').toLowerCase();
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return '#'+h;
+  }
+  function rgbToHex(r: number|string, g: number|string, b: number|string): string {
+    return '#'+[r,g,b].map(v=>parseInt(String(v)).toString(16).padStart(2,'0')).join('');
+  }
+  function hslToHex(h: number, s: number, l: number): string {
+    s/=100; l/=100; h/=360;
+    const q = l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    const hue = (p: number,q: number,t: number) => {
+      if(t<0)t++;if(t>1)t--;
+      if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;
+    };
+    return rgbToHex(Math.round(hue(p,q,h+1/3)*255),Math.round(hue(p,q,h)*255),Math.round(hue(p,q,h-1/3)*255));
+  }
+  function hexToRgb(hex: string): { r: number; g: number; b: number } {
+    const h = hex.replace('#','');
+    return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
+  }
+  function colourDist(a: string, b: string): number {
+    const A=hexToRgb(a), B=hexToRgb(b);
+    return Math.abs(A.r-B.r)+Math.abs(A.g-B.g)+Math.abs(A.b-B.b);
+  }
+  function relativeLuminance(hex: string): number {
+    const {r,g,b} = hexToRgb(hex);
+    const lin = (v: number) => { v/=255; return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4); };
+    return 0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b);
+  }
+  function contrastRatio(hex1: string, hex2: string): number {
+    const l1=relativeLuminance(hex1), l2=relativeLuminance(hex2);
+    return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+  }
+  function wcagLabel(ratio: number): { level: string; cls: string } {
+    if (ratio >= 7)   return { level:'AAA', cls:'combo-aaa' };
+    if (ratio >= 4.5) return { level:'AA',  cls:'combo-aa'  };
+    if (ratio >= 3.0) return { level:'AA Large', cls:'combo-aa-lg' };
+    return { level:'Fail', cls:'combo-fail' };
+  }
+  function isSkippable(hex: string): boolean {
+    if (!hex || hex.length !== 7) return true;
+    const {r,g,b} = hexToRgb(hex);
+    const lum = (r+g+b)/3;
+    return lum > 245 || lum < 8;
+  }
+  function contrastText(hex: string): string {
+    return relativeLuminance(hex.toLowerCase()) > 0.35 ? '#1a1817' : '#ffffff';
+  }
+
+  function extractAllColoursFromCSS(css: string): string[] {
+    const freq: Record<string,number> = {};
+    const add = (hex: string) => { if (!isSkippable(hex)) freq[hex] = (freq[hex]||0)+1; };
+    css.replace(HEX_RE,  (_, h) => { add(hexNorm('#'+h)); return _; });
+    css.replace(RGB_RE,  (_, r,g,b) => { add(rgbToHex(r,g,b)); return _; });
+    css.replace(RGBA_RE, (_, r,g,b) => { add(rgbToHex(r,g,b)); return _; });
+    css.replace(HSL_RE,  (_, h,s,l) => { add(hslToHex(+h,+s,+l)); return _; });
+    css.replace(/--(color|clr|colour|brand|primary|secondary|accent|bg|background|text|foreground|surface)[^:]*:\s*([^;}\n]+)/gi, (_:string,_n:string,val:string) => {
+      val.replace(HEX_RE,  (_:string,h:string)     => { add(hexNorm('#'+h)); return _; });
+      val.replace(RGB_RE,  (_:string,r:string,g:string,b:string) => { add(rgbToHex(r,g,b)); return _; });
+      return _;
+    });
+    return Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([hex])=>hex);
+  }
+
+  function dedupeColours(colours: string[], max=10): string[] {
+    const kept: string[] = [];
+    for (const hex of colours) {
+      if (kept.length >= max) break;
+      if (!kept.some(k => colourDist(k,hex) < 28)) kept.push(hex);
+    }
+    return kept;
+  }
+
+  function firstHex(val: string): string | null {
+    const m = val.match(HEX_RE);
+    if (m) return hexNorm(m[0]);
+    const r = val.match(RGB_RE);
+    if (r) { const parts=r[0].match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)||[]; return parts[1]?rgbToHex(parts[1],parts[2],parts[3]):null; }
+    return null;
+  }
+
+  function extractColourPairs(css: string, _knownColours: string[]): Array<{fg:string;bg:string;count:number}> {
+    const pairs = new Map<string,number>();
+    const blocks = css.split('}');
+    for (const block of blocks) {
+      const braceIdx = block.indexOf('{');
+      if (braceIdx < 0) continue;
+      const decls = block.slice(braceIdx+1);
+      const found: string[] = [];
+      decls.replace(HEX_RE,  (_:string, h:string) => { const c=hexNorm('#'+h); if (!isSkippable(c)) found.push(c); return _; });
+      decls.replace(RGB_RE,  (_:string, r:string,g:string,b:string) => { const c=rgbToHex(r,g,b); if (!isSkippable(c)) found.push(c); return _; });
+      decls.replace(RGBA_RE, (_:string, r:string,g:string,b:string) => { const c=rgbToHex(r,g,b); if (!isSkippable(c)) found.push(c); return _; });
+      if (found.length < 2) continue;
+      let fg: string|null=null, bg: string|null=null, border: string|null=null;
+      decls.replace(/\bcolor\s*:\s*([^;]+)/gi,            (_:string, v:string) => { const c=firstHex(v); if(c) fg=c; return _; });
+      decls.replace(/\bbackground(?:-color)?\s*:\s*([^;]+)/gi, (_:string,v:string) => { const c=firstHex(v); if(c) bg=c; return _; });
+      decls.replace(/\bborder(?:-color)?\s*:\s*([^;]+)/gi, (_:string,v:string) => { const c=firstHex(v); if(c) border=c; return _; });
+      if (fg && bg && fg!==bg) { const key=fg+'|'+bg; pairs.set(key,(pairs.get(key)||0)+1); }
+      if (fg && border && fg!==border) { const key=fg+'|'+border; pairs.set(key,(pairs.get(key)||0)+1); }
+    }
+    return [...pairs.entries()]
+      .sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .map(([key, count]) => { const [fg,bg]=key.split('|'); return { fg, bg, count }; })
+      .filter(p => contrastRatio(p.fg,p.bg) > 1.2);
+  }
+
+  function extractFontsFromCSS(css: string, googleFontLinks: string[]): Array<{name:string;role:string;source:string;sample:string}> {
+    const found = new Map<string,{source:string;role:string}>();
+    googleFontLinks.forEach(href => {
+      const m = href.match(/family=([^&:;]+)/i);
+      if (m) {
+        const name = decodeURIComponent(m[1]).replace(/\+/g,' ').split(':')[0].trim();
+        if (name && !found.has(name)) found.set(name, { source:'Google Fonts', role:'body' });
+      }
+    });
+    css.replace(/font-family\s*:\s*([^;}{]+)/gi, (_:string,val:string) => {
+      val.split(',').forEach(part => {
+        let name = part.trim().replace(/^['"]|['"]$/g,'').trim();
+        if (!name || /^(inherit|initial|unset|sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|-apple-system|BlinkMacSystemFont|Arial|Helvetica|Georgia|Times|Verdana|Tahoma|Trebuchet|Impact)$/i.test(name)) return;
+        if (!found.has(name)) found.set(name, { source:'Custom', role:'body' });
+      });
+      return _;
+    });
+    css.replace(/@import\s+url\(['"]?(https:\/\/fonts\.googleapis\.com[^'")\s]+)['"]?\)/gi, (_:string,href:string) => {
+      const m = href.match(/family=([^&:;]+)/i);
+      if (m) {
+        const name = decodeURIComponent(m[1]).replace(/\+/g,' ').split(':')[0].trim();
+        if (name && !found.has(name)) found.set(name, { source:'Google Fonts', role:'body' });
+      }
+      return _;
+    });
+    css.replace(/h[1-6][^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
+      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
+      if (found.has(name)) found.get(name)!.role='heading';
+      return _;
+    });
+    css.replace(/(?:code|pre|kbd|samp)[^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
+      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
+      if (found.has(name)) found.get(name)!.role='mono';
+      return _;
+    });
+    css.replace(/(?:body|p|main)[^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
+      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
+      if (found.has(name)) found.get(name)!.role='body';
+      return _;
+    });
+    const arr = [...found.entries()];
+    if (arr.length===1) arr[0][1].role='heading';
+    if (arr.length>=2 && arr[0][1].role===arr[1][1].role) arr[1][1].role='body';
+    return arr.slice(0,5).map(([name,info])=>({ name, role:info.role, source:info.source, sample:'Aa Bb Cc 123' }));
+  }
+
+  function extractMeta(doc: Document): { name:string;desc:string;themeColor:string;faviconUrl:string;ogImage:string;twitterSite:string } {
+    const get  = (sel: string) => doc.querySelector(sel)?.getAttribute('content') || '';
+    const getH = (sel: string) => doc.querySelector(sel)?.getAttribute('href') || '';
+    const name = get('meta[property="og:site_name"]') || get('meta[name="application-name"]') ||
+                 doc.querySelector('title')?.textContent?.split(/[|\-–—]/)[0]?.trim() || '';
+    const desc = get('meta[property="og:description"]') || get('meta[name="description"]') || '';
+    const themeColor = get('meta[name="theme-color"]') || get('meta[name="msapplication-TileColor"]') || '';
+    let faviconUrl = '';
+    for (const sel of ['link[rel="icon"][type="image/svg+xml"]','link[rel="shortcut icon"]','link[rel="icon"]','link[rel="apple-touch-icon"]']) {
+      const h = getH(sel); if (h) { faviconUrl=h; break; }
+    }
+    return { name, desc, themeColor, faviconUrl,
+             ogImage: get('meta[property="og:image"]') || '',
+             twitterSite: get('meta[name="twitter:site"]') || '' };
+  }
+
+  function extractLogoUrl(doc: Document, baseUrl: string, domain: string): string {
+    const logoLink = doc.querySelector('link[rel~="logo"]')?.getAttribute('href');
+    if (logoLink) return toAbsolute(logoLink, baseUrl);
+    for (const el of [...doc.querySelectorAll('img, svg')]) {
+      const src = el.getAttribute('src') || '';
+      const combined = src + (el.getAttribute('alt')||'') + (el.getAttribute('class')||'') + (el.getAttribute('id')||'');
+      if (/logo/i.test(combined) && src) return toAbsolute(src, baseUrl);
+    }
+    return 'https://'+domain+'/logo.svg';
+  }
+
+  /* ── Ionic palette ── */
+  function darkenHex(hex: string, amount=0.12): string {
+    const {r,g,b} = hexToRgb(hex);
+    return rgbToHex(Math.round(r*(1-amount)), Math.round(g*(1-amount)), Math.round(b*(1-amount)));
+  }
+  function lightenHex(hex: string, amount=0.10): string {
+    const {r,g,b} = hexToRgb(hex);
+    return rgbToHex(Math.min(255,Math.round(r+(255-r)*amount)), Math.min(255,Math.round(g+(255-g)*amount)), Math.min(255,Math.round(b+(255-b)*amount)));
+  }
+  function buildIonicColor(name: string, hex: string) {
+    const base  = hex.toUpperCase();
+    const shade = darkenHex(hex).toUpperCase();
+    const tint  = lightenHex(hex).toUpperCase();
+    const {r,g,b} = hexToRgb(hex);
+    const contrast = contrastText(hex).toUpperCase();
+    const cRgb = hexToRgb(contrast === '#FFFFFF' ? '#ffffff' : '#1a1817');
+    return { name, base, shade, tint, rgb:`${r}, ${g}, ${b}`, contrast, contrastRgb:`${cRgb.r}, ${cRgb.g}, ${cRgb.b}` };
+  }
+
+  /* ── Main fetch ── */
+  async function fetchBrandAssets() {
+    const rawUrl = (document.getElementById('brandUrl') as HTMLInputElement).value.trim();
+    if (!rawUrl) { showStatus('Enter a URL first.', 'err'); return; }
+    let url = rawUrl;
+    if (!/^https?:\/\//i.test(url)) url = 'https://'+url;
+    try { new URL(url); } catch { showStatus('Please enter a valid URL.', 'err'); return; }
+
+    const btn = document.getElementById('brandFetchBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Fetching…';
+    document.getElementById('brandResults')!.classList.add('hidden');
+    showStatus('Fetching page HTML…', 'info');
+
+    const domain = new URL(url).hostname.replace(/^www\./,'');
+
+    try {
+      const html = await fetchViaProxy(url);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      showStatus('Parsing CSS and extracting assets…', 'info');
+
+      const cssChunks: string[] = [];
+      const googleFontLinks: string[] = [];
+      doc.querySelectorAll('style').forEach(s => cssChunks.push(s.textContent||''));
+      doc.querySelectorAll('[style]').forEach(el => cssChunks.push(el.getAttribute('style')||''));
+
+      const sheetLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')]
+        .map(l => l.getAttribute('href')).filter(Boolean) as string[];
+
+      for (const href of sheetLinks) {
+        const absHref = toAbsolute(href, url);
+        if (/fonts\.googleapis\.com/i.test(absHref)) { googleFontLinks.push(absHref); continue; }
+        if (cssChunks.length < 8) {
+          const text = await fetchCSSText(absHref, url).catch(()=>'');
+          if (text) cssChunks.push(text);
+        }
+      }
+
+      const allCSS = cssChunks.join('\n');
+      const rawColors = extractAllColoursFromCSS(allCSS);
+      const meta = extractMeta(doc);
+      if (meta.themeColor && /^#[0-9a-f]{3,6}$/i.test(meta.themeColor)) {
+        const tc = hexNorm(meta.themeColor);
+        if (!isSkippable(tc)) rawColors.unshift(tc);
+      }
+      const dedupedColours = dedupeColours(rawColors, 10);
+      const colors = dedupedColours.map((hex,i) => ({
+        hex: hex.toUpperCase(),
+        name: ['Primary','Secondary','Accent','Neutral','Surface','Tint','Shade','Highlight','Muted','Dark'][i] || 'Colour '+(i+1),
+        role: ['primary','secondary','accent','neutral','surface','tint','shade','highlight','muted','dark'][i] || 'accent',
+      }));
+
+      const pairs   = extractColourPairs(allCSS, dedupedColours);
+      const fonts   = extractFontsFromCSS(allCSS, googleFontLinks);
+      const logoUrl    = extractLogoUrl(doc, url, domain);
+      const faviconUrl = meta.faviconUrl ? toAbsolute(meta.faviconUrl, url) : `https://${domain}/favicon.ico`;
+      const iconUrls   = [
+        toAbsolute('/apple-touch-icon.png', url),
+        toAbsolute('/favicon.svg', url),
+        toAbsolute('/favicon-32x32.png', url),
+        meta.ogImage ? toAbsolute(meta.ogImage, url) : null,
+      ].filter(Boolean) as string[];
+
+      brandData = { name:meta.name||domain, domain, tagline:meta.desc?meta.desc.slice(0,160):'',
+                    colors, pairs, fonts, logoUrl, faviconUrl, iconUrls,
+                    meta:{ description:meta.desc, twitter:meta.twitterSite||null,
+                           themeColor:meta.themeColor||null, ogImage:meta.ogImage||null } };
+
+      showStatus('✓ Brand assets extracted from CSS and HTML.', 'ok');
+      renderBrandResults(brandData, url);
+    } catch(err: any) {
+      showStatus('✕ '+err.message, 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Extract Brand';
+    }
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('brandStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-4 text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-4 text-sm text-rose-500'
+        : 'mb-4 text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  /* ── Render ── */
+  function renderBrandResults(data: any, sourceUrl: string) {
+    // Header
+    document.getElementById('brandHeader')!.innerHTML =
+      '<div class="brand-logo-box"><img src="'+data.logoUrl+'" alt="'+(data.name||'')+' logo" onerror="handleLogoError(this,\''+data.domain+'\')"></div>'+
+      '<div class="brand-meta"><h2>'+(data.name||data.domain)+'</h2>'+
+      (data.tagline?'<p>'+data.tagline+'</p>':'')+
+      '<p style="color:#94a3b8;font-size:0.7rem;">'+sourceUrl+'</p></div>';
+
+    // Colours
+    const colorsEl = document.getElementById('brandColors')!;
+    colorsEl.innerHTML = '';
+    if (data.colors.length) {
+      data.colors.forEach((c: any) => {
+        const lum = relativeLuminance(c.hex.toLowerCase());
+        const textOnSwatch = lum > 0.35 ? '#1a1817' : '#f5f2ec';
+        const card = document.createElement('div');
+        card.className = 'brand-color-card';
+        card.innerHTML =
+          '<div class="brand-color-swatch" style="background:'+c.hex+';">'+
+            '<button class="brand-color-copy" style="color:'+textOnSwatch+';border-color:'+textOnSwatch+'20;" '+
+            'onclick="copyBrandColor(this,\''+c.hex+'\')" title="Copy hex">'+c.hex+'</button>'+
+          '</div>'+
+          '<div class="brand-color-info">'+
+            '<div class="brand-color-hex">'+c.hex+'</div>'+
+            '<div class="brand-color-role">'+c.name+'</div>'+
+          '</div>';
+        colorsEl.appendChild(card);
+      });
+    } else {
+      colorsEl.innerHTML = '<p class="brand-empty-note col-span-full">No prominent colours found.</p>';
+    }
+
+    // Colour combinations
+    renderColourCombinations(data.pairs || []);
+
+    // Ionic
+    renderIonicPalette(data.colors || []);
+
+    // Fonts
+    const fontsEl = document.getElementById('brandFonts')!;
+    fontsEl.innerHTML = '';
+    if (data.fonts.length) {
+      data.fonts.forEach((f: any) => {
+        if (f.source==='Google Fonts') {
+          const link = document.createElement('link');
+          link.rel='stylesheet';
+          link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(f.name.replace(/ /g,'+'))+'&display=swap';
+          document.head.appendChild(link);
+        }
+        const card = document.createElement('div');
+        card.className = 'brand-font-card';
+        card.innerHTML =
+          '<div class="brand-font-preview" style="font-family:\''+f.name+'\',sans-serif;">'+f.sample+'</div>'+
+          '<div class="brand-font-name">'+f.name+'</div>'+
+          '<div class="brand-font-source">'+f.role+' · '+f.source+'</div>';
+        fontsEl.appendChild(card);
+      });
+    } else {
+      fontsEl.innerHTML = '<p class="brand-empty-note">No custom fonts detected.</p>';
+    }
+
+    // Icons
+    const iconsEl = document.getElementById('brandIcons')!;
+    iconsEl.innerHTML = '';
+    const allIconUrls = [
+      { url:data.logoUrl, label:'Logo' },
+      { url:data.faviconUrl, label:'Favicon' },
+      ...(data.iconUrls||[]).map((u: string,i: number)=>({ url:u, label:['Apple Icon','Favicon SVG','Favicon 32px','OG Image'][i]||'Asset '+(i+1) })),
+    ];
+    allIconUrls.slice(0,8).forEach((item: {url:string;label:string}) => {
+      const card = document.createElement('div');
+      card.className = 'brand-icon-card';
+      card.title = 'Click to open';
+      card.onclick = () => { const a=document.createElement('a'); a.href=item.url; a.target='_blank'; a.click(); };
+      card.innerHTML = '<img src="'+item.url+'" alt="'+item.label+'" onerror="this.parentElement.style.display=\'none\'"><div class="brand-icon-label">'+item.label+'</div>';
+      iconsEl.appendChild(card);
+    });
+
+    // Meta table
+    const meta = data.meta||{};
+    document.getElementById('brandMetaTable')!.innerHTML = [
+      ['Domain',       data.domain],
+      ['Site name',    data.name||'—'],
+      ['Theme colour', meta.themeColor||'—'],
+      ['Twitter',      meta.twitter?'<a href="https://twitter.com/'+meta.twitter.replace('@','')+'" target="_blank">'+meta.twitter+'</a>':'—'],
+      ['OG Image',     meta.ogImage?'<a href="'+meta.ogImage+'" target="_blank">View image</a>':'—'],
+      ['Description',  meta.description?meta.description.slice(0,200):'—'],
+    ].map(([k,v])=>'<tr><td>'+k+'</td><td>'+v+'</td></tr>').join('');
+
+    const resultsEl = document.getElementById('brandResults')!;
+    resultsEl.classList.remove('hidden');
+    resultsEl.style.display = 'flex';
+    resultsEl.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function renderColourCombinations(pairs: any[]) {
+    const el = document.getElementById('brandCombos')!;
+    el.innerHTML = '';
+    if (!pairs.length) {
+      el.innerHTML = '<p class="brand-empty-note col-span-full">No colour pairings detected in CSS rules.</p>';
+      return;
+    }
+    pairs.forEach(p => {
+      const ratio = contrastRatio(p.fg, p.bg);
+      const wcag  = wcagLabel(ratio);
+      const card = document.createElement('div');
+      card.className = 'brand-combo-card';
+      card.innerHTML =
+        '<div class="brand-combo-preview" style="background:'+p.bg+';">'+
+          '<span class="brand-combo-preview-text" style="color:'+p.fg+';">Aa</span>'+
+          '<span class="brand-combo-preview-small" style="color:'+p.fg+';">Sample text</span>'+
+        '</div>'+
+        '<div class="brand-combo-info">'+
+          '<div class="brand-combo-swatches">'+
+            '<div class="brand-combo-swatch-pair">'+
+              '<button class="brand-combo-chip" style="background:'+p.fg+';border:1px solid rgba(0,0,0,0.15);" onclick="copyBrandColor(this,\''+p.fg+'\')" title="Copy">'+
+                '<span class="brand-combo-chip-label">FG</span><span class="brand-combo-chip-hex">'+p.fg+'</span>'+
+              '</button>'+
+              '<button class="brand-combo-chip" style="background:'+p.bg+';border:1px solid rgba(0,0,0,0.15);" onclick="copyBrandColor(this,\''+p.bg+'\')" title="Copy">'+
+                '<span class="brand-combo-chip-label">BG</span><span class="brand-combo-chip-hex">'+p.bg+'</span>'+
+              '</button>'+
+            '</div>'+
+          '</div>'+
+          '<div class="brand-combo-meta">'+
+            '<span class="brand-combo-ratio">'+ratio.toFixed(2)+':1</span>'+
+            '<span class="brand-combo-badge '+wcag.cls+'">'+wcag.level+'</span>'+
+          '</div>'+
+        '</div>';
+      el.appendChild(card);
+    });
+  }
+
+  function renderIonicPalette(colors: any[]) {
+    const el = document.getElementById('brandIonic')!;
+    el.innerHTML = '';
+    if (colors.length < 1) {
+      el.innerHTML = '<p class="brand-empty-note">Not enough colours to generate an Ionic palette.</p>';
+      return;
+    }
+    const roles = ['primary', 'secondary', 'tertiary'];
+    const ionicColors = colors.slice(0, 3).map((c: any, i: number) => buildIonicColor(roles[i], c.hex.toLowerCase()));
+    ionicColors.forEach(ic => {
+      const card = document.createElement('div');
+      card.className = 'brand-ionic-card';
+      card.innerHTML =
+        '<div class="brand-ionic-role">'+ic.name+'</div>'+
+        '<div class="brand-ionic-swatches">'+
+          '<div class="brand-ionic-swatch-wrap">'+
+            '<div class="brand-ionic-swatch" style="background:'+ic.shade+';">'+
+              '<span class="brand-ionic-swatch-label" style="color:'+contrastText(ic.shade)+';">shade</span>'+
+            '</div><div class="brand-ionic-hex">'+ic.shade+'</div>'+
+          '</div>'+
+          '<div class="brand-ionic-swatch-wrap brand-ionic-swatch-base-wrap">'+
+            '<div class="brand-ionic-swatch brand-ionic-swatch-lg" style="background:'+ic.base+';">'+
+              '<span class="brand-ionic-swatch-label" style="color:'+contrastText(ic.base)+';">base</span>'+
+            '</div><div class="brand-ionic-hex brand-ionic-hex-base">'+ic.base+'</div>'+
+          '</div>'+
+          '<div class="brand-ionic-swatch-wrap">'+
+            '<div class="brand-ionic-swatch" style="background:'+ic.tint+';">'+
+              '<span class="brand-ionic-swatch-label" style="color:'+contrastText(ic.tint)+';">tint</span>'+
+            '</div><div class="brand-ionic-hex">'+ic.tint+'</div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="brand-ionic-vars">'+
+          '<code>--ion-color-'+ic.name+': '+ic.base+'</code>'+
+          '<code>--ion-color-'+ic.name+'-shade: '+ic.shade+'</code>'+
+          '<code>--ion-color-'+ic.name+'-tint: '+ic.tint+'</code>'+
+          '<code>--ion-color-'+ic.name+'-contrast: '+ic.contrast+'</code>'+
+        '</div>';
+      el.appendChild(card);
+    });
+    const cssText = generateIonicCSS(ionicColors);
+    const copyWrap = document.createElement('div');
+    copyWrap.className = 'brand-ionic-copy-row';
+    copyWrap.dataset.css = cssText;
+    copyWrap.innerHTML = '<button class="brand-export-btn" onclick="copyIonicCSS(this)">Copy Ionic CSS Variables</button>';
+    el.appendChild(copyWrap);
+  }
+
+  function generateIonicCSS(ionicColors: any[]): string {
+    let css = ':root {\n';
+    ionicColors.forEach(ic => {
+      css += '  --ion-color-'+ic.name+': '+ic.base+';\n';
+      css += '  --ion-color-'+ic.name+'-rgb: '+ic.rgb+';\n';
+      css += '  --ion-color-'+ic.name+'-contrast: '+ic.contrast+';\n';
+      css += '  --ion-color-'+ic.name+'-contrast-rgb: '+ic.contrastRgb+';\n';
+      css += '  --ion-color-'+ic.name+'-shade: '+ic.shade+';\n';
+      css += '  --ion-color-'+ic.name+'-tint: '+ic.tint+';\n\n';
+    });
+    css += '}';
+    return css;
+  }
+
+  /* ── Globals for inline onclick ── */
+  (window as any).copyBrandColor = (btn: HTMLElement, hex: string) => {
+    navigator.clipboard.writeText(hex).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span style="font-size:0.8rem;">✓</span>';
+      setTimeout(() => { btn.innerHTML = orig; }, 1200);
+    });
+  };
+
+  (window as any).copyIonicCSS = (btn: HTMLElement) => {
+    const css = (btn.closest('.brand-ionic-copy-row') as HTMLElement)?.dataset.css || '';
+    navigator.clipboard.writeText(css).then(() => {
+      const orig = btn.textContent!;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+  };
+
+  (window as any).handleLogoError = (img: HTMLImageElement, domain: string) => {
+    const fallbacks = [
+      'https://'+domain+'/favicon.ico',
+      'https://'+domain+'/favicon.svg',
+      'https://'+domain+'/apple-touch-icon.png',
+      'https://'+domain+'/logo.png',
+    ];
+    const tried = img.dataset.tried ? parseInt(img.dataset.tried) : 0;
+    if (tried < fallbacks.length) { img.dataset.tried=String(tried+1); img.src=fallbacks[tried]; }
+    else {
+      const box = img.parentElement!;
+      box.innerHTML = '<div class="brand-logo-placeholder">'+domain.charAt(0).toUpperCase()+'</div>';
+    }
+  };
+
+  /* ── Exports ── */
+  document.getElementById('brandExportCSSBtn')!.addEventListener('click', () => {
+    if (!brandData) return;
+    const name = (brandData.name||'brand').toLowerCase().replace(/\s+/g,'-');
+    let css = '/* '+brandData.name+' — Extracted Brand Variables\n   Source: '+brandData.domain+'\n   Generated by Toolbox */\n\n:root {\n';
+    (brandData.colors||[]).forEach((c: any,i: number) => {
+      css += '  --'+name+'-'+c.role+(i>0?'-'+(i+1):'')+': '+c.hex+'; /* '+c.name+' */\n';
+    });
+    css += '\n';
+    (brandData.fonts||[]).forEach((f: any) => { css += '  --font-'+f.role+': \''+f.name+'\', sans-serif;\n'; });
+    css += '}';
+    const url = URL.createObjectURL(new Blob([css],{type:'text/css'}));
+    const a = document.createElement('a'); a.href=url; a.download=name+'-brand-variables.css';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  });
+
+  document.getElementById('brandExportJSONBtn')!.addEventListener('click', () => {
+    if (!brandData) return;
+    const name = (brandData.name||'brand').toLowerCase().replace(/\s+/g,'-');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(brandData,null,2)],{type:'application/json'}));
+    const a = document.createElement('a'); a.href=url; a.download=name+'-brand.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  });
+
+  document.getElementById('brandExportMDBtn')!.addEventListener('click', () => {
+    if (!brandData) return;
+    const d=brandData, name=(d.name||'Brand').replace(/\s+/g,'-').toLowerCase();
+    let md = '# '+d.name+' — Extracted Brand Guidelines\n\n';
+    if (d.tagline) md += '> '+d.tagline+'\n\n';
+    md += '**Domain:** '+d.domain+'\n\n';
+    md += '## Colour Palette\n\n| Name | Hex | Role |\n|------|-----|------|\n';
+    (d.colors||[]).forEach((c: any) => { md += '| '+c.name+' | `'+c.hex+'` | '+c.role+' |\n'; });
+    if ((d.pairs||[]).length) {
+      md += '\n## Colour Combinations\n\n| Foreground | Background | Contrast | WCAG |\n|-----------|-----------|---------|------|\n';
+      d.pairs.forEach((p: any) => {
+        const r=contrastRatio(p.fg,p.bg), w=wcagLabel(r);
+        md += '| `'+p.fg+'` | `'+p.bg+'` | '+r.toFixed(2)+':1 | '+w.level+' |\n';
+      });
+    }
+    md += '\n## Typography\n\n| Font | Role | Source |\n|------|------|--------|\n';
+    (d.fonts||[]).forEach((f: any) => { md += '| '+f.name+' | '+f.role+' | '+f.source+' |\n'; });
+    md += '\n---\n*Extracted by Toolbox — https://lindetoolbox.com/*\n';
+    const url = URL.createObjectURL(new Blob([md],{type:'text/markdown'}));
+    const a = document.createElement('a'); a.href=url; a.download=name+'-brand-guidelines.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  });
+
+  document.getElementById('brandUrl')!.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key==='Enter') fetchBrandAssets(); });
+  document.getElementById('brandFetchBtn')!.addEventListener('click', fetchBrandAssets);
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

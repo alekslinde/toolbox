@@ -1,0 +1,222 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'What it does', body: 'Replaces generic <div> and <span> elements with semantic HTML5 elements based on class and id names.' },
+  { heading: 'Detected patterns', body: 'header, footer, nav, main, aside, article, section, figure — matched against class and id attribute values.' },
+  { heading: 'Buttons', body: '<div onclick="…"> and <span onclick="…"> are converted to <button> elements.' },
+  { heading: 'Pure JS', body: 'Uses DOMParser in your browser — no uploads, no external libraries.' },
+];
+
+const faq = [
+  { question: 'What elements are converted?', answer: 'Any <div> or <span> whose class or id contains a recognised pattern: header, footer, nav, main, aside, article, section, figure. Divs and spans with an onclick attribute are also converted to <button>.' },
+  { question: 'Will it break my HTML?', answer: 'The converter uses DOMParser to parse and serialise the HTML, so attribute order and some whitespace may change. Always review the diff before using the output in production.' },
+  { question: 'Is my HTML uploaded?', answer: 'No — DOMParser runs entirely in your browser. Nothing is sent to a server.' },
+];
+---
+
+<MainLayout
+  title="Semantic HTML Converter — Free In-Browser Tool | Toolbox"
+  description="Convert generic div/span elements to semantic HTML5 elements based on class and id names. In your browser."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Semantic HTML" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Semantic HTML Converter</h1>
+        <p class="mt-1 text-sm text-slate-500">Replace generic &lt;div&gt; elements with semantic HTML5 landmarks.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Input -->
+          <div class="mb-3">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">HTML input</label>
+              <button id="semanticClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+            <textarea id="semanticInput" rows="10" spellcheck="false" placeholder="Paste your HTML here…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <button id="semanticBtn"
+            class="mb-4 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            Convert to Semantic HTML
+          </button>
+
+          <p id="semanticStatus" class="hidden mb-3 text-center text-sm"></p>
+
+          <!-- Changes list -->
+          <div id="semanticChanges" class="mb-4"></div>
+
+          <!-- Output -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Semantic output</label>
+              <button id="semanticCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+            </div>
+            <textarea id="semanticOutput" rows="10" readonly spellcheck="false"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Semantic HTML Converter</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Paste HTML that uses generic &lt;div&gt; and &lt;span&gt; elements and this tool will replace them with appropriate HTML5 semantic landmark elements (&lt;header&gt;, &lt;nav&gt;, &lt;main&gt;, &lt;aside&gt;, &lt;footer&gt;, &lt;article&gt;, &lt;section&gt;, &lt;figure&gt;) based on class and id attribute names. Improves accessibility, SEO and screen reader compatibility. Uses DOMParser — no uploads.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a> · <a href="/tools/file-diff" class="text-purple-500 hover:underline">File Diff</a></p>
+          <p class="mt-2">Keywords: semantic HTML converter, div to semantic, HTML5 landmarks, accessibility HTML, semantic markup tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .code-changes-title { font-size: 0.75rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem; }
+  .code-change-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.7rem; font-family: monospace; border-bottom: 1px solid #f1f5f9; }
+  .code-change-from { color: #ef4444; }
+  .code-change-arrow { color: #94a3b8; }
+  .code-change-to   { color: #10b981; }
+  .code-no-changes  { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
+</style>
+
+<script>
+  const SEMANTIC_MAP: Array<{ tag: string; re: RegExp | null; out: string; onlyOnclick?: boolean }> = [
+    { tag: 'div',  re: /\b(header|site-header|page-header|top-header|masthead|banner|global-header)\b/i, out: 'header'  },
+    { tag: 'div',  re: /\b(footer|site-footer|page-footer|global-footer|colophon|bottom)\b/i,           out: 'footer'  },
+    { tag: 'div',  re: /\b(nav|navbar|navigation|main-nav|primary-nav|site-nav|top-nav)\b/i,            out: 'nav'     },
+    { tag: 'div',  re: /\b(main|main-content|page-content|primary-content|content-area|content-wrap)\b/i, out: 'main'  },
+    { tag: 'div',  re: /\b(aside|sidebar|secondary|widget-area|sidebar-content|sidebar-wrap)\b/i,       out: 'aside'   },
+    { tag: 'div',  re: /\b(article|post|entry|blog-post|news-item|hentry|post-content)\b/i,             out: 'article' },
+    { tag: 'div',  re: /\b(section|block|panel)\b/i,                                                    out: 'section' },
+    { tag: 'div',  re: /\b(figure|img-wrap|image-wrapper|image-container|photo-wrap|media-wrap)\b/i,    out: 'figure'  },
+    { tag: 'div',  re: null, out: 'button', onlyOnclick: true },
+    { tag: 'span', re: null, out: 'button', onlyOnclick: true },
+  ];
+
+  function escHtml(s: string): string {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function makeHtmlSemantic(html: string): { html: string; changes: Array<{ from: string; to: string }> } {
+    const changes: Array<{ from: string; to: string }> = [];
+    const parser = new DOMParser();
+    const doc  = parser.parseFromString('<body>' + html + '</body>', 'text/html');
+    const root = doc.body;
+
+    for (const rule of SEMANTIC_MAP) {
+      root.querySelectorAll(rule.tag).forEach(el => {
+        if (rule.onlyOnclick && !el.hasAttribute('onclick')) return;
+        const cls = (el.className || '').toString();
+        const id  = el.id || '';
+        if (rule.re && !rule.re.test(cls) && !rule.re.test(id)) return;
+
+        const hint  = cls || id;
+        const newEl = doc.createElement(rule.out);
+        Array.from(el.attributes).forEach(a => newEl.setAttribute(a.name, a.value));
+        while (el.firstChild) newEl.appendChild(el.firstChild);
+        el.replaceWith(newEl);
+
+        changes.push({
+          from: `&lt;${rule.tag}${hint ? ` class="${escHtml(hint.trim())}"` : ''}&gt;`,
+          to:   `&lt;${rule.out}&gt;`,
+        });
+      });
+    }
+
+    return { html: root.innerHTML, changes };
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('semanticStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-3 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-3 text-center text-sm text-rose-500'
+        : 'mb-3 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  document.getElementById('semanticBtn')!.addEventListener('click', () => {
+    const input = (document.getElementById('semanticInput') as HTMLTextAreaElement).value;
+    if (!input.trim()) { showStatus('Paste some HTML first.', 'err'); return; }
+    const btn = document.getElementById('semanticBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    document.getElementById('semanticChanges')!.innerHTML = '';
+
+    try {
+      const { html, changes } = makeHtmlSemantic(input);
+      (document.getElementById('semanticOutput') as HTMLTextAreaElement).value = html;
+
+      const changesEl = document.getElementById('semanticChanges')!;
+      if (changes.length === 0) {
+        changesEl.innerHTML = '<p class="code-no-changes">No matches found — class/id names didn\'t match known patterns. Common triggers: <code>header</code>, <code>nav</code>, <code>main</code>, <code>aside</code>, <code>footer</code>, <code>article</code>, <code>section</code>.</p>';
+        showStatus('✓ Scanned — no replacements made.', 'info');
+      } else {
+        const rows = changes.map(c =>
+          `<div class="code-change-row"><span class="code-change-from">${c.from}</span><span class="code-change-arrow">→</span><span class="code-change-to">${c.to}</span></div>`
+        ).join('');
+        changesEl.innerHTML = `<p class="code-changes-title">${changes.length} replacement${changes.length !== 1 ? 's' : ''} made</p>${rows}`;
+        showStatus(`✓ Made ${changes.length} semantic replacement${changes.length !== 1 ? 's' : ''}.`, 'ok');
+      }
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+    }
+
+    btn.disabled = false;
+  });
+
+  document.getElementById('semanticClearBtn')!.addEventListener('click', () => {
+    (document.getElementById('semanticInput') as HTMLTextAreaElement).value = '';
+  });
+
+  document.getElementById('semanticCopyBtn')!.addEventListener('click', function(this: HTMLElement) {
+    const val = (document.getElementById('semanticOutput') as HTMLTextAreaElement).value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = this.textContent!;
+      this.textContent = '✓ Copied'; this.classList.add('text-emerald-600');
+      setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+    });
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

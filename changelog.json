@@ -1,0 +1,32 @@
+[
+  {
+    "version": "6.0",
+    "date": "2026-05-07",
+    "changes": [
+      "New: Token Defluffer — paste any text to count tokens and get a shorter AI rewrite",
+      "Font Inspector now identifies fonts from screenshots",
+      "AI tools rate-limited to stay free for everyone",
+      "Home page: search-first layout, cleaner copy",
+      "All tools now listed in the sidebar"
+    ]
+  },
+  {
+    "version": "5.10",
+    "date": "2026-05-05",
+    "changes": [
+      "Home page redesigned with categorised tool directory and featured sections",
+      "Tints & Shades: click-to-copy tooltip on colour swatches and hex labels",
+      "PDF compressor: lossless FlateDecode re-encoding option for screenshots and illustrations",
+      "Usage tracking replaced with explicit \"👍 This helped me\" button"
+    ]
+  },
+  {
+    "version": "5.5–5.9",
+    "date": "2026-04-29",
+    "changes": [
+      "Font Tools: combined Font Converter, Font Inspector and Font Pairs into a single tabbed page",
+      "Contrast tool: WCAG AAA (7:1) nearest-match colour suggestions and redesigned right column",
+      "Colors: new Tints & Shades tab with CSS variable and JSON export"
+    ]
+  }
+]

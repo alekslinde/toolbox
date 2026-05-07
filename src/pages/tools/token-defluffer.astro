@@ -1,0 +1,448 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Token estimate',    body: 'Text uses the ~4 chars/token approximation. Images use the formula: (width × height) ÷ 750 after auto-resizing. Both are estimates.' },
+  { heading: 'How compression works', body: 'tokenshrink replaces verbose phrases and words with verified shorter equivalents (e.g. "in order to" → "to") and prepends a [DECODE] header so LLMs understand the substitutions.' },
+  { heading: 'Runs in your browser', body: 'Compression is entirely local — no text is sent to any server. Works offline and has no rate limits.' },
+  { heading: 'Best use cases',    body: 'System prompts, context documents, and long instructions you feed repeatedly to an LLM — smaller inputs save tokens on every call.' },
+];
+
+const faq = [
+  { question: 'How accurate is the token count?', answer: 'The estimate uses the widely-cited rule of thumb: ~4 characters per token. It is accurate to ±15% for English prose. For precise counts, use the tokeniser for your specific model (e.g. tiktoken for GPT, claude-tokenizer for Claude).' },
+  { question: 'Does the tool send my text to a server?', answer: 'No — everything runs locally in your browser using the tokenshrink library. No text ever leaves the page.' },
+  { question: 'What does compression actually change?', answer: 'tokenshrink replaces verbose words and phrases with shorter equivalents that are verified to save real BPE tokens (e.g. "in order to" → "to", "as well as" → "and"). A [DECODE] header is prepended so the receiving LLM knows the substitutions.' },
+  { question: 'Will it change the meaning of my text?', answer: 'tokenshrink only makes substitutions that are semantically equivalent. The [DECODE] header lets the LLM reconstruct the original intent. Always review compressed output before using it in critical prompts.' },
+];
+---
+
+<MainLayout
+  title="Token Defluffer — Free In-Browser Tool | Toolbox"
+  description="Count approximate tokens in any text and compress it with tokenshrink to use fewer tokens every time you send it to an LLM."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Token Defluffer" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Token Defluffer</h1>
+        <p class="mt-1 text-sm text-slate-500">Count tokens and compress text to use fewer tokens every time you send it to an LLM.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8 flex flex-col gap-6">
+
+        <!-- Input panel -->
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+          <div class="mb-3 flex items-center justify-between">
+            <label for="dfInput" class="text-sm font-medium text-slate-700">Input text</label>
+            <div class="flex items-center gap-2">
+              <span id="dfInStats" class="text-xs text-slate-400">0 chars · ~0 tokens</span>
+              <span id="dfComplexity" class="hidden rounded-full px-2 py-0.5 text-xs font-medium"></span>
+            </div>
+          </div>
+          <textarea
+            id="dfInput"
+            rows="10"
+            placeholder="Paste your system prompt, instructions or any text here…"
+            class="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-sm text-slate-800 focus:border-purple-400 focus:outline-none"
+          ></textarea>
+          <div class="mt-4 flex items-center gap-3">
+            <button id="dfBtn"
+              class="rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+              Compress
+            </button>
+            <button id="dfClear"
+              class="rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-500 transition-colors hover:border-purple-300 hover:text-slate-700">
+              Clear
+            </button>
+            <span id="dfStatus" class="ml-auto text-xs text-slate-400"></span>
+          </div>
+        </div>
+
+        <!-- Images -->
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+          <div class="mb-3 flex items-center justify-between">
+            <span class="text-sm font-medium text-slate-700">
+              Images
+              <span class="ml-1 text-xs font-normal text-slate-400">optional · estimates image token cost</span>
+            </span>
+            <span id="dfImgTotalTok" class="hidden text-xs text-slate-400"></span>
+          </div>
+          <label
+            id="dfImgDrop"
+            for="dfImgInput"
+            class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition-colors hover:border-purple-300 hover:bg-purple-50"
+          >
+            <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3 21h18M21 3H3m18 18V6a.75.75 0 0 0-.75-.75H3.75A.75.75 0 0 0 3 6v12" />
+            </svg>
+            <p class="text-sm text-slate-500">Drop images here or <span class="text-purple-500">browse</span></p>
+            <p class="text-xs text-slate-400">Uses the image token formula: (width × height) ÷ 750</p>
+            <input id="dfImgInput" type="file" accept="image/*" multiple class="sr-only" />
+          </label>
+          <ul id="dfImgList" class="mt-3 flex flex-col gap-2"></ul>
+        </div>
+
+        <!-- Combined total -->
+        <div id="dfTotalPanel" class="hidden rounded-md border border-indigo-100 bg-indigo-50/60 px-5 py-4">
+          <p class="mb-2.5 text-xs font-semibold uppercase tracking-widest text-indigo-400">Combined estimate</p>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-xs text-slate-600">
+              <span>Text</span><span id="dfCombText"></span>
+            </div>
+            <div class="flex justify-between text-xs text-slate-600">
+              <span id="dfCombImgLabel">Images</span><span id="dfCombImg"></span>
+            </div>
+            <div class="mt-1 flex justify-between border-t border-indigo-200/60 pt-2 text-sm font-semibold text-indigo-700">
+              <span>Total</span><span id="dfCombTotal"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output panel -->
+        <div id="dfOutputPanel" class="hidden rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+          <div class="mb-3 flex items-center justify-between">
+            <span class="text-sm font-medium text-slate-700">Compressed output</span>
+            <div class="flex items-center gap-3">
+              <span id="dfOutStats" class="text-xs text-slate-400"></span>
+              <span id="dfSaving" class="hidden rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700"></span>
+              <button id="dfCopyBtn"
+                class="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+                Copy
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="dfOutput"
+            rows="10"
+            readonly
+            class="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-sm text-slate-800 focus:outline-none"
+          ></textarea>
+        </div>
+
+        <!-- Error -->
+        <div id="dfError" class="hidden rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Token Defluffer</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Paste any text to see an instant approximate token count using the standard 4-characters-per-token rule of thumb. Click "Compress" to run the text through <a href="https://www.npmjs.com/package/tokenshrink" class="text-purple-500 hover:underline">tokenshrink</a>, a local library that replaces verbose phrases with shorter equivalents verified to save real BPE tokens. The output includes a [DECODE] header so any LLM understands the substitutions — useful for system prompts, long instructions and repeated context documents.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a> · <a href="/tools/semantic-html" class="text-purple-500 hover:underline">Semantic HTML Converter</a></p>
+          <p class="mt-2">Keywords: token counter, LLM token estimate, prompt optimiser, reduce tokens, defluff text, AI rewrite</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  import { compress, getDictionary, detectStrategy, ZERO_SAVINGS, NEGATIVE_SAVINGS, replacementTokenSavings } from 'tokenshrink';
+
+  function escRe(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // compress() refuses texts under 30 words because the DECODE header overhead
+  // exceeds savings. For short texts we run phases 1 & 2 ourselves — same
+  // replacements, no rosetta (not worth it at that length).
+  function compressAny(text: string) {
+    const trimmed = text.trim();
+    const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+    if (wordCount >= 30) return compress(trimmed);
+
+    const detected = detectStrategy(trimmed);
+    const dict = getDictionary(detected.domain);
+    let out = trimmed;
+
+    const phraseEntries = (Object.entries(dict) as [string, string][])
+      .filter(([k]) => k.includes(' '))
+      .sort((a, b) => b[0].length - a[0].length);
+    for (const [phrase, abbr] of phraseEntries) {
+      if (ZERO_SAVINGS.has(phrase) || NEGATIVE_SAVINGS.has(phrase)) continue;
+      if (replacementTokenSavings(phrase, abbr) <= 0) continue;
+      out = out.replace(new RegExp(`\\b${escRe(phrase)}\\b`, 'gi'), abbr);
+    }
+
+    const wordEntries = (Object.entries(dict) as [string, string][])
+      .filter(([k]) => !k.includes(' '))
+      .sort((a, b) => b[0].length - a[0].length);
+    for (const [word, abbr] of wordEntries) {
+      if (word === abbr) continue;
+      if (ZERO_SAVINGS.has(word) || NEGATIVE_SAVINGS.has(word)) continue;
+      if (replacementTokenSavings(word, abbr) <= 0) continue;
+      out = out.replace(new RegExp(`\\b${escRe(word)}\\b`, 'gi'), abbr);
+    }
+
+    out = out.replace(/\n{3,}/g, '\n\n').replace(/ {2,}/g, ' ').replace(/\t+/g, ' ')
+             .replace(/ +([.,;:!?])/g, '$1').trim();
+
+    const origTok = Math.ceil(trimmed.length / 4);
+    const compTok = Math.ceil(out.length / 4);
+    return {
+      compressed: out,
+      compressedBody: out,
+      rosetta: '',
+      original: trimmed,
+      stats: { originalTokens: origTok, totalCompressedTokens: compTok, tokensSaved: Math.max(0, origTok - compTok) },
+    };
+  }
+
+  function countTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  function statsText(text: string): string {
+    const chars  = text.length;
+    const tokens = countTokens(text);
+    return `${chars.toLocaleString()} chars · ~${tokens.toLocaleString()} tokens`;
+  }
+
+  function rateComplexity(text: string): { label: string; classes: string } | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+
+    const words     = trimmed.split(/\s+/);
+    const sentences = trimmed.split(/[.!?]+\s*/).filter((s) => s.trim().length > 0);
+    const tokens    = countTokens(trimmed);
+    const wps       = words.length / Math.max(sentences.length, 1);
+    const avgWLen   = words.reduce((s, w) => s + w.replace(/\W/g, '').length, 0) / Math.max(words.length, 1);
+
+    // Weighted composite: token count (length), words-per-sentence (density), avg word length (vocabulary)
+    const tScore = Math.min(tokens / 400, 1);
+    const wScore = Math.min(Math.max(wps - 8, 0) / 22, 1);
+    const lScore = Math.min(Math.max(avgWLen - 3, 0) / 4, 1);
+    const score  = tScore * 0.45 + wScore * 0.35 + lScore * 0.20;
+
+    if (score < 0.20) return { label: 'Lean',       classes: 'bg-emerald-50 text-emerald-700' };
+    if (score < 0.40) return { label: 'Clear',      classes: 'bg-sky-50 text-sky-700'         };
+    if (score < 0.60) return { label: 'Verbose',    classes: 'bg-amber-50 text-amber-700'     };
+    if (score < 0.80) return { label: 'Dense',      classes: 'bg-orange-50 text-orange-700'   };
+    return               { label: 'Very Dense',  classes: 'bg-rose-50 text-rose-700'       };
+  }
+
+  // ── Image token calculation ──────────────────────────────────────────────────
+
+  function esc(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function calcImageTokens(w: number, h: number): number {
+    const MAX_LONG = 1568;
+    const MAX_AREA = 1_150_000;
+    if (Math.max(w, h) > MAX_LONG) {
+      const s = MAX_LONG / Math.max(w, h);
+      w = Math.floor(w * s); h = Math.floor(h * s);
+    }
+    if (w * h > MAX_AREA) {
+      const s = Math.sqrt(MAX_AREA / (w * h));
+      w = Math.floor(w * s); h = Math.floor(h * s);
+    }
+    return Math.ceil(w * h / 750);
+  }
+
+  interface ImgEntry { id: string; name: string; width: number; height: number; tokens: number; url: string; }
+  let imgEntries: ImgEntry[] = [];
+
+  function updateCombined() {
+    const totalPanel     = document.getElementById('dfTotalPanel')!;
+    const dfImgTotalTok  = document.getElementById('dfImgTotalTok')!;
+    if (imgEntries.length === 0) {
+      dfImgTotalTok.classList.add('hidden');
+      totalPanel.classList.add('hidden');
+      return;
+    }
+    const textTok = countTokens((document.getElementById('dfInput') as HTMLTextAreaElement).value);
+    const imgTok  = imgEntries.reduce((s, e) => s + e.tokens, 0);
+    dfImgTotalTok.textContent = `~${imgTok.toLocaleString()} tokens`;
+    dfImgTotalTok.classList.remove('hidden');
+    document.getElementById('dfCombText')!.textContent     = `~${textTok.toLocaleString()} tokens`;
+    document.getElementById('dfCombImgLabel')!.textContent = `Images (${imgEntries.length})`;
+    document.getElementById('dfCombImg')!.textContent      = `~${imgTok.toLocaleString()} tokens`;
+    document.getElementById('dfCombTotal')!.textContent    = `~${(textTok + imgTok).toLocaleString()} tokens`;
+    totalPanel.classList.remove('hidden');
+  }
+
+  function renderImgList() {
+    const list = document.getElementById('dfImgList')!;
+    list.innerHTML = imgEntries.map((img) => `
+      <li class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+        <img src="${img.url}" class="h-10 w-10 shrink-0 rounded object-cover" alt="" />
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs font-medium text-slate-700">${esc(img.name)}</p>
+          <p class="text-xs text-slate-400">${img.width} × ${img.height} px · ~${img.tokens.toLocaleString()} tokens</p>
+        </div>
+        <button data-rm="${img.id}"
+          class="shrink-0 rounded p-1 text-slate-400 transition-colors hover:text-rose-500"
+          aria-label="Remove image">
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </li>
+    `).join('');
+    updateCombined();
+  }
+
+  function loadImageFile(file: File) {
+    const url   = URL.createObjectURL(file);
+    const imgEl = new Image();
+    imgEl.onload = () => {
+      imgEntries = [...imgEntries, {
+        id:     `${Date.now()}-${Math.random()}`,
+        name:   file.name,
+        width:  imgEl.naturalWidth,
+        height: imgEl.naturalHeight,
+        tokens: calcImageTokens(imgEl.naturalWidth, imgEl.naturalHeight),
+        url,
+      }];
+      renderImgList();
+    };
+    imgEl.src = url;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+
+  const input      = document.getElementById('dfInput')      as HTMLTextAreaElement;
+  const output     = document.getElementById('dfOutput')     as HTMLTextAreaElement;
+  const inStats    = document.getElementById('dfInStats')    as HTMLElement;
+  const outStats   = document.getElementById('dfOutStats')   as HTMLElement;
+  const saving     = document.getElementById('dfSaving')     as HTMLElement;
+  const btn        = document.getElementById('dfBtn')        as HTMLButtonElement;
+  const clearBtn   = document.getElementById('dfClear')      as HTMLButtonElement;
+  const copyBtn    = document.getElementById('dfCopyBtn')    as HTMLButtonElement;
+  const statusEl   = document.getElementById('dfStatus')     as HTMLElement;
+  const outputPanel = document.getElementById('dfOutputPanel') as HTMLElement;
+  const errorEl      = document.getElementById('dfError')      as HTMLElement;
+  const complexityEl = document.getElementById('dfComplexity') as HTMLElement;
+
+  function updateComplexity() {
+    const rating = rateComplexity(input.value);
+    if (!rating) {
+      complexityEl.className   = 'hidden rounded-full px-2 py-0.5 text-xs font-medium';
+      complexityEl.textContent = '';
+      return;
+    }
+    complexityEl.className   = `rounded-full px-2 py-0.5 text-xs font-medium ${rating.classes}`;
+    complexityEl.textContent = rating.label;
+  }
+
+  input.addEventListener('input', () => {
+    inStats.textContent = statsText(input.value);
+    updateComplexity();
+    updateCombined();
+  });
+
+  const imgInput = document.getElementById('dfImgInput') as HTMLInputElement;
+  const imgDrop  = document.getElementById('dfImgDrop')  as HTMLLabelElement;
+  const imgList  = document.getElementById('dfImgList')  as HTMLElement;
+
+  imgInput.addEventListener('change', () => {
+    Array.from(imgInput.files ?? []).forEach(loadImageFile);
+    imgInput.value = '';
+  });
+
+  imgDrop.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    imgDrop.classList.add('border-purple-400', 'bg-purple-50');
+  });
+  imgDrop.addEventListener('dragleave', () => {
+    imgDrop.classList.remove('border-purple-400', 'bg-purple-50');
+  });
+  imgDrop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    imgDrop.classList.remove('border-purple-400', 'bg-purple-50');
+    Array.from((e as DragEvent).dataTransfer?.files ?? [])
+      .filter((f) => f.type.startsWith('image/'))
+      .forEach(loadImageFile);
+  });
+
+  imgList.addEventListener('click', (e) => {
+    const btn = (e.target as Element).closest<HTMLElement>('[data-rm]');
+    if (!btn) return;
+    const entry = imgEntries.find((i) => i.id === btn.dataset.rm);
+    if (entry) URL.revokeObjectURL(entry.url);
+    imgEntries = imgEntries.filter((i) => i.id !== btn.dataset.rm);
+    renderImgList();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    inStats.textContent = '0 chars · ~0 tokens';
+    outputPanel.classList.add('hidden');
+    errorEl.classList.add('hidden');
+    statusEl.textContent = '';
+  });
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(output.value).then(() => {
+      const prev = copyBtn.textContent!;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = prev; }, 2000);
+    });
+  });
+
+  btn.addEventListener('click', () => {
+    const text = input.value.trim();
+    if (!text) {
+      errorEl.textContent = 'Please enter some text to compress.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    errorEl.classList.add('hidden');
+
+    const result = compressAny(text);
+    const { stats } = result;
+
+    output.value = result.compressed;
+    outStats.textContent = `${result.compressed.length.toLocaleString()} chars · ~${stats.totalCompressedTokens.toLocaleString()} tokens`;
+
+    const saved = stats.tokensSaved;
+    if (saved > 0) {
+      const pct = Math.round((saved / stats.originalTokens) * 100);
+      saving.textContent = `−${saved} tokens (${pct}% smaller)`;
+      saving.classList.remove('hidden');
+    } else {
+      saving.classList.add('hidden');
+    }
+
+    outputPanel.classList.remove('hidden');
+    statusEl.textContent = '';
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    const n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

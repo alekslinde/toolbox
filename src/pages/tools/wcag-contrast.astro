@@ -1,0 +1,410 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'AA Normal',  body: '4.5:1 minimum for body text under 18pt / 14pt bold.' },
+  { heading: 'AA Large',   body: '3:1 for large text (18pt+ or 14pt+ bold).' },
+  { heading: 'AAA Normal', body: '7:1 — enhanced, for maximum accessibility.' },
+  { heading: 'UI Components', body: '3:1 for interactive components and graphical elements.' },
+];
+
+const cheatSheet = [
+  { label: '4.5:1', value: 'AA — normal text' },
+  { label: '3:1',   value: 'AA — large text / UI' },
+  { label: '7:1',   value: 'AAA — enhanced' },
+];
+
+const faq = [
+  { question: 'What is WCAG contrast?', answer: 'WCAG (Web Content Accessibility Guidelines) defines minimum contrast ratios between text and its background to ensure readability for people with visual impairments.' },
+  { question: 'What counts as "large text"?', answer: 'Text at 18pt (24px) or larger, or 14pt (≈18.67px) bold or larger, is considered large text and requires a lower 3:1 ratio.' },
+  { question: 'How is the contrast ratio calculated?', answer: 'The ratio is (L1 + 0.05) / (L2 + 0.05), where L1 and L2 are the relative luminances of the lighter and darker colours respectively.' },
+];
+---
+
+<MainLayout
+  title="WCAG Contrast Checker — Free In-Browser Tool | Toolbox"
+  description="Check foreground/background colour contrast ratios against WCAG AA and AAA standards. Auto-suggestions for failing colours."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="WCAG Contrast Checker" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">WCAG Contrast Checker</h1>
+        <p class="mt-1 text-sm text-slate-500">Check foreground/background contrast. AA and AAA results with one-click suggestions.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Preview — above pickers, matching original layout -->
+          <div id="colorPreviewBox"
+            class="mb-5 flex h-[140px] items-center justify-center overflow-hidden rounded-md border border-slate-200"
+            style="background:#f5f2ec; transition: background 0.2s"
+          >
+            <div class="text-center">
+              <div id="colorPreviewText"
+                class="font-serif text-[1.8rem] leading-none tracking-[-0.02em]"
+                style="color:#0f0e0d; transition: color 0.2s"
+              >Aa Bb Cc</div>
+              <div id="colorPreviewSmall"
+                class="mt-1 font-sans text-sm font-light"
+                style="color:#0f0e0d; transition: color 0.2s"
+              >Normal text sample — 16px</div>
+            </div>
+          </div>
+
+          <!-- Colour pickers -->
+          <div class="mb-6 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Foreground colour</label>
+              <div class="flex items-center gap-2">
+                <input id="fgPicker" type="color" value="#0f0e0d"
+                  class="h-10 w-14 cursor-pointer rounded border border-slate-200" />
+                <input id="fgHex" type="text" value="#0f0e0d" maxlength="7" spellcheck="false"
+                  class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Background colour</label>
+              <div class="flex items-center gap-2">
+                <input id="bgPicker" type="color" value="#f5f2ec"
+                  class="h-10 w-14 cursor-pointer rounded border border-slate-200" />
+                <input id="bgHex" type="text" value="#f5f2ec" maxlength="7" spellcheck="false"
+                  class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4 flex justify-end">
+            <button id="swapBtn"
+              class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600">
+              ⇄ Swap colours
+            </button>
+          </div>
+
+          <!-- Ratio -->
+          <div class="mb-6 flex items-center gap-4">
+            <div class="text-center">
+              <span id="ratioNum" class="text-4xl font-bold tabular-nums text-slate-900">—</span>
+              <span class="ml-1 text-2xl font-semibold text-slate-400">:1</span>
+            </div>
+            <div id="wcagBadges" class="flex flex-wrap gap-2"></div>
+          </div>
+
+          <!-- Colour formats -->
+          <div class="mb-6 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">Foreground formats</p>
+              <div id="fgFormats" class="flex flex-col gap-1"></div>
+            </div>
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">Background formats</p>
+              <div id="bgFormats" class="flex flex-col gap-1"></div>
+            </div>
+          </div>
+
+          <!-- Shade rows -->
+          <div class="mb-4">
+            <p class="mb-2 text-xs font-medium text-slate-600">Foreground shades</p>
+            <div id="fgShadeRow" class="flex flex-wrap gap-1"></div>
+          </div>
+          <div class="mb-6">
+            <p class="mb-2 text-xs font-medium text-slate-600">Background shades</p>
+            <div id="bgShadeRow" class="flex flex-wrap gap-1"></div>
+          </div>
+
+          <!-- Suggestions -->
+          <div id="suggList" class="mb-4"></div>
+          <div id="aaaSuggList"></div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About WCAG Contrast Checker</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          WCAG 2.1 requires a minimum contrast ratio of 4.5:1 for normal text and 3:1 for large text (Level AA). The enhanced Level AAA requires 7:1 for normal text. This tool calculates the contrast ratio in real time, shows pass/fail badges for all four WCAG criteria, and suggests the nearest compliant shade when a colour pair fails.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/color-palette" class="text-purple-500 hover:underline">Colour Palette Generator</a> · <a href="/tools/tints-shades" class="text-purple-500 hover:underline">Tints &amp; Shades</a></p>
+          <p class="mt-2">Keywords: WCAG contrast checker, colour accessibility, contrast ratio calculator, AA AAA compliance, colour contrast tool</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style is:global>
+  .wcag-badge {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    border-radius: 9999px; padding: 0.2rem 0.65rem;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .wcag-badge.pass { background: rgba(34,197,94,0.1); color: #15803d; }
+  .wcag-badge.fail { background: rgba(239,68,68,0.1); color: #dc2626; }
+
+  .fmt-copy-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid #f1f5f9; }
+  .fmt-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; width: 2.5rem; shrink: 0; }
+  .fmt-value { flex: 1; font-family: 'DM Mono', monospace; font-size: 0.72rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fmt-copy-btn { font-size: 0.75rem; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 0.1rem 0.3rem; border-radius: 4px; }
+  .fmt-copy-btn:hover { color: #6366f1; }
+  .fmt-copy-btn.copied { color: #16a34a; }
+
+  .shade-swatch { position: relative; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; border: 1px solid rgba(0,0,0,0.08); }
+  .swatch-tip { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #1e293b; color: #e2e8f0; font-family: 'DM Mono', monospace; font-size: 0.65rem; padding: 0.2rem 0.4rem; border-radius: 4px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 10; }
+  .shade-swatch:hover .swatch-tip { opacity: 1; }
+
+  .contrast-sugg-card { padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 0.5rem; }
+  .contrast-sugg-pass { background: rgba(34,197,94,0.05); border-color: rgba(34,197,94,0.3); color: #15803d; font-size: 0.85rem; }
+  .sugg-title { font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; }
+</style>
+
+<script>
+  /* ── Color math ── */
+  function hexToRgb(hex: string) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    const n = parseInt(hex, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function rgbToHex(r: number, g: number, b: number): string {
+    return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+  }
+  function rgbToHsl(r: number, g: number, b: number) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+  }
+  function hslToRgb(h: number, s: number, l: number) {
+    s /= 100; l /= 100; h /= 360;
+    let r: number, g: number, b: number;
+    if (s === 0) { r = g = b = l; } else {
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t++; if (t > 1) t--;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+    }
+    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+  }
+  function linearize(c: number) { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function relativeLuminance(r: number, g: number, b: number) { return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b); }
+  function contrastRatio(hex1: string, hex2: string) {
+    const c1 = hexToRgb(hex1), c2 = hexToRgb(hex2);
+    const l1 = relativeLuminance(c1.r, c1.g, c1.b), l2 = relativeLuminance(c2.r, c2.g, c2.b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  }
+  function isValidHex(h: string) { return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(h); }
+  function fmtRgb(hex: string) { const { r,g,b } = hexToRgb(hex); return `rgb(${r}, ${g}, ${b})`; }
+  function fmtHsl(hex: string) { const { r,g,b } = hexToRgb(hex); const { h,s,l } = rgbToHsl(r,g,b); return `hsl(${h}, ${s}%, ${l}%)`; }
+
+  /* ── State ── */
+  let fgHex = '#0f0e0d', bgHex = '#f5f2ec';
+
+  function updateTool() {
+    if (!isValidHex(fgHex) || !isValidHex(bgHex)) return;
+    const box = document.getElementById('colorPreviewBox')!;
+    box.style.background = bgHex;
+    (document.getElementById('colorPreviewText') as HTMLElement).style.color = fgHex;
+    (document.getElementById('colorPreviewSmall') as HTMLElement).style.color = fgHex;
+
+    const ratio = contrastRatio(fgHex, bgHex);
+    document.getElementById('ratioNum')!.textContent = ratio.toFixed(2);
+
+    const badges = document.getElementById('wcagBadges')!;
+    badges.innerHTML = [
+      { label: 'AA Normal',     pass: ratio >= 4.5 },
+      { label: 'AA Large',      pass: ratio >= 3.0 },
+      { label: 'AAA Normal',    pass: ratio >= 7.0 },
+      { label: 'AAA Large',     pass: ratio >= 4.5 },
+      { label: 'UI Components', pass: ratio >= 3.0 },
+    ].map(c => `<span class="wcag-badge ${c.pass ? 'pass' : 'fail'}">${c.pass ? '✓' : '✕'} ${c.label}</span>`).join('');
+
+    renderFmtRow('fgFormats', fgHex);
+    renderFmtRow('bgFormats', bgHex);
+    renderShades('fgShadeRow', fgHex, 'fg');
+    renderShades('bgShadeRow', bgHex, 'bg');
+    renderSugg('suggList', ratio, fgHex, bgHex, 4.5, 'AA (4.5:1)');
+    renderSugg('aaaSuggList', ratio, fgHex, bgHex, 7.0, 'AAA (7:1)');
+  }
+
+  function renderFmtRow(id: string, hex: string) {
+    const { r, g, b } = hexToRgb(hex);
+    const rows = [
+      { lbl: 'HEX', val: hex.toUpperCase() },
+      { lbl: 'RGB', val: fmtRgb(hex) },
+      { lbl: 'HSL', val: fmtHsl(hex) },
+      { lbl: 'CSS', val: `color: ${hex.toUpperCase()};` },
+      { lbl: 'RAW', val: `${r}, ${g}, ${b}` },
+    ];
+    document.getElementById(id)!.innerHTML = rows.map(f =>
+      `<div class="fmt-copy-row">
+        <span class="fmt-label">${f.lbl}</span>
+        <span class="fmt-value" title="${f.val}">${f.val}</span>
+        <button class="fmt-copy-btn" onclick="copyFmt(this,'${f.val.replace(/'/g,"\\'")}')">⎘</button>
+      </div>`
+    ).join('');
+  }
+
+  function renderShades(id: string, hex: string, which: 'fg' | 'bg') {
+    const { r, g, b } = hexToRgb(hex);
+    const { h, s } = rgbToHsl(r, g, b);
+    const container = document.getElementById(id)!;
+    container.innerHTML = '';
+    Array.from({ length: 13 }, (_, i) => {
+      const { r: nr, g: ng, b: nb } = hslToRgb(h, s, Math.round((i / 12) * 100));
+      return rgbToHex(nr, ng, nb);
+    }).forEach(sh => {
+      const sw = document.createElement('div');
+      sw.className = 'shade-swatch';
+      sw.style.background = sh;
+      const tipRatio = which === 'fg' ? contrastRatio(sh, bgHex) : contrastRatio(fgHex, sh);
+      sw.innerHTML = `<span class="swatch-tip">${sh.toUpperCase()} — ${tipRatio.toFixed(1)}:1</span>`;
+      sw.addEventListener('click', () => {
+        if (which === 'fg') {
+          fgHex = sh;
+          (document.getElementById('fgHex') as HTMLInputElement).value = sh;
+          (document.getElementById('fgPicker') as HTMLInputElement).value = sh;
+        } else {
+          bgHex = sh;
+          (document.getElementById('bgHex') as HTMLInputElement).value = sh;
+          (document.getElementById('bgPicker') as HTMLInputElement).value = sh;
+        }
+        updateTool();
+      });
+      container.appendChild(sw);
+    });
+  }
+
+  function renderSugg(id: string, ratio: number, fg: string, bg: string, threshold: number, label: string) {
+    const cont = document.getElementById(id)!;
+    if (ratio >= threshold) {
+      cont.innerHTML = `<div class="contrast-sugg-card contrast-sugg-pass">✓ ${label} compliant.</div>`;
+      return;
+    }
+    const { r, g, b } = hexToRgb(fg);
+    const { h, s, l } = rgbToHsl(r, g, b);
+    let bestD: string | null = null, bestDR = 0;
+    for (let lv = l - 1; lv >= 0; lv--) {
+      const { r: nr, g: ng, b: nb } = hslToRgb(h, s, lv);
+      const hx = rgbToHex(nr, ng, nb), rat = contrastRatio(hx, bg);
+      if (rat >= threshold) { bestD = hx; bestDR = rat; break; }
+    }
+    let bestL: string | null = null, bestLR = 0;
+    for (let lv = l + 1; lv <= 100; lv++) {
+      const { r: nr, g: ng, b: nb } = hslToRgb(h, s, lv);
+      const hx = rgbToHex(nr, ng, nb), rat = contrastRatio(hx, bg);
+      if (rat >= threshold) { bestL = hx; bestLR = rat; break; }
+    }
+    const chip = (hex: string, rat: number, dir: string) =>
+      `<div class="flex items-center gap-2 cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2 hover:border-purple-300 transition-colors" onclick="applyFg('${hex}')">
+        <div class="h-5 w-5 rounded border border-slate-200" style="background:${hex}"></div>
+        <div><div class="font-mono text-xs">${hex.toUpperCase()}</div><div class="text-[10px] text-slate-400">${rat.toFixed(1)}:1 (${dir})</div></div>
+      </div>`;
+    let html = `<div class="contrast-sugg-card"><p class="sugg-title">Nearest ${label} foreground (same hue)</p><div class="flex flex-wrap gap-2">`;
+    if (bestD) html += chip(bestD, bestDR, 'darker');
+    if (bestL) html += chip(bestL, bestLR, 'lighter');
+    if (!bestD && !bestL) html += '<span class="text-xs text-slate-400">No passing shade found for this hue.</span>';
+    html += '</div></div>';
+    cont.innerHTML = html;
+  }
+
+  (window as any).copyFmt = function (btn: HTMLButtonElement, val: string) {
+    navigator.clipboard.writeText(val).then(() => {
+      btn.textContent = '✓'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '⎘'; btn.classList.remove('copied'); }, 1500);
+    });
+  };
+
+  (window as any).applyFg = function (hex: string) {
+    fgHex = hex;
+    (document.getElementById('fgHex') as HTMLInputElement).value = hex;
+    (document.getElementById('fgPicker') as HTMLInputElement).value = hex;
+    updateTool();
+  };
+
+  /* ── Setup (runs on every page-load, including ViewTransitions navigations) ── */
+  function setup() {
+    if (!document.getElementById('fgPicker')) return;
+
+    fgHex = (document.getElementById('fgHex') as HTMLInputElement).value || '#0f0e0d';
+    bgHex = (document.getElementById('bgHex') as HTMLInputElement).value || '#f5f2ec';
+
+    ['fgPicker','bgPicker'].forEach(id => {
+      document.getElementById(id)!.addEventListener('input', function (this: HTMLInputElement) {
+        if (id === 'fgPicker') { fgHex = this.value; (document.getElementById('fgHex') as HTMLInputElement).value = this.value; }
+        else { bgHex = this.value; (document.getElementById('bgHex') as HTMLInputElement).value = this.value; }
+        updateTool();
+      });
+    });
+    ['fgHex','bgHex'].forEach(id => {
+      document.getElementById(id)!.addEventListener('input', function (this: HTMLInputElement) {
+        const hex = this.value.trim().startsWith('#') ? this.value.trim() : '#' + this.value.trim();
+        if (!isValidHex(hex)) return;
+        if (id === 'fgHex') { fgHex = hex; (document.getElementById('fgPicker') as HTMLInputElement).value = hex; }
+        else { bgHex = hex; (document.getElementById('bgPicker') as HTMLInputElement).value = hex; }
+        updateTool();
+      });
+    });
+    document.getElementById('swapBtn')!.addEventListener('click', () => {
+      const t = fgHex; fgHex = bgHex; bgHex = t;
+      (document.getElementById('fgHex') as HTMLInputElement).value = fgHex;
+      (document.getElementById('bgHex') as HTMLInputElement).value = bgHex;
+      (document.getElementById('fgPicker') as HTMLInputElement).value = fgHex;
+      (document.getElementById('bgPicker') as HTMLInputElement).value = bgHex;
+      updateTool();
+    });
+    document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+      let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+      document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+      const c = document.getElementById('helpfulCount')!;
+      c.textContent = String(n); c.classList.remove('hidden');
+    });
+
+    updateTool();
+  }
+
+  document.addEventListener('astro:page-load', setup);
+</script>

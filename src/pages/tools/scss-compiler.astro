@@ -1,0 +1,265 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'SCSS → CSS', body: 'Compiles SCSS (curly-brace syntax) to CSS. Supports nesting, variables, mixins and functions via sass.js.' },
+  { heading: 'SASS → CSS', body: 'Compiles indented SASS syntax (no curly braces) to CSS.' },
+  { heading: 'CSS → SASS', body: 'Converts CSS to indented SASS syntax. Pure JS — no library needed.' },
+  { heading: 'Privacy',    body: 'CSS→SASS runs entirely in your browser. SCSS/SASS compilation uses sass.js loaded from cdnjs — nothing is uploaded.' },
+];
+
+const faq = [
+  { question: 'Is my code uploaded?', answer: 'No. CSS → SASS conversion is pure JavaScript. SCSS and SASS compilation uses sass.js loaded from cdnjs.cloudflare.com — your code is never sent to a server.' },
+  { question: 'What SCSS features are supported?', answer: 'sass.js supports variables, nesting, mixins, functions, @extend, @import and most SCSS 3.x features. It does not support the newer Dart Sass module system (@use, @forward).' },
+];
+---
+
+<MainLayout
+  title="SCSS Compiler — Free In-Browser Tool | Toolbox"
+  description="Compile SCSS or SASS to CSS, or convert CSS to SASS indented syntax — all in your browser."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="SCSS Compiler" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">SCSS Compiler</h1>
+        <p class="mt-1 text-sm text-slate-500">Compile SCSS / SASS to CSS, or convert CSS to SASS indented syntax.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Mode selector -->
+          <div class="mb-4 flex flex-wrap gap-2">
+            {[['scss-css','SCSS → CSS'],['sass-css','SASS → CSS'],['css-sass','CSS → SASS']].map(([v,l]) => (
+              <label class="scss-mode-label flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                <input type="radio" name="scssMode" value={v} checked={v==='scss-css'} class="sr-only" />
+                <span>{l}</span>
+              </label>
+            ))}
+          </div>
+
+          <!-- Input -->
+          <div class="mb-3">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label id="scssInLabel" class="text-xs font-medium text-slate-600">SCSS input</label>
+              <button id="scssClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+            <textarea id="scssInput" rows="10" spellcheck="false" placeholder="Paste your SCSS here…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <button id="scssBtn"
+            class="mb-4 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            Compile
+          </button>
+
+          <p id="scssStatus" class="hidden mb-3 text-center text-sm"></p>
+          <p id="scssStats"  class="mb-3 text-xs text-slate-400"></p>
+
+          <!-- Output -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label id="scssOutLabel" class="text-xs font-medium text-slate-600">Compiled CSS</label>
+              <button id="scssCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+            </div>
+            <textarea id="scssOutput" rows="10" readonly spellcheck="false"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About SCSS Compiler</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Compile SCSS or indented SASS to CSS using sass.js (libsass compiled to WebAssembly), or convert CSS to SASS indented syntax with a pure JavaScript converter. All processing happens in the browser. sass.js supports SCSS 3.x features including nesting, variables, mixins, functions and @extend.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a> · <a href="/tools/code-minifier" class="text-purple-500 hover:underline">Code Minifier</a></p>
+          <p class="mt-2">Keywords: SCSS compiler browser, SASS to CSS online, CSS to SASS converter, compile SCSS online</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .scss-mode-label:has(input:checked) { border-color: #a855f7; background: #faf5ff; color: #7c3aed; }
+  #scssStats .cstat-saved  { color: #059669; font-weight: 600; }
+  #scssStats .cstat-larger { color: #d97706; font-weight: 600; }
+</style>
+
+<script>
+  let _sassLoaded = false;
+
+  function loadScript(src: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src; s.onload = () => resolve(); s.onerror = () => reject(new Error('Could not load: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function ensureSass() {
+    if (_sassLoaded) return;
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/sass.js/0.11.1/sass.sync.min.js');
+    _sassLoaded = true;
+  }
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('scssStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mb-3 text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mb-3 text-center text-sm text-rose-500'
+        : 'mb-3 text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function showStats(origLen: number, newLen: number) {
+    const el = document.getElementById('scssStats')!;
+    const diff = origLen - newLen;
+    const pct = origLen > 0 ? ((Math.abs(diff) / origLen) * 100).toFixed(1) : '0.0';
+    if (diff > 0)
+      el.innerHTML = `<span class="cstat-saved">↓ ${pct}% smaller</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else if (diff < 0)
+      el.innerHTML = `<span class="cstat-larger">↑ ${pct}% larger</span> &nbsp;${fmtBytes(origLen)} → ${fmtBytes(newLen)}`;
+    else
+      el.innerHTML = `No size change — ${fmtBytes(newLen)}`;
+  }
+
+  function cssToSass(css: string): string {
+    const lines = css.split('\n');
+    const result: string[] = [];
+    let depth = 0;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) {
+        if (result.length && result[result.length - 1] !== '') result.push('');
+        continue;
+      }
+      if (line.startsWith('//') || line.startsWith('/*')) {
+        result.push('  '.repeat(depth) + line); continue;
+      }
+      if (line.endsWith('{')) {
+        result.push('  '.repeat(depth) + line.slice(0, -1).trim()); depth++; continue;
+      }
+      if (line === '}') { depth = Math.max(0, depth - 1); continue; }
+      result.push('  '.repeat(depth) + line.replace(/;$/, ''));
+    }
+    return result.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function updateLabels() {
+    const mode = (document.querySelector('input[name="scssMode"]:checked') as HTMLInputElement).value;
+    const labels: Record<string, { in: string; out: string }> = {
+      'scss-css': { in: 'SCSS input',  out: 'Compiled CSS' },
+      'sass-css': { in: 'SASS input',  out: 'Compiled CSS' },
+      'css-sass': { in: 'CSS input',   out: 'SASS output'  },
+    };
+    const l = labels[mode];
+    document.getElementById('scssInLabel')!.textContent  = l.in;
+    document.getElementById('scssOutLabel')!.textContent = l.out;
+    const ta = document.getElementById('scssInput') as HTMLTextAreaElement;
+    ta.placeholder = mode === 'css-sass' ? 'Paste your CSS here…' : mode === 'sass-css' ? 'Paste your SASS here…' : 'Paste your SCSS here…';
+    document.getElementById('scssBtn')!.textContent = mode === 'css-sass' ? 'Convert to SASS' : 'Compile to CSS';
+  }
+
+  document.querySelectorAll('input[name="scssMode"]').forEach(r => r.addEventListener('change', updateLabels));
+
+  document.getElementById('scssBtn')!.addEventListener('click', async () => {
+    const input = (document.getElementById('scssInput') as HTMLTextAreaElement).value;
+    if (!input.trim()) { showStatus('Paste some code first.', 'err'); return; }
+    const mode = (document.querySelector('input[name="scssMode"]:checked') as HTMLInputElement).value;
+    const btn = document.getElementById('scssBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    document.getElementById('scssStats')!.innerHTML = '';
+
+    try {
+      if (mode === 'css-sass') {
+        showStatus('Converting…', 'info');
+        const out = cssToSass(input);
+        (document.getElementById('scssOutput') as HTMLTextAreaElement).value = out;
+        showStats(input.length, out.length);
+        showStatus('✓ Converted to SASS indented syntax.', 'ok');
+      } else {
+        showStatus('Loading compiler…', 'info');
+        await ensureSass();
+        showStatus('Compiling…', 'info');
+        await new Promise<void>((resolve, reject) => {
+          const opts = mode === 'sass-css' ? { indentedSyntax: true } : {};
+          (window as any).Sass.compile(input, opts, (result: any) => {
+            if (result.status === 0) {
+              (document.getElementById('scssOutput') as HTMLTextAreaElement).value = result.text;
+              showStats(input.length, result.text.length);
+              showStatus('✓ Compiled to CSS.', 'ok');
+              resolve();
+            } else {
+              reject(new Error(result.formatted || result.message || 'Compilation failed.'));
+            }
+          });
+        });
+      }
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+    }
+
+    btn.disabled = false;
+  });
+
+  document.getElementById('scssClearBtn')!.addEventListener('click', () => {
+    (document.getElementById('scssInput') as HTMLTextAreaElement).value = '';
+  });
+
+  document.getElementById('scssCopyBtn')!.addEventListener('click', function(this: HTMLElement) {
+    const val = (document.getElementById('scssOutput') as HTMLTextAreaElement).value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      const orig = this.textContent!;
+      this.textContent = '✓ Copied'; this.classList.add('text-emerald-600');
+      setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+    });
+  });
+
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(n); c.classList.remove('hidden');
+  });
+</script>

@@ -1,0 +1,348 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: '16 × 16',  body: 'Minimum size — used in browser tabs and small list views.' },
+  { heading: '32 × 32',  body: 'Standard taskbar and desktop icon on Windows.' },
+  { heading: '48 × 48',  body: 'Large Windows desktop icon; macOS Dock at 1×.' },
+  { heading: '256 × 256', body: 'Crisp at HiDPI / Retina. Stored as PNG inside the .ico container.' },
+];
+
+const cheatSheet = [
+  { label: 'Web',     value: '16, 32 (+ 48 optional)' },
+  { label: 'Windows', value: '16, 32, 48, 256' },
+  { label: 'macOS',   value: '16, 32, 128, 256' },
+  { label: 'All',     value: '16, 32, 48, 64, 128, 256' },
+];
+
+const faq = [
+  { question: 'Is my image uploaded?', answer: 'No. The ICO is built entirely in your browser using Canvas and binary ArrayBuffer writes. Nothing is sent to a server.' },
+  { question: 'What image formats are accepted?', answer: 'PNG, JPEG and WebP. Square images work best — non-square images are scaled to fit each target size.' },
+  { question: 'How is the .ico file structured?', answer: 'Each size is encoded as a PNG payload inside the ICO container — modern browsers and Windows 7+ read this format correctly.' },
+  { question: 'Can I add custom sizes?', answer: 'Yes — type any value from 1 to 512 in the custom size box and press Enter or click Add.' },
+];
+---
+
+<MainLayout
+  title="ICO Favicon Generator — Free In-Browser Tool | Toolbox"
+  description="Generate multi-size .ico favicon files in your browser. 16, 32, 48, 64, 128, 256 px. Custom sizes supported. No uploads."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="ICO Favicon Generator" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">ICO Favicon Generator</h1>
+        <p class="mt-1 text-sm text-slate-500">Pack multiple sizes into a single .ico file.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Drop zone -->
+          <div id="icoDropZone"
+            class="relative mb-6 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+            role="button" tabindex="0" aria-label="Drop image or click to browse"
+          >
+            <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+            <p class="text-sm font-medium text-slate-700">Drop an image here</p>
+            <p class="mt-1 text-xs text-slate-400">PNG · JPG · WebP accepted</p>
+            <input id="icoFileInput" type="file" class="sr-only" accept="image/png,image/jpeg,image/webp" />
+          </div>
+
+          <p id="icoFileInfo" class="mb-4 hidden text-xs text-slate-500"></p>
+
+          <!-- Preview row -->
+          <div id="icoPreviewRow" class="mb-6 hidden flex-wrap items-end gap-4"></div>
+
+          <!-- Sizes -->
+          <div id="icoControls" class="hidden flex-col gap-5">
+
+            <div>
+              <p class="mb-2 text-xs font-medium text-slate-600">Sizes to include</p>
+              <div class="flex flex-wrap gap-3">
+                {[16, 32, 48, 64, 128, 256].map(sz => (
+                  <label class="ico-cb flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">
+                    <input type="checkbox" class="accent-purple-500" value={sz} checked={[16,32,48,256].includes(sz)} />
+                    {sz}px
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-medium text-slate-600 shrink-0">Custom size (1–512)</label>
+              <input id="icoCustomInput" type="number" min="1" max="512" placeholder="e.g. 96"
+                class="w-28 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100" />
+              <button id="icoAddBtn"
+                class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+                Add
+              </button>
+            </div>
+
+            <div id="customSizesList" class="flex flex-wrap gap-2"></div>
+
+            <!-- Progress -->
+            <div id="icoPBar" class="hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div id="icoPFill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+            </div>
+
+            <button id="icoConvertBtn"
+              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              disabled
+            >
+              Generate & Download .ico
+            </button>
+
+            <p id="icoStatus" class="hidden text-center text-sm"></p>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About ICO Favicon Generator</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          A .ico file is a container that holds multiple icon sizes in a single file. Browsers pick the best-fit size for the context — the tab, the taskbar, the bookmark list. This tool encodes each selected size as a lossless PNG payload inside the ICO container, which works correctly in all modern browsers and Windows 7+.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/image-compress" class="text-purple-500 hover:underline">Image Compressor</a> · <a href="/tools/image-convert" class="text-purple-500 hover:underline">Image Converter</a> · <a href="/tools/image-resize" class="text-purple-500 hover:underline">Image Resizer</a></p>
+          <p class="mt-2">Keywords: ico generator, favicon creator, multi-size ico, browser favicon tool, no upload favicon, .ico file maker</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  /* ── State ── */
+  let icoImg: HTMLImageElement | null = null;
+  const customIcoSizes = new Set<number>();
+  let helpfulCount = 0;
+
+  /* ── Helpers ── */
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showStatus(msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById('icoStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'text-center text-sm text-emerald-600'
+      : type === 'err'
+        ? 'text-center text-sm text-rose-500'
+        : 'text-center text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
+  function setProgress(pct: number) {
+    const bar = document.getElementById('icoPBar')!;
+    const fill = document.getElementById('icoPFill')!;
+    if (pct > 0) { bar.classList.remove('hidden'); fill.style.width = pct + '%'; }
+    else { bar.classList.add('hidden'); fill.style.width = '0%'; }
+  }
+
+  /* ── Drop zone ── */
+  const zone = document.getElementById('icoDropZone')!;
+  const input = document.getElementById('icoFileInput') as HTMLInputElement;
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+  zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400', 'bg-purple-50/50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400', 'bg-purple-50/50'));
+  zone.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    zone.classList.remove('border-purple-400', 'bg-purple-50/50');
+    const file = e.dataTransfer?.files[0];
+    if (file) loadFile(file);
+  });
+  input.addEventListener('change', () => { if (input.files?.[0]) loadFile(input.files[0]); });
+
+  function loadFile(file: File) {
+    const infoEl = document.getElementById('icoFileInfo')!;
+    infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
+    infoEl.classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        icoImg = img;
+        document.getElementById('icoConvertBtn')!.removeAttribute('disabled');
+        renderPreview(img);
+        document.getElementById('icoPreviewRow')!.classList.remove('hidden');
+        document.getElementById('icoControls')!.classList.remove('hidden');
+        document.getElementById('icoControls')!.style.display = 'flex';
+        showStatus(`Loaded ${img.naturalWidth}×${img.naturalHeight} px — choose sizes and generate.`, 'info');
+      };
+      img.src = ev.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderPreview(img: HTMLImageElement) {
+    const row = document.getElementById('icoPreviewRow')!;
+    row.innerHTML = '';
+    [16, 32, 48, 64].forEach(sz => {
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-col items-center gap-1';
+
+      const lbl = document.createElement('span');
+      lbl.className = 'font-mono text-[0.6rem] text-slate-400';
+      lbl.textContent = sz + 'px';
+
+      const dSz = Math.max(sz, 16);
+      const bg = document.createElement('div');
+      bg.style.cssText = `width:${dSz}px;height:${dSz}px;display:flex;align-items:center;justify-content:center;`;
+
+      const c = document.createElement('canvas');
+      c.width = sz; c.height = sz;
+      c.style.cssText = `width:${dSz}px;height:${dSz}px;image-rendering:pixelated;`;
+      c.getContext('2d')!.drawImage(img, 0, 0, sz, sz);
+
+      bg.appendChild(c);
+      wrap.appendChild(lbl);
+      wrap.appendChild(bg);
+      row.appendChild(wrap);
+    });
+  }
+
+  /* ── Custom sizes ── */
+  function renderCustomSizes() {
+    const list = document.getElementById('customSizesList')!;
+    list.innerHTML = '';
+    [...customIcoSizes].sort((a, b) => a - b).forEach(sz => {
+      const pill = document.createElement('div');
+      pill.className = 'flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-xs text-purple-700';
+      pill.innerHTML = `${sz}px <button class="ml-1 text-purple-400 hover:text-purple-700" aria-label="Remove ${sz}px">×</button>`;
+      pill.querySelector('button')!.addEventListener('click', () => {
+        customIcoSizes.delete(sz);
+        renderCustomSizes();
+      });
+      list.appendChild(pill);
+    });
+  }
+
+  document.getElementById('icoAddBtn')!.addEventListener('click', addCustomSize);
+  document.getElementById('icoCustomInput')!.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') addCustomSize();
+  });
+
+  function addCustomSize() {
+    const inp = document.getElementById('icoCustomInput') as HTMLInputElement;
+    const val = parseInt(inp.value);
+    if (!val || val < 1 || val > 512) { showStatus('✕ Enter a size between 1 and 512.', 'err'); return; }
+    customIcoSizes.add(val);
+    renderCustomSizes();
+    inp.value = '';
+  }
+
+  /* ── Generate ── */
+  document.getElementById('icoConvertBtn')!.addEventListener('click', async () => {
+    if (!icoImg) return;
+    const btn = document.getElementById('icoConvertBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const sizes: number[] = [];
+      document.querySelectorAll('.ico-cb input:checked').forEach(cb => sizes.push(parseInt((cb as HTMLInputElement).value)));
+      customIcoSizes.forEach(sz => sizes.push(sz));
+      const unique = [...new Set(sizes)].sort((a, b) => a - b);
+      if (!unique.length) throw new Error('Select at least one size.');
+
+      setProgress(15);
+      showStatus('Rendering sizes…', 'info');
+
+      const blobs = await Promise.all(unique.map(sz => new Promise<Blob>((res, rej) => {
+        const c = document.createElement('canvas');
+        c.width = sz; c.height = sz;
+        const ctx = c.getContext('2d')!;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(icoImg!, 0, 0, sz, sz);
+        c.toBlob(b => b ? res(b) : rej(new Error('Canvas encode failed')), 'image/png');
+      })));
+
+      const bufs = await Promise.all(blobs.map(b => b.arrayBuffer()));
+      setProgress(65);
+      showStatus('Packing .ico…', 'info');
+
+      const n = unique.length, dirSz = 6 + n * 16;
+      let tot = dirSz;
+      bufs.forEach(b => tot += b.byteLength);
+      const out = new ArrayBuffer(tot);
+      const dv = new DataView(out);
+      const u8 = new Uint8Array(out);
+
+      dv.setUint16(0, 0, true);
+      dv.setUint16(2, 1, true);
+      dv.setUint16(4, n, true);
+
+      let off = dirSz;
+      bufs.forEach((buf, i) => {
+        const sz = unique[i], e = 6 + i * 16;
+        dv.setUint8(e,     sz >= 256 ? 0 : sz);
+        dv.setUint8(e + 1, sz >= 256 ? 0 : sz);
+        dv.setUint8(e + 2, 0); dv.setUint8(e + 3, 0);
+        dv.setUint16(e + 4, 1,  true);
+        dv.setUint16(e + 6, 32, true);
+        dv.setUint32(e + 8,  buf.byteLength, true);
+        dv.setUint32(e + 12, off, true);
+        u8.set(new Uint8Array(buf), off);
+        off += buf.byteLength;
+      });
+
+      setProgress(95);
+      const blob = new Blob([out], { type: 'image/x-icon' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'favicon.ico';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setProgress(100);
+      showStatus(`✓ favicon.ico — ${n} size(s): ${unique.join(', ')}px`, 'ok');
+    } catch (e: any) {
+      showStatus('✕ ' + e.message, 'err');
+    }
+    setTimeout(() => setProgress(0), 1500);
+    btn.disabled = false;
+  });
+
+  /* ── Helpful button ── */
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    helpfulCount++;
+    const btn = document.getElementById('helpfulBtn')!;
+    btn.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const countEl = document.getElementById('helpfulCount')!;
+    countEl.textContent = String(helpfulCount);
+    countEl.classList.remove('hidden');
+  });
+</script>

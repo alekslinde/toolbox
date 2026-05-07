@@ -1,0 +1,14 @@
+name               = "lindetoolbox"
+main               = "worker/counter.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "dist"
+
+[[durable_objects.bindings]]
+name       = "COUNTERS"
+class_name = "Counter"
+
+[[migrations]]
+tag                = "v1"
+new_sqlite_classes = ["Counter"]

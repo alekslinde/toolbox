@@ -1,0 +1,283 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: '50–100',   body: 'Very light tints — ideal for backgrounds and subtle surfaces.' },
+  { heading: '400–600',  body: 'Mid-range shades — your primary brand accent lives here.' },
+  { heading: '700–900',  body: 'Deep shades — great for dark mode text and high-contrast UI.' },
+  { heading: 'Contrast', body: 'Each swatch shows its contrast against white and black — so you know which text colour to use.' },
+];
+
+const faq = [
+  { question: 'How are the shades generated?', answer: 'The hue and saturation of your input colour are preserved; only the lightness is mapped to fixed steps (97%, 93%, 85%, … 12%) following Tailwind\'s scale.' },
+  { question: 'Can I export to Tailwind?', answer: 'Yes — the Tailwind export copies a colour object you can paste directly into tailwind.config.js.' },
+  { question: 'What does the contrast badge mean?', answer: 'Each shade shows its WCAG contrast ratio against white and black. AA means ≥4.5:1, AA+ means ≥3:1 (large text), Fail means below 3:1.' },
+];
+---
+
+<MainLayout
+  title="Colour Palette Generator — Free In-Browser Tool | Toolbox"
+  description="Generate a 10-shade Tailwind-style colour palette from any hex colour. Export as CSS variables, Tailwind config, or JSON."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Colour Palette Generator" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Colour Palette Generator</h1>
+        <p class="mt-1 text-sm text-slate-500">Generate a 10-shade palette from any colour. Export CSS, Tailwind, or JSON.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Input row -->
+          <div class="mb-6 flex flex-wrap items-end gap-3">
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Base colour</label>
+              <div class="flex items-center gap-2">
+                <input id="palettePicker" type="color" value="#6366f1"
+                  class="h-10 w-14 cursor-pointer rounded border border-slate-200" />
+                <input id="paletteHex" type="text" value="#6366f1" maxlength="7" spellcheck="false" placeholder="#6366f1"
+                  class="w-32 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600">Palette name (for export)</label>
+              <input id="paletteName" type="text" value="primary" placeholder="primary"
+                class="w-32 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
+            </div>
+            <button id="paletteGenBtn"
+              class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+              Generate
+            </button>
+          </div>
+
+          <!-- Output -->
+          <div id="paletteOutput" class="mb-5"></div>
+
+          <!-- Export row -->
+          <div id="paletteExportRow" class="hidden flex-wrap gap-2">
+            <button id="paletteCopyCSSBtn"
+              class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+              Copy CSS variables
+            </button>
+            <button id="paletteCopyTailwindBtn"
+              class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+              Copy Tailwind config
+            </button>
+            <button id="paletteCopyJSONBtn"
+              class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">
+              Copy JSON
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Colour Palette Generator</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Enter any hex colour and generate a 10-shade palette — 50 through 900 — following the same lightness steps as Tailwind CSS's colour system. Each shade shows its WCAG contrast ratio against white and black so you can immediately see which text colours are accessible. Export as CSS custom properties, a Tailwind config object, or JSON.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/wcag-contrast" class="text-purple-500 hover:underline">WCAG Contrast Checker</a> · <a href="/tools/tints-shades" class="text-purple-500 hover:underline">Tints &amp; Shades</a></p>
+          <p class="mt-2">Keywords: colour palette generator, Tailwind colour scale, 10-shade palette, CSS colour variables, brand colour palette</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style is:global>
+  .pal-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+  .pal-row { display: grid; grid-template-columns: 4rem 7rem 1fr auto; align-items: center; gap: 0.75rem; padding: 0.25rem 0; border-bottom: 1px solid #f1f5f9; }
+  .pal-swatch { height: 2.5rem; border-radius: 6px; position: relative; display: flex; align-items: flex-end; padding: 0.25rem 0.4rem; }
+  .pal-shade-name { font-size: 0.65rem; font-weight: 700; }
+  .pal-hex { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: #334155; background: none; border: none; cursor: pointer; padding: 0.15rem 0.3rem; border-radius: 4px; text-align: left; }
+  .pal-hex:hover { background: #f1f5f9; }
+  .pal-contrast-pair { display: flex; flex-direction: column; gap: 0.2rem; }
+  .pal-contrast-item { display: flex; align-items: center; gap: 0.35rem; }
+  .pal-sample { display: inline-block; width: 1.5rem; text-align: center; font-size: 0.65rem; font-weight: 700; border-radius: 2px; padding: 0 2px; }
+  .pal-ratio { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: #64748b; min-width: 3rem; }
+  .pal-badge { font-size: 0.6rem; font-weight: 700; border-radius: 3px; padding: 0.05rem 0.3rem; }
+  .pal-pass   { background: rgba(34,197,94,0.15); color: #15803d; }
+  .pal-large  { background: rgba(251,191,36,0.15); color: #d97706; }
+  .pal-fail   { background: rgba(239,68,68,0.15);  color: #dc2626; }
+  .pal-on { font-size: 0.6rem; color: #94a3b8; }
+  .pal-rec { font-size: 0.7rem; color: #64748b; }
+  @media (max-width: 640px) {
+    .pal-row { grid-template-columns: 3rem 6rem 1fr; }
+    .pal-rec { display: none; }
+  }
+</style>
+
+<script>
+  const SHADE_STEPS = [
+    { name: '50',  l: 97 }, { name: '100', l: 93 }, { name: '200', l: 85 },
+    { name: '300', l: 72 }, { name: '400', l: 58 }, { name: '500', l: 46 },
+    { name: '600', l: 37 }, { name: '700', l: 28 }, { name: '800', l: 19 },
+    { name: '900', l: 12 },
+  ];
+
+  function hexToRgb(hex: string) {
+    hex = hex.replace('#','');
+    if (hex.length === 3) hex = hex.split('').map(c => c+c).join('');
+    const n = parseInt(hex,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function rgbToHex(r: number, g: number, b: number) {
+    return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+  }
+  function rgbToHsl(r: number, g: number, b: number) {
+    r/=255; g/=255; b/=255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b);
+    let h=0,s=0; const l=(max+min)/2;
+    if (max!==min) {
+      const d=max-min;
+      s=l>0.5?d/(2-max-min):d/(max+min);
+      switch(max){ case r:h=(g-b)/d+(g<b?6:0);break; case g:h=(b-r)/d+2;break; case b:h=(r-g)/d+4;break; }
+      h/=6;
+    }
+    return { h:Math.round(h*360), s:Math.round(s*100), l:Math.round(l*100) };
+  }
+  function hslToRgb(h: number, s: number, l: number) {
+    s/=100; l/=100; h/=360;
+    let r:number, g:number, b:number;
+    if (s===0) { r=g=b=l; } else {
+      const hue2rgb=(p:number,q:number,t:number)=>{ if(t<0)t++;if(t>1)t--;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p; };
+      const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+      r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+    }
+    return { r:Math.round(r*255), g:Math.round(g*255), b:Math.round(b*255) };
+  }
+  function linearize(c: number) { c/=255; return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4); }
+  function luminance(r: number, g: number, b: number) { return 0.2126*linearize(r)+0.7152*linearize(g)+0.0722*linearize(b); }
+  function contrast(hex1: string, hex2: string) {
+    const c1=hexToRgb(hex1), c2=hexToRgb(hex2);
+    const l1=luminance(c1.r,c1.g,c1.b), l2=luminance(c2.r,c2.g,c2.b);
+    return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+  }
+  function isValidHex(h: string) { return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(h); }
+
+  function wcagLevel(r: number) { return r>=7?'AAA':r>=4.5?'AA':r>=3?'AA+':'Fail'; }
+  function wcagCls(r: number)   { return r>=4.5?'pal-pass':r>=3?'pal-large':'pal-fail'; }
+
+  let currentPalette: { name: string; hex: string; cW: number; cB: number; rec: string }[] = [];
+
+  function generate() {
+    const rawHex = (document.getElementById('paletteHex') as HTMLInputElement).value.trim();
+    const hex = rawHex.startsWith('#') ? rawHex : '#' + rawHex;
+    if (!isValidHex(hex)) return;
+
+    const { r, g, b } = hexToRgb(hex);
+    const { h, s } = rgbToHsl(r, g, b);
+
+    currentPalette = SHADE_STEPS.map(step => {
+      const { r: nr, g: ng, b: nb } = hslToRgb(h, s, step.l);
+      const shadeHex = rgbToHex(nr, ng, nb);
+      const cW = contrast(shadeHex, '#ffffff'), cB = contrast(shadeHex, '#000000');
+      return { name: step.name, hex: shadeHex, cW, cB, rec: cB >= cW ? 'dark' : 'light' };
+    });
+
+    const txtFn = (s: { hex: string; rec: string }) => s.rec === 'dark' ? '#1a2035' : '#ffffff';
+    document.getElementById('paletteOutput')!.innerHTML =
+      `<div class="pal-grid">${currentPalette.map(s =>
+        `<div class="pal-row">
+          <div class="pal-swatch" style="background:${s.hex}">
+            <span class="pal-shade-name" style="color:${txtFn(s)}">${s.name}</span>
+          </div>
+          <button class="pal-hex" onclick="navigator.clipboard.writeText('${s.hex.toUpperCase()}');this.textContent='✓';setTimeout(()=>this.textContent='${s.hex.toUpperCase()}',1200)">${s.hex.toUpperCase()}</button>
+          <div class="pal-contrast-pair">
+            <div class="pal-contrast-item">
+              <span class="pal-sample" style="background:#fff;color:${s.hex};border:1px solid #e2e8f0">Aa</span>
+              <span class="pal-ratio">${s.cW.toFixed(1)}:1</span>
+              <span class="pal-badge ${wcagCls(s.cW)}">${wcagLevel(s.cW)}</span>
+              <span class="pal-on">white</span>
+            </div>
+            <div class="pal-contrast-item">
+              <span class="pal-sample" style="background:#000;color:${s.hex}">Aa</span>
+              <span class="pal-ratio">${s.cB.toFixed(1)}:1</span>
+              <span class="pal-badge ${wcagCls(s.cB)}">${wcagLevel(s.cB)}</span>
+              <span class="pal-on">black</span>
+            </div>
+          </div>
+          <div class="pal-rec">→ <strong>${s.rec}</strong> text</div>
+        </div>`
+      ).join('')}</div>`;
+
+    document.getElementById('paletteExportRow')!.classList.remove('hidden');
+  }
+
+  function flashBtn(btn: HTMLButtonElement, label: string) {
+    const orig = btn.textContent!;
+    btn.textContent = label; btn.classList.add('text-emerald-600');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('text-emerald-600'); }, 1500);
+  }
+
+  function setup() {
+    if (!document.getElementById('paletteGenBtn')) return;
+    document.getElementById('palettePicker')!.addEventListener('input', function (this: HTMLInputElement) {
+      (document.getElementById('paletteHex') as HTMLInputElement).value = this.value;
+    });
+    document.getElementById('paletteHex')!.addEventListener('input', function (this: HTMLInputElement) {
+      const hex = this.value.trim().startsWith('#') ? this.value.trim() : '#' + this.value.trim();
+      if (isValidHex(hex)) (document.getElementById('palettePicker') as HTMLInputElement).value = hex;
+    });
+    document.getElementById('paletteGenBtn')!.addEventListener('click', generate);
+
+    document.getElementById('paletteCopyCSSBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
+      const name = (document.getElementById('paletteName') as HTMLInputElement).value.trim() || 'color';
+      const out = `:root {\n${currentPalette.map(s => `  --${name}-${s.name}: ${s.hex.toUpperCase()};`).join('\n')}\n}`;
+      navigator.clipboard.writeText(out).then(() => flashBtn(this, '✓ Copied'));
+    });
+
+    document.getElementById('paletteCopyTailwindBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
+      const name = (document.getElementById('paletteName') as HTMLInputElement).value.trim() || 'color';
+      const inner = currentPalette.map(s => `    ${s.name}: '${s.hex.toUpperCase()}',`).join('\n');
+      navigator.clipboard.writeText(`'${name}': {\n${inner}\n},`).then(() => flashBtn(this, '✓ Copied'));
+    });
+
+    document.getElementById('paletteCopyJSONBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
+      const obj: Record<string, string> = {};
+      currentPalette.forEach(s => { obj[s.name] = s.hex.toUpperCase(); });
+      navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn(this, '✓ Copied'));
+    });
+
+    document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+      let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
+      document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
+      const c = document.getElementById('helpfulCount')!;
+      c.textContent = String(n); c.classList.remove('hidden');
+    });
+
+    generate();
+  }
+
+  document.addEventListener('astro:page-load', setup);
+</script>
