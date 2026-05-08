@@ -131,6 +131,15 @@ export const tools: Tool[] = [
     icon: '◑',
   },
   {
+    slug: 'color-namer',
+    title: 'Color Namer',
+    shortTitle: 'Color Namer',
+    description: 'Paste any HEX, RGB or HSL value and find its closest named color using CIE Lab ΔE matching.',
+    category: 'typography',
+    tags: ['color name', 'hex name', 'css color', 'delta e', 'color lookup', 'Lab color'],
+    icon: 'CLR',
+  },
+  {
     slug: 'color-extractor',
     title: 'Image Dominant Color Extractor',
     shortTitle: 'Color Extractor',

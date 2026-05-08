@@ -1,5 +1,12 @@
 [
   {
+    "version": "6.4",
+    "date": "2026-05-09",
+    "changes": [
+      "New tool: Color Namer — paste any HEX, RGB or HSL value to find its closest named color using CIE Lab ΔE perceptual matching, with five alternatives shown"
+    ]
+  },
+  {
     "version": "6.3",
     "date": "2026-05-08",
     "changes": [

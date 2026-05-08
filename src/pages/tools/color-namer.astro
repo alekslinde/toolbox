@@ -1,0 +1,406 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'Lab distance',   body: 'Matching uses CIE Lab color space — distances map to how different two colors actually look to the human eye, not just their numeric difference.' },
+  { heading: 'Accepted formats', body: 'Type any HEX (#3498db or 3498db), rgb(52,152,219) or hsl(204,70%,53%) value — or just use the color picker.' },
+  { heading: '~300 names',     body: 'The database covers all CSS named colors plus curated design, paint, and Pantone-inspired names across the full spectrum.' },
+  { heading: 'Alternatives',   body: 'Five closest names are shown. The number below each is the Lab ΔE distance — 0 is exact, under 10 is visually close.' },
+];
+
+const faq = [
+  { question: 'What color formats are accepted?', answer: 'HEX with or without the # (e.g. #1a2b3c or 1a2b3c), shorthand hex (#abc), rgb(r, g, b) and hsl(h, s%, l%).' },
+  { question: 'How is the nearest color found?', answer: 'Your input is converted to CIE Lab color space, then compared to every color in the database using the ΔE (CIE76) distance formula. Lab-based distance is perceptually uniform — colors that look similar to humans are numerically close.' },
+  { question: 'What is ΔE?', answer: 'ΔE (delta E) is the standard measure of color difference. ΔE < 1 is imperceptible; 1–3 is noticeable to trained eyes; 3–10 is clear but related; > 10 is a different color family.' },
+  { question: 'Where do the names come from?', answer: 'The database combines all 148 CSS named colors with curated design, paint, and common English color names — roughly 300 entries covering the full spectrum.' },
+];
+---
+
+<MainLayout
+  title="Color Namer — Find the Closest Named Color | Toolbox"
+  description="Paste a HEX, RGB or HSL value and instantly find its closest named color — CSS names, paint names and more. Lab ΔE matching."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Color Namer" category="Typography & Color" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Color Namer</h1>
+        <p class="mt-1 text-sm text-slate-500">Paste any HEX, RGB or HSL value to find its closest named color.</p>
+      </div>
+      <button id="helpfulBtn" class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600">
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Input row -->
+          <div class="mb-6 flex items-center gap-3">
+            <label class="relative shrink-0 cursor-pointer" aria-label="Color picker">
+              <input id="colorPicker" type="color" value="#3b82f6"
+                class="h-12 w-12 cursor-pointer rounded-lg border-2 border-slate-200 p-1 transition-colors hover:border-purple-300" />
+            </label>
+            <div class="flex-1">
+              <input id="colorInput" type="text" value="#3b82f6" spellcheck="false"
+                placeholder="#3b82f6 · rgb(59,130,246) · hsl(219,91%,60%)"
+                class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-sm text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100" />
+              <p id="parseError" class="mt-1 hidden text-xs text-rose-500"></p>
+            </div>
+          </div>
+
+          <!-- Main result card -->
+          <div id="resultCard" class="mb-4 overflow-hidden rounded-xl border border-slate-200">
+            <div id="resultSwatch" class="flex h-32 items-end p-4" style="background:#3b82f6">
+              <span id="resultHex" class="font-mono text-sm font-semibold opacity-80">#3b82f6</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white px-4 py-3">
+              <div class="flex-1">
+                <p id="resultName" class="text-lg font-semibold text-slate-900">Cornflower Blue</p>
+                <p id="resultDelta" class="text-xs text-slate-400">ΔE 0.0 — exact match</p>
+              </div>
+              <button id="copyNameBtn" class="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-700">Copy name</button>
+              <button id="copyHexBtn"  class="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-700">Copy HEX</button>
+            </div>
+          </div>
+
+          <!-- Alternatives -->
+          <div>
+            <p class="mb-3 text-xs font-medium text-slate-500">Closest alternatives</p>
+            <div id="altRow" class="flex flex-wrap gap-2"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About Color Namer</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          Paste any HEX, RGB or HSL value and instantly see its closest named color — drawn from a database of ~300 names spanning all CSS named colors, common paint names, and design-world terminology. Matching uses CIE Lab color space with the ΔE distance formula, which measures perceptual difference rather than raw numeric distance, so the result is the name that actually <em>looks</em> closest to your input.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/color-palette" class="text-purple-500 hover:underline">Color Palette Generator</a> · <a href="/tools/color-extractor" class="text-purple-500 hover:underline">Image Color Extractor</a> · <a href="/tools/wcag-contrast" class="text-purple-500 hover:underline">WCAG Contrast Checker</a></p>
+          <p class="mt-2">Keywords: color namer, name that color, closest color name, hex color name, css color name, color identifier, color lookup, delta e color matching</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<script>
+  /* ── Color dataset: [hex (no #), name] ── */
+  const DB: [string, string][] = [
+    // Blacks & Grays
+    ['000000','Black'],['111111','Eerie Black'],['1A1A1A','Jet'],['222222','Dark Charcoal'],
+    ['333333','Night'],['3D3D3D','Onyx'],['4A4A4A','Charcoal'],['555555','Dark Gray'],
+    ['696969','Dim Gray'],['708090','Slate Gray'],['778899','Light Slate Gray'],
+    ['808080','Gray'],['A9A9A9','Dark Gray'],['B0B0B0','Nobel'],
+    ['C0C0C0','Silver'],['D3D3D3','Light Gray'],['DCDCDC','Gainsboro'],
+    ['E5E5E5','Platinum'],['F5F5F5','White Smoke'],['FFFAFA','Snow'],['FFFFFF','White'],
+    // Reds
+    ['3B0000','Dark Burgundy'],['5C0000','Rich Maroon'],['6D0000','Dark Maroon'],
+    ['800000','Maroon'],['800020','Burgundy'],['722F37','Wine'],['8B0000','Dark Red'],
+    ['A52A2A','Brown'],['9B1B30','Old Rose'],['B22222','Firebrick'],
+    ['C41E3A','Cardinal'],['CC0000','Candy Apple Red'],['C80815','Venetian Red'],
+    ['DC143C','Crimson'],['E34234','Vermilion'],['E53935','Deep Red'],
+    ['FF0000','Red'],['FF2400','Scarlet'],['FF3131','Vivid Red'],['FF1744','Neon Red'],
+    // Pinks
+    ['C71585','Medium Violet Red'],['DB7093','Pale Violet Red'],['FF007F','Rose'],
+    ['DE5D83','Blush'],['E8638A','Pale Red Violet'],['F48FB1','Pink Sherbet'],
+    ['FC8EAC','Flamingo'],['FF69B4','Hot Pink'],['FF1493','Deep Pink'],
+    ['FFB6C1','Light Pink'],['FFC0CB','Pink'],['FFE4E1','Misty Rose'],['FFF0F5','Lavender Blush'],
+    // Oranges & Corals
+    ['6B2009','Mahogany'],['7B1E00','Burnt Umber'],['8B4513','Saddle Brown'],
+    ['A04000','Russet'],['A0522D','Sienna'],['B7410E','Rust'],['C06030','Terracotta'],
+    ['CC5500','Burnt Orange'],['D2691E','Chocolate'],['E64A19','Rust Orange'],
+    ['E9967A','Dark Salmon'],['F08080','Light Coral'],['F4A460','Sandy Brown'],
+    ['FA8072','Salmon'],['FF4500','Orange Red'],['FF5722','Deep Orange'],
+    ['FF6347','Tomato'],['FF7F50','Coral'],['FF8C00','Dark Orange'],
+    ['FFA07A','Light Salmon'],['FFA500','Orange'],['FFBF00','Amber'],
+    ['B87333','Copper'],['C19A6B','Caramel'],['C68642','Fallow'],
+    ['DEB887','Burlywood'],['BC8F8F','Rosy Brown'],
+    // Yellows & Golds
+    ['8B6914','Dark Goldenrod'],['996515','Golden Brown'],['B8860B','Dark Goldenrod'],
+    ['BDB76B','Dark Khaki'],['DAA520','Goldenrod'],['D2B48C','Tan'],
+    ['E4D00A','Citrine'],['EEE8AA','Pale Goldenrod'],['F0E68C','Khaki'],
+    ['F4C430','Saffron'],['FAFAD2','Light Goldenrod Yellow'],['FDEE00','Aureolin'],
+    ['FDB827','Mustard'],['FFD700','Gold'],['FFDB58','Mustard Yellow'],
+    ['FFDEAD','Navajo White'],['FFE4B5','Moccasin'],['FFE4C4','Bisque'],
+    ['FFFACD','Lemon Chiffon'],['FFFFE0','Light Yellow'],['FFFF00','Yellow'],['FFFF99','Canary'],
+    // Browns & Neutrals
+    ['3C1414','Dark Sienna'],['4E2A04','Sepia'],['5C3317','Dark Brown'],
+    ['7B3F00','Cocoa Brown'],['7D4E28','Reddish Brown'],['A0785A','Antique Bronze'],
+    ['AA8855','Dark Tan'],['FAEBD7','Antique White'],['FAF0E6','Linen'],
+    ['FDF5E6','Old Lace'],['FFDAB9','Peach Puff'],['F5DEB3','Wheat'],
+    ['FFFDD0','Cream'],['F5F5DC','Beige'],['FFFFF0','Ivory'],
+    ['FFFAF0','Floral White'],
+    // Greens
+    ['013220','Deep Forest'],['004225','British Racing Green'],['006400','Dark Green'],
+    ['006633','India Green'],['008000','Green'],['228B22','Forest Green'],
+    ['2E8B57','Sea Green'],['355E3B','Hunter Green'],['3CB371','Medium Sea Green'],
+    ['4CBB17','Kelly Green'],['50C878','Emerald'],['556B2F','Dark Olive Green'],
+    ['5F8A4B','Fern Green'],['66CDAA','Medium Aquamarine'],['6B8E23','Olive Drab'],
+    ['7CFC00','Lawn Green'],['7FFF00','Chartreuse'],['808000','Olive'],
+    ['8FBC8F','Dark Sea Green'],['90EE90','Light Green'],['98FB98','Pale Green'],
+    ['98FF98','Mint Green'],['009B77','Jade'],['00A86B','Jade Green'],
+    ['9ACD32','Yellow Green'],['00FA9A','Medium Spring Green'],['00FF00','Lime'],
+    ['00FF7F','Spring Green'],['32CD32','Lime Green'],['ADFF2F','Green Yellow'],
+    ['CCFF00','Electric Lime'],['D0F0C0','Tea Green'],
+    // Teals & Cyans
+    ['006D6F','Skobelev'],['008080','Teal'],['008B8B','Dark Cyan'],
+    ['00827F','Teal Green'],['009B8E','Viridian'],['20B2AA','Light Sea Green'],
+    ['2E8B57','Sea Green'],['48D1CC','Medium Turquoise'],['40E0D0','Turquoise'],
+    ['00CED1','Dark Turquoise'],['5F9EA0','Cadet Blue'],['66CDAA','Medium Aquamarine'],
+    ['7FFFD4','Aquamarine'],['00FFFF','Cyan'],['AFEEEE','Pale Turquoise'],
+    ['E0FFFF','Light Cyan'],['F0FFF0','Honeydew'],['F0FFFF','Azure'],['F5FFFA','Mint Cream'],
+    // Blues
+    ['000066','Dark Navy'],['000080','Navy'],['002147','Oxford Blue'],
+    ['003153','Prussian Blue'],['0047AB','Cobalt Blue'],['00008B','Dark Blue'],
+    ['0000CD','Medium Blue'],['0000FF','Blue'],['0818A8','Zaffre'],
+    ['1560BD','Denim'],['191970','Midnight Blue'],['1E90FF','Dodger Blue'],
+    ['25538B','Sapphire'],['2C3E50','Wet Asphalt'],['3F51B5','Indigo Blue'],
+    ['4169E1','Royal Blue'],['4682B4','Steel Blue'],['4F86C6','French Blue'],
+    ['6495ED','Cornflower Blue'],['6F8FAF','Air Force Blue'],
+    ['00BFFF','Deep Sky Blue'],['87CEEB','Sky Blue'],['87CEFA','Light Sky Blue'],
+    ['ADD8E6','Light Blue'],['B0C4DE','Light Steel Blue'],['B0E0E6','Powder Blue'],
+    ['F0F8FF','Alice Blue'],['F8F8FF','Ghost White'],
+    // Indigo & Purples
+    ['4B0082','Indigo'],['2E0854','Imperial Purple'],['3B0F70','Russian Violet'],
+    ['483D8B','Dark Slate Blue'],['5B2C8D','Deep Mauve'],['614051','Eggplant'],
+    ['663399','Rebecca Purple'],['6600FF','Electric Violet'],['6A5ACD','Slate Blue'],
+    ['6F2DA8','Grape'],['7B68EE','Medium Slate Blue'],['7F00FF','Violet Blue'],
+    ['800080','Purple'],['8A2BE2','Blue Violet'],['8B008B','Dark Magenta'],
+    ['9370DB','Medium Purple'],['9400D3','Dark Violet'],['9932CC','Dark Orchid'],
+    ['9966CC','Amethyst'],['A020F0','Floral Lavender'],['BA55D3','Medium Orchid'],
+    ['BF00FF','Electric Purple'],['C9A0DC','Wisteria'],['D8BFD8','Thistle'],
+    ['DA70D6','Orchid'],['DDA0DD','Plum'],['E6E6FA','Lavender'],
+    ['EE82EE','Violet'],['FF00FF','Magenta'],['FF1493','Deep Pink'],
+  ];
+
+  /* ── Lab conversion ── */
+  type RGB = [number, number, number];
+  type Lab = [number, number, number];
+
+  function rgbToLab([r, g, b]: RGB): Lab {
+    const lin = (c: number) => {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    const lr = lin(r), lg = lin(g), lb = lin(b);
+    const x = (0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb) / 0.95047;
+    const y = (0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb) / 1.00000;
+    const z = (0.0193339 * lr + 0.1191920 * lg + 0.9503041 * lb) / 1.08883;
+    const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    const fy = f(y);
+    return [116 * fy - 16, 500 * (f(x) - fy), 200 * (fy - f(z))];
+  }
+
+  function deltaE([l1, a1, b1]: Lab, [l2, a2, b2]: Lab): number {
+    return Math.sqrt((l2 - l1) ** 2 + (a2 - a1) ** 2 + (b2 - b1) ** 2);
+  }
+
+  function hexToRgb(hex: string): RGB {
+    const n = parseInt(hex, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function rgbToHex([r, g, b]: RGB): string {
+    return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  }
+
+  function hslToRgb(h: number, s: number, l: number): RGB {
+    s /= 100; l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+  }
+
+  /* ── Pre-compute Lab values for the whole DB ── */
+  const DB_LAB: Lab[] = DB.map(([hex]) => rgbToLab(hexToRgb(hex)));
+
+  /* ── Parse any color string → RGB ── */
+  function parseColor(raw: string): RGB | null {
+    let s = raw.trim().toLowerCase().replace(/\s+/g, '');
+
+    // rgb(r,g,b) or rgba(r,g,b,a)
+    const rgbM = s.match(/^rgba?\((\d+),(\d+),(\d+)/);
+    if (rgbM) return [+rgbM[1], +rgbM[2], +rgbM[3]];
+
+    // hsl(h,s%,l%) or hsla(...)
+    const hslM = s.match(/^hsla?\(([\d.]+),([\d.]+)%,([\d.]+)%/);
+    if (hslM) return hslToRgb(+hslM[1], +hslM[2], +hslM[3]);
+
+    // hex
+    let hex = s.replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/.test(hex)) hex = hex.split('').map(c => c + c).join('');
+    if (/^[0-9a-f]{6}$/.test(hex)) return hexToRgb(hex);
+
+    return null;
+  }
+
+  /* ── Find nearest N matches ── */
+  function findNearest(rgb: RGB, n = 5): { hex: string; name: string; de: number }[] {
+    const lab = rgbToLab(rgb);
+    return DB
+      .map(([hex, name], i) => ({ hex: '#' + hex, name, de: deltaE(lab, DB_LAB[i]) }))
+      .sort((a, b) => a.de - b.de)
+      .slice(0, n);
+  }
+
+  /* ── Delta-E quality label ── */
+  function deLabel(de: number): string {
+    if (de < 1)  return 'exact match';
+    if (de < 3)  return 'very close';
+    if (de < 6)  return 'close';
+    if (de < 12) return 'approximate';
+    return 'distant';
+  }
+
+  /* ── Light text or dark? ── */
+  function isLight([r, g, b]: RGB): boolean {
+    return 0.299 * r + 0.587 * g + 0.114 * b > 140;
+  }
+
+  /* ── Render results ── */
+  let currentRgb: RGB = [59, 130, 246]; // #3b82f6
+
+  function render(rgb: RGB) {
+    currentRgb = rgb;
+    const hex = rgbToHex(rgb);
+    const light = isLight(rgb);
+    const textCls = light ? 'text-slate-900' : 'text-white';
+    const mutedCls = light ? 'text-slate-600' : 'text-white/70';
+
+    const matches = findNearest(rgb, 5);
+    const [top, ...alts] = matches;
+
+    // Swatch
+    const swatch = document.getElementById('resultSwatch')!;
+    swatch.style.background = hex;
+    const hexEl = document.getElementById('resultHex')!;
+    hexEl.textContent = hex;
+    hexEl.className = `font-mono text-sm font-semibold ${mutedCls}`;
+
+    // Name + delta
+    const nameEl = document.getElementById('resultName')!;
+    nameEl.textContent = top.name;
+    nameEl.className = `text-lg font-semibold ${textCls}`;
+
+    const deltaEl = document.getElementById('resultDelta')!;
+    deltaEl.textContent = `ΔE ${top.de.toFixed(1)} — ${deLabel(top.de)}`;
+    deltaEl.className = `text-xs ${mutedCls}`;
+
+    // Alternatives
+    const altRow = document.getElementById('altRow')!;
+    altRow.innerHTML = '';
+    alts.forEach(m => {
+      const altRgb = hexToRgb(m.hex.slice(1));
+      const altLight = isLight(altRgb);
+
+      const pill = document.createElement('button');
+      pill.className = 'group flex items-center gap-2 rounded-lg border border-slate-200 bg-white py-2 pl-2 pr-3 text-left text-xs transition-colors hover:border-purple-300';
+      pill.title = `Click to copy "${m.name}"`;
+
+      const dot = document.createElement('span');
+      dot.className = 'h-5 w-5 shrink-0 rounded';
+      dot.style.background = m.hex;
+
+      const info = document.createElement('span');
+      info.className = 'flex flex-col';
+      info.innerHTML = `<span class="font-medium text-slate-800">${m.name}</span><span class="text-slate-400">ΔE ${m.de.toFixed(1)}</span>`;
+
+      pill.appendChild(dot);
+      pill.appendChild(info);
+
+      pill.addEventListener('click', () => {
+        navigator.clipboard.writeText(m.name).then(() => {
+          const orig = info.querySelector('span')!.textContent;
+          info.querySelector('span')!.textContent = 'Copied!';
+          setTimeout(() => { info.querySelector('span')!.textContent = orig!; }, 1200);
+        });
+      });
+
+      altRow.appendChild(pill);
+    });
+  }
+
+  /* ── Input handling ── */
+  const picker = document.getElementById('colorPicker') as HTMLInputElement;
+  const textInput = document.getElementById('colorInput') as HTMLInputElement;
+  const parseError = document.getElementById('parseError')!;
+
+  function applyText(val: string) {
+    const rgb = parseColor(val);
+    if (!rgb) {
+      parseError.textContent = 'Unrecognised format — try #rrggbb, rgb(r,g,b) or hsl(h,s%,l%)';
+      parseError.classList.remove('hidden');
+      return;
+    }
+    parseError.classList.add('hidden');
+    // Sync picker (only accepts 6-digit hex)
+    picker.value = rgbToHex(rgb);
+    render(rgb);
+  }
+
+  picker.addEventListener('input', () => {
+    const rgb = parseColor(picker.value)!;
+    textInput.value = picker.value;
+    parseError.classList.add('hidden');
+    render(rgb);
+  });
+
+  textInput.addEventListener('input', () => applyText(textInput.value));
+  textInput.addEventListener('change', () => applyText(textInput.value));
+
+  /* ── Copy buttons ── */
+  function flashBtn(id: string, label: string) {
+    const btn = document.getElementById(id)!;
+    const orig = btn.textContent;
+    btn.textContent = label;
+    btn.classList.add('border-purple-300', 'text-purple-700');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('border-purple-300', 'text-purple-700'); }, 1400);
+  }
+
+  document.getElementById('copyNameBtn')!.addEventListener('click', () => {
+    const name = document.getElementById('resultName')!.textContent || '';
+    navigator.clipboard.writeText(name).then(() => flashBtn('copyNameBtn', 'Copied!'));
+  });
+
+  document.getElementById('copyHexBtn')!.addEventListener('click', () => {
+    navigator.clipboard.writeText(rgbToHex(currentRgb)).then(() => flashBtn('copyHexBtn', 'Copied!'));
+  });
+
+  /* ── Helpful button ── */
+  let helpfulCount = 0;
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    helpfulCount++;
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+    const el = document.getElementById('helpfulCount')!;
+    el.textContent = String(helpfulCount);
+    el.classList.remove('hidden');
+  });
+
+  /* ── Initial render ── */
+  render(currentRgb);
+</script>

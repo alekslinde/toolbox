@@ -28,6 +28,7 @@ export function getStaticPaths() {
     'scss-compiler',
     'semantic-html',
     'color-extractor',
+    'color-namer',
   ]);
   return tools
     .filter((t) => !implemented.has(t.slug))
