@@ -58,6 +58,15 @@ export const tools: Tool[] = [
     icon: 'PDF',
   },
   {
+    slug: 'pdf-convert',
+    title: 'PDF Converter',
+    shortTitle: 'PDF Converter',
+    description: 'Convert PDFs to PNG or JPG images, bundle images into a PDF, or extract text — all in your browser.',
+    category: 'images',
+    tags: ['PDF', 'convert', 'PDF to image', 'image to PDF', 'extract text', 'PNG', 'JPG'],
+    icon: 'PDF',
+  },
+  {
     slug: 'pdf-compress',
     title: 'PDF Compressor',
     shortTitle: 'PDF Compress',

@@ -1,0 +1,684 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import FAQAccordion from '@/components/FAQAccordion.astro';
+
+const tips = [
+  { heading: 'PDF → Images', body: 'Render every page as PNG or JPG. Multiple pages are bundled into a ZIP file.' },
+  { heading: 'Images → PDF', body: 'Bundle PNG, JPG or WebP images into a PDF. Drag cards to reorder pages before building.' },
+  { heading: 'PDF → Text',   body: 'Extract embedded text into a copyable, downloadable .txt file.' },
+  { heading: 'No uploads',   body: 'All conversions run locally in your browser — nothing ever leaves your device.' },
+];
+
+const faq = [
+  { question: 'Can I choose which PDF pages to export as images?', answer: 'All pages are exported currently. For multi-page PDFs the images are bundled into a ZIP, with each page numbered.' },
+  { question: 'What image formats are accepted for Images → PDF?', answer: 'PNG, JPEG and WebP. Each image becomes one page sized to its natural pixel dimensions.' },
+  { question: 'Why is PDF → Text showing blank or partial content?', answer: 'Scanned PDFs store pages as raster images with no embedded text layer. Only digitally-created PDFs (not scans) can have their text extracted.' },
+  { question: 'Are my files uploaded anywhere?', answer: 'No. All conversions run entirely in your browser using PDF.js and pdf-lib. Nothing is ever sent to a server.' },
+  { question: 'Is there a page or file size limit?', answer: 'No hard limit, but very large PDFs or high-resolution images will take longer to process since everything runs in the browser.' },
+];
+---
+
+<MainLayout
+  title="PDF Converter — PDF to Images, Images to PDF, Extract Text | Toolbox"
+  description="Convert PDFs to PNG or JPG images, bundle images into a PDF, or extract text — all in your browser. No uploads. Powered by PDF.js and pdf-lib."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="PDF Converter" category="Images & Documents" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">PDF Converter</h1>
+        <p class="mt-1 text-sm text-slate-500">Convert PDFs to images, images to PDF, or extract text — all in your browser.</p>
+      </div>
+      <button id="helpfulBtn"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+      >
+        <span>👍</span><span>This helped me</span>
+        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Tab bar -->
+          <div class="mb-6 flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist">
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="p2i" role="tab">PDF → Images</button>
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="i2p" role="tab">Images → PDF</button>
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="p2t" role="tab">PDF → Text</button>
+          </div>
+
+          <!-- ══ Tab 1: PDF → Images ══════════════════════════════════ -->
+          <div id="tab-p2i" role="tabpanel">
+
+            <div id="p2i-drop"
+              class="relative mb-4 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+              role="button" tabindex="0"
+            >
+              <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+              <p class="text-sm font-medium text-slate-700">Drop a PDF here</p>
+              <p class="mt-1 text-xs text-slate-400">PDF files only</p>
+              <input id="p2i-file" type="file" class="sr-only" accept=".pdf,application/pdf" />
+            </div>
+
+            <div id="p2i-panel" class="hidden">
+              <div class="mb-4 flex items-center justify-between">
+                <p id="p2i-info" class="text-xs text-slate-500"></p>
+                <button id="p2i-reset" class="text-xs text-slate-400 transition-colors hover:text-rose-400">Reset</button>
+              </div>
+
+              <!-- Options -->
+              <div class="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+                <div class="flex items-center gap-2">
+                  <label class="text-xs font-medium text-slate-600" for="p2i-format">Format</label>
+                  <select id="p2i-format" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-purple-400 focus:outline-none">
+                    <option value="png">PNG</option>
+                    <option value="jpg">JPG</option>
+                  </select>
+                </div>
+                <div id="p2i-q-wrap" class="hidden flex items-center gap-2">
+                  <label class="text-xs font-medium text-slate-600" for="p2i-quality">Quality</label>
+                  <input id="p2i-quality" type="range" min="50" max="100" value="90" class="w-24 accent-purple-500" />
+                  <span id="p2i-q-val" class="w-8 text-xs text-slate-500">90%</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs font-medium text-slate-600" for="p2i-scale">Resolution</label>
+                  <select id="p2i-scale" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:border-purple-400 focus:outline-none">
+                    <option value="1">1× screen</option>
+                    <option value="2" selected>2× sharp</option>
+                    <option value="3">3× high-res</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Progress bar -->
+              <div id="p2i-pbar" class="mb-4 hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div id="p2i-pfill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+              </div>
+
+              <button id="p2i-btn"
+                class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              >Convert &amp; Download</button>
+              <p id="p2i-status" class="mt-3 hidden text-center text-sm"></p>
+            </div>
+
+          </div>
+
+          <!-- ══ Tab 2: Images → PDF ══════════════════════════════════ -->
+          <div id="tab-i2p" class="hidden" role="tabpanel">
+
+            <div id="i2p-drop"
+              class="relative mb-4 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+              role="button" tabindex="0"
+            >
+              <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+              <p class="text-sm font-medium text-slate-700">Drop images here</p>
+              <p class="mt-1 text-xs text-slate-400">PNG, JPG or WebP · multiple accepted</p>
+              <input id="i2p-file" type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple />
+            </div>
+
+            <div id="i2p-controls" class="hidden">
+              <div class="mb-3 flex items-center justify-between">
+                <span id="i2p-count" class="text-sm font-medium text-slate-700"></span>
+                <div class="flex gap-2">
+                  <label class="cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300">
+                    Add more
+                    <input id="i2p-add" type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple />
+                  </label>
+                  <button id="i2p-clear" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">Clear all</button>
+                </div>
+              </div>
+              <div id="i2p-list" class="mb-4 flex flex-wrap gap-3" role="list" aria-label="Images to convert"></div>
+              <button id="i2p-btn"
+                class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              >Build PDF</button>
+              <p id="i2p-status" class="mt-3 hidden text-center text-sm"></p>
+            </div>
+
+          </div>
+
+          <!-- ══ Tab 3: PDF → Text ════════════════════════════════════ -->
+          <div id="tab-p2t" class="hidden" role="tabpanel">
+
+            <div id="p2t-drop"
+              class="relative mb-4 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/30"
+              role="button" tabindex="0"
+            >
+              <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
+              <p class="text-sm font-medium text-slate-700">Drop a PDF here</p>
+              <p class="mt-1 text-xs text-slate-400">PDF with embedded text</p>
+              <input id="p2t-file" type="file" class="sr-only" accept=".pdf,application/pdf" />
+            </div>
+
+            <div id="p2t-panel" class="hidden">
+              <div class="mb-3 flex items-center justify-between">
+                <p id="p2t-info" class="text-xs text-slate-500"></p>
+                <button id="p2t-reset" class="text-xs text-slate-400 transition-colors hover:text-rose-400">Reset</button>
+              </div>
+
+              <div id="p2t-loading" class="mb-3 hidden flex items-center gap-2 text-sm text-slate-500">
+                <svg class="h-4 w-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span id="p2t-load-msg">Extracting text…</span>
+              </div>
+
+              <textarea id="p2t-text"
+                class="mb-3 w-full rounded-md border border-slate-200 px-3 py-2 font-mono text-xs leading-relaxed text-slate-700 focus:border-purple-400 focus:outline-none"
+                rows="12" readonly placeholder="Extracted text will appear here…"
+              ></textarea>
+
+              <div class="flex gap-2">
+                <button id="p2t-copy"
+                  class="rounded-md border border-slate-200 px-4 py-2 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600"
+                >Copy text</button>
+                <button id="p2t-dl"
+                  class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                >Download .txt</button>
+              </div>
+              <p id="p2t-status" class="mt-3 hidden text-center text-sm"></p>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- SEO Sandwich -->
+    <div class="mt-16 rounded-md border border-slate-200 bg-slate-50 px-8 py-12">
+      <div class="mx-auto max-w-2xl">
+        <h2 class="mb-4 text-lg font-semibold text-slate-900">About PDF Converter</h2>
+        <p class="mb-8 text-sm leading-relaxed text-slate-600">
+          A three-in-one PDF conversion tool that runs entirely in your browser. Export PDF pages as PNG or JPG images
+          (multi-page exports bundled into a ZIP), bundle PNG, JPG or WebP images into a new PDF with drag-to-reorder,
+          or extract the text layer of any digitally-created PDF into a copyable .txt file. No uploads, no account, no
+          server required — powered by PDF.js and pdf-lib.
+        </p>
+        <FAQAccordion items={faq} />
+        <div class="mt-10 text-xs leading-relaxed text-slate-400">
+          <p>Related: <a href="/tools/pdf-compress" class="text-purple-500 hover:underline">PDF Compressor</a> · <a href="/tools/pdf-organiser" class="text-purple-500 hover:underline">PDF Organiser</a> · <a href="/tools/image-convert" class="text-purple-500 hover:underline">Image Converter</a></p>
+          <p class="mt-2">Keywords: PDF to image, PDF to PNG, PDF to JPG, image to PDF, PDF text extractor, convert PDF browser, no upload PDF converter</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</MainLayout>
+
+<style>
+  .tab-btn { color: #64748b; }
+  .tab-btn[aria-selected="true"] { background: white; color: #9333ea; box-shadow: 0 1px 3px rgb(0 0 0 / .1); }
+  .img-card.drag-over { outline: 2px solid #a855f7; outline-offset: 2px; }
+</style>
+
+<script>
+  import { PDFDocument } from 'pdf-lib';
+  import JSZip from 'jszip';
+
+  // ── PDF.js loader ──────────────────────────────────────────────
+  const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+  let pdfjsReady = false;
+  async function loadPdfJs(): Promise<void> {
+    if (pdfjsReady || (window as any).pdfjsLib) { pdfjsReady = true; return; }
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = `${PDFJS_CDN}/pdf.min.js`;
+      s.onload = () => {
+        (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
+        pdfjsReady = true;
+        resolve();
+      };
+      s.onerror = () => reject(new Error('Failed to load PDF renderer.'));
+      document.head.appendChild(s);
+    });
+  }
+  function pdfjs(): any { return (window as any).pdfjsLib; }
+
+  // ── Shared helpers ─────────────────────────────────────────────
+  function fmtBytes(b: number): string {
+    if (b < 1024) return b + ' B';
+    if (b < 1_048_576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1_048_576).toFixed(2) + ' MB';
+  }
+  function baseName(n: string): string { return n.replace(/\.[^.]+$/, ''); }
+
+  function showSt(id: string, msg: string, type: 'ok' | 'err' | 'info') {
+    const el = document.getElementById(id)!;
+    el.textContent = msg;
+    el.className = `mt-3 text-center text-sm ${
+      type === 'ok' ? 'text-emerald-600' : type === 'err' ? 'text-rose-500' : 'text-slate-500'
+    }`;
+    el.classList.remove('hidden');
+  }
+
+  function triggerDl(url: string, name: string) {
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 15_000);
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────
+  function switchTab(id: string) {
+    for (const t of ['p2i', 'i2p', 'p2t']) {
+      const active = t === id;
+      document.getElementById('tab-' + t)!.classList.toggle('hidden', !active);
+      document.querySelector(`[data-tab="${t}"]`)!.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn =>
+    btn.addEventListener('click', () => switchTab((btn as HTMLElement).dataset.tab!))
+  );
+  switchTab('p2i');
+
+  // ── Drop zone factory ──────────────────────────────────────────
+  function makeDropZone(zoneId: string, inputId: string, onFiles: (files: File[]) => void) {
+    const zone  = document.getElementById(zoneId)!;
+    const input = document.getElementById(inputId) as HTMLInputElement;
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+    zone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); zone.classList.add('border-purple-400', 'bg-purple-50/50'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('border-purple-400', 'bg-purple-50/50'));
+    zone.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault(); zone.classList.remove('border-purple-400', 'bg-purple-50/50');
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length) onFiles(files);
+    });
+    input.addEventListener('change', () => {
+      if (input.files?.length) onFiles(Array.from(input.files));
+      input.value = '';
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Tab 1 — PDF → Images
+  // ══════════════════════════════════════════════════════════════
+
+  let p2iFile: File | null = null;
+
+  const p2iFormat  = document.getElementById('p2i-format') as HTMLSelectElement;
+  const p2iQuality = document.getElementById('p2i-quality') as HTMLInputElement;
+  const p2iQVal    = document.getElementById('p2i-q-val')!;
+  const p2iQWrap   = document.getElementById('p2i-q-wrap')!;
+  const p2iScale   = document.getElementById('p2i-scale') as HTMLSelectElement;
+
+  p2iFormat.addEventListener('change', () => p2iQWrap.classList.toggle('hidden', p2iFormat.value !== 'jpg'));
+  p2iQuality.addEventListener('input', () => { p2iQVal.textContent = p2iQuality.value + '%'; });
+
+  function p2iReset() {
+    p2iFile = null;
+    document.getElementById('p2i-panel')!.classList.add('hidden');
+    document.getElementById('p2i-drop')!.classList.remove('hidden');
+    document.getElementById('p2i-status')!.classList.add('hidden');
+    const bar = document.getElementById('p2i-pbar')!;
+    bar.classList.add('hidden');
+    document.getElementById('p2i-pfill')!.style.width = '0%';
+    (document.getElementById('p2i-btn') as HTMLButtonElement).disabled = false;
+  }
+  document.getElementById('p2i-reset')!.addEventListener('click', p2iReset);
+
+  makeDropZone('p2i-drop', 'p2i-file', async files => {
+    const pdf = files.find(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    if (!pdf) return;
+    p2iFile = pdf;
+    try {
+      const bytes = new Uint8Array(await pdf.arrayBuffer());
+      const doc   = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const n     = doc.getPageCount();
+      document.getElementById('p2i-info')!.textContent = `${pdf.name} · ${fmtBytes(pdf.size)} · ${n} page${n !== 1 ? 's' : ''}`;
+    } catch {
+      document.getElementById('p2i-info')!.textContent = `${pdf.name} · ${fmtBytes(pdf.size)}`;
+    }
+    document.getElementById('p2i-drop')!.classList.add('hidden');
+    document.getElementById('p2i-panel')!.classList.remove('hidden');
+    document.getElementById('p2i-status')!.classList.add('hidden');
+  });
+
+  document.getElementById('p2i-btn')!.addEventListener('click', async () => {
+    if (!p2iFile) return;
+    const btn  = document.getElementById('p2i-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    const fmt   = p2iFormat.value as 'png' | 'jpg';
+    const qual  = parseInt(p2iQuality.value) / 100;
+    const scale = parseFloat(p2iScale.value);
+    const mime  = fmt === 'png' ? 'image/png' : 'image/jpeg';
+
+    const pbar  = document.getElementById('p2i-pbar')!;
+    const pfill = document.getElementById('p2i-pfill')!;
+    function setProgress(pct: number) {
+      if (pct > 0) { pbar.classList.remove('hidden'); pfill.style.width = pct + '%'; }
+      else { pbar.classList.add('hidden'); pfill.style.width = '0%'; }
+    }
+
+    try {
+      await loadPdfJs();
+      setProgress(5);
+      showSt('p2i-status', 'Loading PDF…', 'info');
+
+      const bytes = new Uint8Array(await p2iFile.arrayBuffer());
+      const doc   = await pdfjs().getDocument({ data: bytes }).promise;
+      const total = doc.numPages;
+      const renders: { canvas: HTMLCanvasElement; num: number }[] = [];
+
+      for (let i = 1; i <= total; i++) {
+        showSt('p2i-status', `Rendering page ${i} / ${total}…`, 'info');
+        setProgress(Math.round(5 + 80 * (i - 1) / total));
+        const page = await doc.getPage(i);
+        const vp   = page.getViewport({ scale });
+        const cv   = document.createElement('canvas');
+        cv.width   = Math.round(vp.width);
+        cv.height  = Math.round(vp.height);
+        await page.render({ canvasContext: cv.getContext('2d')!, viewport: vp }).promise;
+        page.cleanup();
+        renders.push({ canvas: cv, num: i });
+      }
+      await doc.destroy();
+
+      setProgress(90);
+      showSt('p2i-status', 'Generating output…', 'info');
+      const stem = baseName(p2iFile.name);
+      const pad  = (n: number) => String(n).padStart(String(total).length, '0');
+
+      if (total === 1) {
+        const blob = await new Promise<Blob>(res => renders[0].canvas.toBlob(b => res(b!), mime, qual));
+        triggerDl(URL.createObjectURL(blob), `${stem}.${fmt}`);
+        showSt('p2i-status', `✓ Downloaded ${stem}.${fmt} · ${fmtBytes(blob.size)}`, 'ok');
+      } else {
+        const zip = new JSZip();
+        for (const { canvas, num } of renders) {
+          const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), mime, qual));
+          zip.file(`${stem}-page-${pad(num)}.${fmt}`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        triggerDl(URL.createObjectURL(zipBlob), `${stem}-images.zip`);
+        showSt('p2i-status', `✓ Downloaded ZIP — ${total} pages · ${fmtBytes(zipBlob.size)}`, 'ok');
+      }
+
+      setProgress(100);
+      setTimeout(() => setProgress(0), 1500);
+    } catch (e: any) {
+      showSt('p2i-status', '✕ ' + e.message, 'err');
+      setProgress(0);
+    }
+    btn.disabled = false;
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Tab 2 — Images → PDF
+  // ══════════════════════════════════════════════════════════════
+
+  interface ImgEntry {
+    id: string;
+    file: File;
+    objectUrl: string;
+    w: number;
+    h: number;
+  }
+
+  let imgEntries: ImgEntry[] = [];
+  let imgNextId = 0;
+  let imgDragSrc: string | null = null;
+  const i2pList     = document.getElementById('i2p-list')!;
+  const i2pControls = document.getElementById('i2p-controls')!;
+
+  async function i2pAddFiles(files: File[]) {
+    const valid = files.filter(f =>
+      /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name)
+    );
+    for (const file of valid) {
+      await new Promise<void>(resolve => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const entry: ImgEntry = { id: 'i' + imgNextId++, file, objectUrl: url, w: img.naturalWidth, h: img.naturalHeight };
+          imgEntries.push(entry);
+          i2pList.appendChild(makeImgCard(entry));
+          resolve();
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        img.src = url;
+      });
+    }
+    if (valid.length) i2pUpdateUI();
+  }
+
+  makeDropZone('i2p-drop', 'i2p-file', i2pAddFiles);
+  document.getElementById('i2p-add')!.addEventListener('change', e => {
+    const input = e.target as HTMLInputElement;
+    if (input.files?.length) i2pAddFiles(Array.from(input.files));
+    input.value = '';
+  });
+  document.getElementById('i2p-clear')!.addEventListener('click', () => {
+    imgEntries.forEach(e => URL.revokeObjectURL(e.objectUrl));
+    imgEntries = [];
+    i2pList.innerHTML = '';
+    i2pControls.classList.add('hidden');
+    document.getElementById('i2p-drop')!.classList.remove('hidden');
+    document.getElementById('i2p-status')!.classList.add('hidden');
+  });
+
+  function i2pUpdateUI() {
+    document.getElementById('i2p-drop')!.classList.add('hidden');
+    i2pControls.classList.remove('hidden');
+    document.getElementById('i2p-count')!.textContent = `${imgEntries.length} image${imgEntries.length !== 1 ? 's' : ''}`;
+  }
+
+  function makeImgCard(entry: ImgEntry): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'img-card relative flex flex-col rounded-md border border-slate-200 bg-white p-1.5 cursor-grab select-none hover:border-purple-300 transition-colors';
+    card.setAttribute('draggable', 'true');
+    card.setAttribute('role', 'listitem');
+    card.dataset.id = entry.id;
+    card.style.width = '108px';
+
+    const thumb = document.createElement('img');
+    thumb.src = entry.objectUrl;
+    thumb.className = 'block w-full rounded-sm object-contain';
+    thumb.style.height = '80px';
+    card.appendChild(thumb);
+
+    const row = document.createElement('div');
+    row.className = 'mt-1.5 flex items-center justify-between gap-1 px-0.5';
+
+    const label = document.createElement('span');
+    label.className = 'truncate text-xs text-slate-500';
+    label.textContent = baseName(entry.file.name).slice(0, 12);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'flex-shrink-0 text-xs leading-none text-slate-300 transition-colors hover:text-rose-500';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      URL.revokeObjectURL(entry.objectUrl);
+      imgEntries = imgEntries.filter(e => e.id !== entry.id);
+      card.remove();
+      if (!imgEntries.length) {
+        i2pControls.classList.add('hidden');
+        document.getElementById('i2p-drop')!.classList.remove('hidden');
+      } else {
+        document.getElementById('i2p-count')!.textContent = `${imgEntries.length} image${imgEntries.length !== 1 ? 's' : ''}`;
+      }
+    });
+
+    row.appendChild(label);
+    row.appendChild(removeBtn);
+    card.appendChild(row);
+
+    card.addEventListener('dragstart', (e: DragEvent) => {
+      imgDragSrc = entry.id;
+      card.style.opacity = '0.35';
+      e.dataTransfer!.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.style.opacity = '';
+      i2pList.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    });
+    card.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault(); e.dataTransfer!.dropEffect = 'move';
+      if (imgDragSrc && imgDragSrc !== entry.id) card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault(); card.classList.remove('drag-over');
+      if (!imgDragSrc || imgDragSrc === entry.id) return;
+      const fi = imgEntries.findIndex(p => p.id === imgDragSrc);
+      const ti = imgEntries.findIndex(p => p.id === entry.id);
+      if (fi === -1 || ti === -1) return;
+      const [moved] = imgEntries.splice(fi, 1);
+      imgEntries.splice(ti, 0, moved);
+      i2pRebuildCards();
+      imgDragSrc = null;
+    });
+
+    return card;
+  }
+
+  function i2pRebuildCards() {
+    i2pList.innerHTML = '';
+    for (const e of imgEntries) i2pList.appendChild(makeImgCard(e));
+    document.getElementById('i2p-count')!.textContent = `${imgEntries.length} image${imgEntries.length !== 1 ? 's' : ''}`;
+  }
+
+  document.getElementById('i2p-btn')!.addEventListener('click', async () => {
+    if (!imgEntries.length) return;
+    const btn = document.getElementById('i2p-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    showSt('i2p-status', 'Building PDF…', 'info');
+    try {
+      const pdfDoc = await PDFDocument.create();
+
+      for (const entry of imgEntries) {
+        const bytes  = new Uint8Array(await entry.file.arrayBuffer());
+        const isPng  = entry.file.type === 'image/png'  || entry.file.name.toLowerCase().endsWith('.png');
+        const isJpeg = entry.file.type === 'image/jpeg' || /\.jpe?g$/i.test(entry.file.name);
+        let embedded: any;
+
+        if (isPng) {
+          embedded = await pdfDoc.embedPng(bytes);
+        } else if (isJpeg) {
+          embedded = await pdfDoc.embedJpg(bytes);
+        } else {
+          // WebP — rasterise via canvas then embed as PNG
+          const bmp  = await createImageBitmap(entry.file);
+          const cv   = document.createElement('canvas');
+          cv.width   = bmp.width; cv.height = bmp.height;
+          cv.getContext('2d')!.drawImage(bmp, 0, 0);
+          const blob = await new Promise<Blob>(res => cv.toBlob(b => res(b!), 'image/png'));
+          embedded   = await pdfDoc.embedPng(new Uint8Array(await blob.arrayBuffer()));
+        }
+
+        const page = pdfDoc.addPage([entry.w, entry.h]);
+        page.drawImage(embedded, { x: 0, y: 0, width: entry.w, height: entry.h });
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      triggerDl(URL.createObjectURL(blob), `images-${imgEntries.length}p.pdf`);
+      showSt('i2p-status', `✓ Downloaded PDF — ${imgEntries.length} page${imgEntries.length !== 1 ? 's' : ''} · ${fmtBytes(pdfBytes.length)}`, 'ok');
+    } catch (e: any) {
+      showSt('i2p-status', '✕ ' + e.message, 'err');
+    }
+    btn.disabled = false;
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Tab 3 — PDF → Text
+  // ══════════════════════════════════════════════════════════════
+
+  let p2tStem = '';
+
+  function p2tReset() {
+    p2tStem = '';
+    document.getElementById('p2t-panel')!.classList.add('hidden');
+    document.getElementById('p2t-drop')!.classList.remove('hidden');
+    (document.getElementById('p2t-text') as HTMLTextAreaElement).value = '';
+    document.getElementById('p2t-status')!.classList.add('hidden');
+  }
+  document.getElementById('p2t-reset')!.addEventListener('click', p2tReset);
+
+  makeDropZone('p2t-drop', 'p2t-file', async files => {
+    const pdf = files.find(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+    if (!pdf) return;
+
+    p2tStem = baseName(pdf.name);
+    document.getElementById('p2t-info')!.textContent = `${pdf.name} · ${fmtBytes(pdf.size)}`;
+    document.getElementById('p2t-drop')!.classList.add('hidden');
+    document.getElementById('p2t-panel')!.classList.remove('hidden');
+    document.getElementById('p2t-loading')!.classList.remove('hidden');
+    (document.getElementById('p2t-text') as HTMLTextAreaElement).value = '';
+    document.getElementById('p2t-status')!.classList.add('hidden');
+
+    try {
+      await loadPdfJs();
+      const bytes = new Uint8Array(await pdf.arrayBuffer());
+      const doc   = await pdfjs().getDocument({ data: bytes }).promise;
+      const total = doc.numPages;
+      const parts: string[] = [];
+
+      for (let i = 1; i <= total; i++) {
+        document.getElementById('p2t-load-msg')!.textContent = `Extracting page ${i} / ${total}…`;
+        const page    = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const str     = content.items.map((item: any) => ('str' in item ? item.str : '')).join(' ').trim();
+        if (str) parts.push(str);
+        page.cleanup();
+      }
+      await doc.destroy();
+
+      document.getElementById('p2t-loading')!.classList.add('hidden');
+      const text = parts.join('\n\n---\n\n');
+      (document.getElementById('p2t-text') as HTMLTextAreaElement).value =
+        text || '(No text layer found — this PDF may contain scanned images only.)';
+      showSt('p2t-status',
+        text
+          ? `✓ Extracted ${total} page${total !== 1 ? 's' : ''} · ${text.length.toLocaleString()} characters`
+          : 'No text found — scanned PDFs are not supported.',
+        text ? 'ok' : 'err'
+      );
+    } catch (e: any) {
+      document.getElementById('p2t-loading')!.classList.add('hidden');
+      showSt('p2t-status', '✕ ' + e.message, 'err');
+    }
+  });
+
+  document.getElementById('p2t-copy')!.addEventListener('click', async () => {
+    const text = (document.getElementById('p2t-text') as HTMLTextAreaElement).value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = document.getElementById('p2t-copy')!;
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    } catch {}
+  });
+
+  document.getElementById('p2t-dl')!.addEventListener('click', () => {
+    const text = (document.getElementById('p2t-text') as HTMLTextAreaElement).value;
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain' });
+    triggerDl(URL.createObjectURL(blob), p2tStem + '.txt');
+  });
+
+  // ── Helpful button ─────────────────────────────────────────────
+  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
+    const c = document.getElementById('helpfulCount')!;
+    c.textContent = String(parseInt(c.textContent || '0') + 1);
+    c.classList.remove('hidden');
+    document.getElementById('helpfulBtn')!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+  });
+</script>
