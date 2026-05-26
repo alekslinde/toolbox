@@ -1,5 +1,6 @@
 ---
-import { ViewTransitions } from 'astro:transitions';
+import { ClientRouter } from 'astro:transitions';
+import '@/styles/global.css';
 import { navCategories } from '@/data/nav';
 import changelog from '../../changelog.json';
 import versionData from '../../version.json';
@@ -72,7 +73,7 @@ const path = Astro.url.pathname;
   <!-- Alpine is imported per-page via npm (see each tool's <script>) -->
 
   <slot name="head" />
-  <ViewTransitions />
+  <ClientRouter />
 </head>
 
 <body class="h-full bg-slate-50 font-sans text-slate-900 antialiased">

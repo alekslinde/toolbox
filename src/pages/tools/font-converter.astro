@@ -151,18 +151,29 @@ const faq = [
 </MainLayout>
 
 <script>
-  import * as opentype from 'opentype.js';
-  // @ts-ignore
-  import wawoff2Decompress from 'wawoff2/decompress';
-  // @ts-ignore
-  import wawoff2Compress from 'wawoff2/compress';
+  let _opentype: typeof import('opentype.js') | null = null;
+  let _wawoff2Decompress: ((buf: Uint8Array) => Promise<Uint8Array>) | null = null;
+  let _wawoff2Compress: ((buf: Uint8Array) => Promise<Uint8Array>) | null = null;
+
+  async function getOpentype() {
+    if (!_opentype) _opentype = await import('opentype.js');
+    return _opentype;
+  }
 
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    return wawoff2Decompress(buf);
+    if (!_wawoff2Decompress) {
+      // @ts-ignore
+      _wawoff2Decompress = (await import('wawoff2/decompress')).default;
+    }
+    return _wawoff2Decompress!(buf);
   }
 
   async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    return wawoff2Compress(buf);
+    if (!_wawoff2Compress) {
+      // @ts-ignore
+      _wawoff2Compress = (await import('wawoff2/compress')).default;
+    }
+    return _wawoff2Compress!(buf);
   }
 
   /* ── Structural validation ── */
@@ -533,6 +544,7 @@ const faq = [
         }
       }
 
+      const opentype = await getOpentype();
       let font: any;
       try { font = opentype.parse(parseAB); }
       catch (e: any) {
