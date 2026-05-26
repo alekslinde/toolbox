@@ -57,6 +57,10 @@ a one-file edit.
 - `fix: woff2` — lowercase, no context
 - `Fixed the WOFF2 parsing issue that was causing an error when users tried to upload WOFF2 font files to the font converter tool` — too long for subject
 
+## Never append
+
+Do not add session URLs, `Co-Authored-By` trailers, or any other metadata to commit messages. The commit hash is sufficient for traceability.
+
 ## Steps
 
 1. Run `git diff --staged --stat` to see what's staged. If nothing is staged, check `git status` and stage the relevant files first.
