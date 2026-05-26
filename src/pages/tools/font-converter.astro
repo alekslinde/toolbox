@@ -51,7 +51,8 @@ const faq = [
             <input id="fontFileInput" type="file" class="sr-only" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" />
           </div>
 
-          <p id="fontFileInfo" class="mb-4 hidden text-xs text-slate-500"></p>
+          <p id="fontFileInfo" class="mb-2 hidden text-xs text-slate-500"></p>
+          <div id="fontDiag" class="hidden mb-4 rounded-md border px-3 py-2.5 text-xs leading-relaxed"></div>
 
           <div id="fontControls" class="hidden flex-col gap-4">
 
@@ -164,6 +165,154 @@ const faq = [
     return wawoff2Compress(buf);
   }
 
+  /* ── Structural validation ── */
+  interface DiagResult { issues: string[]; warnings: string[] }
+
+  function inspectSfnt(buf: ArrayBuffer): DiagResult {
+    const dv = new DataView(buf);
+    const size = buf.byteLength;
+    const issues: string[] = [];
+    const warnings: string[] = [];
+
+    if (size < 12) {
+      issues.push('File is too small to contain a font header — it may be truncated or empty.');
+      return { issues, warnings };
+    }
+
+    const magic = dv.getUint32(0);
+    const sfntMagics = new Set([0x00010000, 0x4F54544F, 0x74727565, 0x74797031]);
+    if (!sfntMagics.has(magic)) {
+      const hex = '0x' + magic.toString(16).toUpperCase().padStart(8, '0');
+      issues.push(`Unexpected file signature (${hex}). The file may have been renamed rather than converted.`);
+      return { issues, warnings };
+    }
+
+    const isOTF = magic === 0x4F54544F;
+    const numTables = dv.getUint16(4);
+    const dirEnd = 12 + numTables * 16;
+
+    if (size < dirEnd) {
+      issues.push(`Table directory claims ${numTables} tables but the file is only ${size} bytes — it is likely truncated.`);
+      return { issues, warnings };
+    }
+
+    const found = new Set<string>();
+    for (let i = 0; i < numTables; i++) {
+      const o = 12 + i * 16;
+      const tag = String.fromCharCode(dv.getUint8(o), dv.getUint8(o+1), dv.getUint8(o+2), dv.getUint8(o+3)).trimEnd();
+      const offset = dv.getUint32(o + 8);
+      const length = dv.getUint32(o + 12);
+      found.add(tag);
+      if (offset + length > size) {
+        issues.push(`Table '${tag}' extends beyond the end of the file (starts at byte ${offset}, length ${length}, file is ${size} bytes).`);
+      }
+    }
+
+    const required = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'post'];
+    for (const t of required) {
+      if (!found.has(t)) issues.push(`Required table '${t}' is missing.`);
+    }
+
+    if (!found.has('glyf') && !found.has('CFF ') && !found.has('CFF2')) {
+      issues.push(`No glyph outline table found — expected 'glyf' (TrueType) or 'CFF '/'CFF2' (PostScript/OTF).`);
+    }
+    if (isOTF && found.has('glyf') && !found.has('CFF ')) {
+      warnings.push(`File header says OTF (OTTO) but contains a 'glyf' table instead of 'CFF '. The flavour may be mislabelled.`);
+    }
+
+    return { issues, warnings };
+  }
+
+  /* ── Name-record repair ── */
+  function repairNameRecords(font: any, fallback: string): string[] {
+    const repairs: string[] = [];
+
+    // getEnglishName() reads from (unicode || macintosh || windows)[key].
+    // Patching font.names directly is ignored — we must write to the same platform
+    // object that getEnglishName() and toArrayBuffer() will read from.
+    const platform: Record<string, any> =
+      font.names.unicode ?? font.names.macintosh ?? font.names.windows ?? font.names;
+
+    function patch(key: string, value: string) { platform[key] = { en: value }; }
+
+    if (!font.getEnglishName('fontFamily')) {
+      // preferredFamily is more accurate than the filename when present
+      const family = font.getEnglishName('preferredFamily') ?? fallback;
+      patch('fontFamily', family);
+      repairs.push(`added missing 'fontFamily' → "${family}"`);
+    }
+    if (!font.getEnglishName('fontSubfamily')) {
+      const sub = font.getEnglishName('preferredSubfamily') ?? 'Regular';
+      patch('fontSubfamily', sub);
+      repairs.push(`added missing 'fontSubfamily' → "${sub}"`);
+    }
+    if (!font.getEnglishName('postScriptName')) {
+      const family = font.getEnglishName('fontFamily') ?? fallback;
+      const psName = family.replace(/\s+/g, '');
+      patch('postScriptName', psName);
+      repairs.push(`added missing 'postScriptName' → "${psName}"`);
+    }
+    if (!font.getEnglishName('fullName')) {
+      const family = font.getEnglishName('fontFamily') ?? fallback;
+      const sub = font.getEnglishName('fontSubfamily') ?? 'Regular';
+      const full = sub.toLowerCase() === 'regular' ? family : `${family} ${sub}`;
+      patch('fullName', full);
+      repairs.push(`added missing 'fullName' → "${full}"`);
+    }
+    return repairs;
+  }
+
+  /* ── opentype.js error → plain English ── */
+  function translateParseError(msg: string): string {
+    if (/unsupported opentype signature/i.test(msg))
+      return 'Unrecognised font format — file signature is not TTF, OTF, or WOFF.';
+    if (/cmap/i.test(msg))
+      return `Corrupted 'cmap' table (character-to-glyph mapping): ${msg}`;
+    if (/checksum/i.test(msg))
+      return `Table checksum mismatch: ${msg}. The file may have been partially overwritten.`;
+    if (/end of data/i.test(msg) || /unexpected end/i.test(msg))
+      return 'File is truncated — data ends before the font is fully described.';
+    if (/name table/i.test(msg))
+      return `Corrupted 'name' table (font metadata): ${msg}`;
+    return msg;
+  }
+
+  /* ── Diagnostic display ── */
+  function showDiag(issues: string[], warnings: string[], repairs: string[]) {
+    const el = document.getElementById('fontDiag')!;
+    if (!issues.length && !warnings.length && !repairs.length) {
+      el.classList.add('hidden');
+      return;
+    }
+
+    const lines: string[] = [];
+    if (issues.length) {
+      lines.push('<strong class="block mb-1 text-rose-700">Structural problems detected:</strong>');
+      lines.push(issues.map(s => `<span class="block text-rose-600">✕ ${esc(s)}</span>`).join(''));
+    }
+    if (warnings.length) {
+      lines.push('<strong class="block mb-1 mt-1.5 text-amber-700">Warnings:</strong>');
+      lines.push(warnings.map(s => `<span class="block text-amber-600">⚠ ${esc(s)}</span>`).join(''));
+    }
+    if (repairs.length) {
+      lines.push('<strong class="block mb-1 mt-1.5 text-sky-700">Auto-repaired:</strong>');
+      lines.push(repairs.map(s => `<span class="block text-sky-600">↺ ${esc(s)}</span>`).join(''));
+    }
+
+    const hasFatal = issues.length > 0;
+    el.className = hasFatal
+      ? 'mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs leading-relaxed'
+      : repairs.length
+        ? 'mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-relaxed'
+        : 'mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed';
+    el.innerHTML = lines.join('');
+    el.classList.remove('hidden');
+  }
+
+  function esc(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   let fontFile: File | null = null;
   let fontAB: ArrayBuffer | null = null;
 
@@ -260,11 +409,23 @@ const faq = [
     const infoEl = document.getElementById('fontFileInfo')!;
     infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
     infoEl.classList.remove('hidden');
-
+    document.getElementById('fontDiag')!.classList.add('hidden');
     showStatus(`Loaded: ${file.name}`, 'info');
 
     const reader = new FileReader();
-    reader.onload = (ev) => { fontAB = ev.target!.result as ArrayBuffer; };
+    reader.onload = (ev) => {
+      fontAB = ev.target!.result as ArrayBuffer;
+      // Run structural check immediately for sfnt-flavoured files (TTF/OTF).
+      // WOFF/WOFF2 have their own container — we only inspect the inner sfnt
+      // during conversion where we have the decoded bytes.
+      const magic = new DataView(fontAB).getUint32(0);
+      const isSfntDirect = magic === 0x00010000 || magic === 0x4F54544F
+        || magic === 0x74727565 || magic === 0x74797031;
+      if (isSfntDirect) {
+        const { issues, warnings } = inspectSfnt(fontAB);
+        showDiag(issues, warnings, []);
+      }
+    };
     reader.readAsArrayBuffer(file);
 
     (document.getElementById('fontConvertBtn') as HTMLButtonElement).disabled = false;
@@ -297,18 +458,18 @@ const faq = [
 
       let font: any;
       try { font = opentype.parse(parseAB); }
-      catch { throw new Error('Cannot parse font. Ensure it is TTF, OTF, WOFF, or WOFF2.'); }
+      catch (e: any) {
+        // Run structural inspection to give a specific diagnosis if possible.
+        const { issues, warnings } = inspectSfnt(parseAB);
+        if (issues.length) showDiag(issues, warnings, []);
+        throw new Error(translateParseError(e?.message ?? 'Unknown parse error'));
+      }
 
       setProgress(55);
       const base = baseName(fontFile.name);
       let buf: ArrayBuffer;
 
-      // opentype.js bug: toArrayBuffer() crashes when postScriptName is absent
-      // and fontFamily has no English name record (common in some WOFF fonts).
-      if (!font.getEnglishName('postScriptName')) {
-        const family = font.getEnglishName('fontFamily') ?? 'Font';
-        font.names.postScriptName = { en: family.replace(/\s+/g, '') };
-      }
+      const repairs = repairNameRecords(font, base);
       const sfnt = font.toArrayBuffer();
 
       if (to === 'ttf' || to === 'otf') {
@@ -343,6 +504,7 @@ const faq = [
       dl(new Blob([buf], { type: mimes[to] ?? 'application/octet-stream' }), `${base}.${to}`);
       setProgress(100);
       showStatus(`✓ Downloaded as ${base}.${to}`, 'ok');
+      if (repairs.length) showDiag([], [], repairs);
     } catch (e: any) {
       showStatus('✕ ' + e.message, 'err');
       setProgress(0);
