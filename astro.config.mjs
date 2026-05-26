@@ -9,7 +9,7 @@ export default defineConfig({
   integrations: [tailwind()],
   vite: {
     optimizeDeps: {
-      include: ['alpinejs'],
+      include: ['alpinejs', 'wawoff2/decompress', 'wawoff2/compress'],
     },
   },
 });
