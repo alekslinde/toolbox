@@ -6,16 +6,10 @@ import HelpfulButton from '@/components/HelpfulButton.astro';
 import ToolSEO from '@/components/ToolSEO.astro';
 
 const tips = [
-  { heading: 'WOFF2',    body: 'Best web format — ~30% smaller than WOFF. Supported in all modern browsers.' },
-  { heading: 'WOFF',     body: 'Fallback for older browsers (IE9+). Built by this tool from raw sfnt data.' },
-  { heading: 'TTF / OTF', body: 'Uncompressed — large files. Use for desktop apps or as source for CSS @font-face.' },
-  { heading: 'EOT',      body: 'Legacy Internet Explorer format. Rarely needed today.' },
-];
-
-const cheatSheet = [
-  { label: 'Web',     value: 'WOFF2 + WOFF fallback' },
-  { label: 'Desktop', value: 'TTF or OTF' },
-  { label: 'IE only', value: 'EOT' },
+  { heading: 'Extension renaming ≠ conversion', body: 'Renaming font.otf to font.ttf changes nothing — browsers read the binary file signature, not the filename. Only a real conversion changes the internal structure.' },
+  { heading: 'Prefer TTF or OTF as source', body: 'WOFF and WOFF2 are compressed wrappers around the original outline data. Converting from an uncompressed source preserves the most fidelity and avoids round-trip artefacts.' },
+  { heading: 'WOFF2 input works directly', body: 'Drop a .woff2 file straight in — it is decompressed automatically in your browser before conversion. No manual steps or external tools needed.' },
+  { heading: 'If conversion fails, try TTF first', body: 'Convert to TTF as an intermediate step, then convert that file to your target format. This works around most parsing edge cases.' },
 ];
 
 const faq = [
@@ -95,8 +89,49 @@ const faq = [
       </div>
 
       <aside class="lg:col-span-4">
-        <div class="sticky top-8">
-          <QuickTips tips={tips} cheatSheet={cheatSheet} />
+        <div class="sticky top-8 flex flex-col gap-4">
+          <QuickTips tips={tips} />
+
+          <!-- Font format reference -->
+          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Font Formats</h3>
+            <ul class="flex flex-col divide-y divide-slate-100">
+
+              <li class="py-3 first:pt-0 last:pb-0">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="rounded bg-purple-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-purple-700">WOFF2</span>
+                  <span class="text-xs font-medium text-emerald-600">best for web</span>
+                </div>
+                <p class="text-xs text-slate-500">Brotli-compressed sfnt. ~30% smaller than WOFF. Supported in every modern browser.</p>
+              </li>
+
+              <li class="py-3 first:pt-0 last:pb-0">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">WOFF</span>
+                  <span class="text-xs font-medium text-slate-400">web fallback</span>
+                </div>
+                <p class="text-xs text-slate-500">zlib-compressed sfnt. Use as a fallback alongside WOFF2 if you need IE9+ support.</p>
+              </li>
+
+              <li class="py-3 first:pt-0 last:pb-0">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">TTF</span>
+                  <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">OTF</span>
+                  <span class="text-xs font-medium text-slate-400">desktop / source</span>
+                </div>
+                <p class="text-xs text-slate-500">Uncompressed outlines — TTF uses TrueType curves, OTF uses PostScript (CFF). Ideal starting point for conversion.</p>
+              </li>
+
+              <li class="py-3 first:pt-0 last:pb-0">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">EOT</span>
+                  <span class="text-xs font-medium text-slate-400">legacy IE only</span>
+                </div>
+                <p class="text-xs text-slate-500">Embedded OpenType for Internet Explorer 6–8. Skip unless you specifically need old-IE support.</p>
+              </li>
+
+            </ul>
+          </div>
         </div>
       </aside>
 
@@ -121,22 +156,28 @@ const faq = [
   // @ts-ignore
   import compressBinding from 'wawoff2/build/compress_binding.js';
 
-  function waitForWasm(mod: any): Promise<void> {
-    return new Promise(resolve => {
-      if (mod.calledRun) { resolve(); return; }
-      mod.onRuntimeInitialized = resolve;
+  function waitForWasm(mod: any, fn: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof mod[fn] === 'function') { resolve(); return; }
+      // Callback for when WASM finishes loading
+      mod.onRuntimeInitialized = () => resolve();
+      // Poll every 50ms as fallback in case the callback already fired
+      const iv = setInterval(() => {
+        if (typeof mod[fn] === 'function') { clearInterval(iv); resolve(); }
+      }, 50);
+      setTimeout(() => { clearInterval(iv); reject(new Error('WASM init timed out')); }, 10_000);
     });
   }
 
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    await waitForWasm(decompressBinding);
+    await waitForWasm(decompressBinding, 'decompress');
     const result = decompressBinding.decompress(buf);
     if (result === false) throw new Error('ConvertWOFF2ToTTF failed');
     return result;
   }
 
   async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    await waitForWasm(compressBinding);
+    await waitForWasm(compressBinding, 'compress');
     const result = compressBinding.compress(buf);
     if (result === false) throw new Error('ConvertTTFToWOFF2 failed');
     return result;
@@ -280,6 +321,13 @@ const faq = [
       setProgress(55);
       const base = baseName(fontFile.name);
       let buf: ArrayBuffer;
+
+      // opentype.js bug: toArrayBuffer() crashes when postScriptName is absent
+      // and fontFamily has no English name record (common in some WOFF fonts).
+      if (!font.getEnglishName('postScriptName')) {
+        const family = font.getEnglishName('fontFamily') ?? 'Font';
+        font.names.postScriptName = { en: family.replace(/\s+/g, '') };
+      }
       const sfnt = font.toArrayBuffer();
 
       if (to === 'ttf' || to === 'otf') {
@@ -289,7 +337,13 @@ const faq = [
       } else if (to === 'woff2') {
         showStatus('Encoding WOFF2…', 'info');
         try {
-          const woff2Bytes = await compressWOFF2(new Uint8Array(sfnt));
+          // Prefer the raw source bytes over toArrayBuffer() re-serialization.
+          // opentype.js CFF output can produce data that makes wawoff2 hang.
+          // WOFF input needs the re-serialised sfnt (the WOFF container must be
+          // unwrapped first); TTF, OTF and WOFF2 source bytes are already valid sfnt.
+          const isWoffInput = new DataView(fontAB).getUint32(0) === 0x774F4646; // 'wOFF'
+          const sfntToCompress = isWoffInput ? sfnt : parseAB;
+          const woff2Bytes = await compressWOFF2(new Uint8Array(sfntToCompress));
           buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
         } catch {
           throw new Error('Failed to encode WOFF2.');
