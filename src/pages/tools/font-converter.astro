@@ -19,9 +19,9 @@ const cheatSheet = [
 ];
 
 const faq = [
-  { question: 'Is my font uploaded?', answer: 'No. Conversion happens entirely in your browser using opentype.js. Your font file never leaves your device.' },
-  { question: 'What input formats are supported?', answer: 'TTF, OTF and WOFF. WOFF2 is not currently parseable by opentype.js in the browser.' },
-  { question: 'Why does WOFF2 output a TTF instead?', answer: 'WOFF2 compression (Brotli + Brotli-specific font tables) requires server-side tooling. This tool exports a TTF and shows a note. Re-encode with fonttools or woff2 CLI to get WOFF2.' },
+  { question: 'Is my font uploaded?', answer: 'No. Conversion happens entirely in your browser using opentype.js and wawoff2 (WebAssembly). Your font file never leaves your device.' },
+  { question: 'What input formats are supported?', answer: 'TTF, OTF, WOFF and WOFF2. WOFF2 files are decompressed in the browser using a WebAssembly port of the reference WOFF2 library before conversion.' },
+  { question: 'Can I export WOFF2?', answer: 'Yes. WOFF2 output is supported via the same WebAssembly library used for input — no server required.' },
 ];
 ---
 
@@ -36,7 +36,7 @@ const faq = [
       <div>
         <Breadcrumbs tool="Font Converter" category="Typography & Color" />
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Font Converter</h1>
-        <p class="mt-1 text-sm text-slate-500">Convert between TTF, OTF, WOFF and EOT — in your browser.</p>
+        <p class="mt-1 text-sm text-slate-500">Convert between TTF, OTF, WOFF, WOFF2 and EOT — in your browser.</p>
       </div>
       <HelpfulButton />
     </div>
@@ -53,8 +53,8 @@ const faq = [
           >
             <span class="mb-2 text-3xl text-slate-300" aria-hidden="true">↓</span>
             <p class="text-sm font-medium text-slate-700">Drop a font file here</p>
-            <p class="mt-1 text-xs text-slate-400">TTF · OTF · WOFF accepted</p>
-            <input id="fontFileInput" type="file" class="sr-only" accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff" />
+            <p class="mt-1 text-xs text-slate-400">TTF · OTF · WOFF · WOFF2 accepted</p>
+            <input id="fontFileInput" type="file" class="sr-only" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" />
           </div>
 
           <p id="fontFileInfo" class="mb-4 hidden text-xs text-slate-500"></p>
@@ -66,8 +66,8 @@ const faq = [
                 <label class="mb-1.5 block text-xs font-medium text-slate-600">Convert to</label>
                 <select id="fontTo"
                   class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none">
+                  <option value="woff2">WOFF2</option>
                   <option value="woff">WOFF</option>
-                  <option value="woff2">WOFF2 (exports TTF)</option>
                   <option value="ttf">TTF</option>
                   <option value="otf">OTF</option>
                   <option value="eot">EOT</option>
@@ -108,7 +108,7 @@ const faq = [
       related={`<a href="/tools/font-inspector" class="text-purple-500 hover:underline">Font Inspector</a> · <a href="/tools/ico-generator" class="text-purple-500 hover:underline">ICO Generator</a>`}
       keywords="font converter, TTF to WOFF, OTF to WOFF2, web font converter, browser font conversion, no upload font tool"
     >
-      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Convert font files between TTF, OTF, WOFF and EOT formats entirely in your browser using opentype.js. WOFF output is built by wrapping the raw sfnt data in the WOFF container format. WOFF2 requires Brotli compression and server-side tooling — this tool exports a TTF as an intermediate step.</p>
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Convert font files between TTF, OTF, WOFF, WOFF2 and EOT formats entirely in your browser. WOFF2 input is decompressed using a WebAssembly build of the reference WOFF2 library before opentype.js parses the font. WOFF2 output is compressed the same way — no server needed.</p>
     </ToolSEO>
 
   </div>
@@ -116,6 +116,8 @@ const faq = [
 
 <script>
   import * as opentype from 'opentype.js';
+  import decompress from 'wawoff2/decompress';
+  import compress from 'wawoff2/compress';
 
   let fontFile: File | null = null;
   let fontAB: ArrayBuffer | null = null;
@@ -214,8 +216,6 @@ const faq = [
     infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
     infoEl.classList.remove('hidden');
 
-    // Auto-select input extension
-    const ext = extOf(file.name);
     showStatus(`Loaded: ${file.name}`, 'info');
 
     const reader = new FileReader();
@@ -236,9 +236,23 @@ const faq = [
     try {
       setProgress(20);
       showStatus('Parsing…', 'info');
+
+      let parseAB = fontAB;
+      const isWoff2Input = extOf(fontFile.name) === 'woff2'
+        || new DataView(fontAB).getUint32(0) === 0x774F4632; // 'wOF2'
+      if (isWoff2Input) {
+        showStatus('Decompressing WOFF2…', 'info');
+        try {
+          const ttfBytes = await decompress(new Uint8Array(fontAB));
+          parseAB = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteOffset + ttfBytes.byteLength);
+        } catch {
+          throw new Error('Failed to decompress WOFF2 file.');
+        }
+      }
+
       let font: any;
-      try { font = opentype.parse(fontAB); }
-      catch { throw new Error('Cannot parse font. Ensure it is TTF, OTF, or WOFF.'); }
+      try { font = opentype.parse(parseAB); }
+      catch { throw new Error('Cannot parse font. Ensure it is TTF, OTF, WOFF, or WOFF2.'); }
 
       setProgress(55);
       const base = baseName(fontFile.name);
@@ -250,11 +264,13 @@ const faq = [
       } else if (to === 'woff') {
         buf = buildWOFF(sfnt);
       } else if (to === 'woff2') {
-        dl(new Blob([sfnt], { type: 'font/truetype' }), base + '.ttf');
-        showStatus('⚠ WOFF2 needs server-side encoding. Exported TTF instead — re-encode with fonttools.', 'err');
-        setProgress(0);
-        btn.disabled = false;
-        return;
+        showStatus('Encoding WOFF2…', 'info');
+        try {
+          const woff2Bytes = await compress(new Uint8Array(sfnt));
+          buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
+        } catch {
+          throw new Error('Failed to encode WOFF2.');
+        }
       } else if (to === 'eot') {
         buf = buildEOT(sfnt);
       } else {
@@ -264,7 +280,7 @@ const faq = [
       setProgress(95);
       const mimes: Record<string, string> = {
         ttf: 'font/truetype', otf: 'font/otf',
-        woff: 'font/woff', eot: 'application/vnd.ms-fontobject',
+        woff: 'font/woff', woff2: 'font/woff2', eot: 'application/vnd.ms-fontobject',
       };
       dl(new Blob([buf], { type: mimes[to] ?? 'application/octet-stream' }), `${base}.${to}`);
       setProgress(100);

@@ -100,7 +100,7 @@ This project uses **Tailwind CSS**. Follow the utility class patterns already us
 
 ## Git commits
 
-Do not add `Co-Authored-By` trailers to commit messages.
+Do not add `Co-Authored-By` trailers, session URLs, or any other metadata to commit messages. The commit hash is sufficient for traceability.
 
 ## Git workflow
 
