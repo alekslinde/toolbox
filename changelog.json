@@ -1,9 +1,17 @@
 [
   {
-    "version": "6.7",
+    "version": "6.8",
     "date": "2026-05-26",
     "changes": [
       "New tool: SVG Validator & Repair — validate, auto-repair and preview SVG files with split code/preview view, XML error detection, xmlns/viewBox repair, and script sanitization"
+      ]
+  },
+  {
+    "version": "6.7",
+    "date": "2026-05-11",
+    "changes": [
+      "Image Resizer: drag-to-crop on the thumbnail before resizing, with aspect-ratio presets (1:1, 4:3, 16:9, 3:2, 9:16, 2:3) and a rule-of-thirds overlay",
+      "XD → Figma Packager: automatically strips the outer clip-path that XD adds to SVG exports, so artwork isn't clipped inside Figma"
     ]
   },
   {

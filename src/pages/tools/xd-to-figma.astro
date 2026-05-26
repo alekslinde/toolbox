@@ -253,6 +253,35 @@ const faq = [
       `${xdFiles.length} screen${xdFiles.length !== 1 ? 's' : ''}`;
   }
 
+  /* ── SVG cleanup ── */
+  function stripOuterClipPath(svgText: string): string {
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const root = doc.documentElement;
+    if (root.tagName === 'parsererror') return svgText;
+
+    // Check root <svg> and its first <g> child — XD uses both patterns
+    const candidates: Element[] = [root];
+    const firstG = root.querySelector(':scope > g');
+    if (firstG) candidates.push(firstG);
+
+    for (const el of candidates) {
+      const cp = el.getAttribute('clip-path');
+      if (!cp) continue;
+      const m = cp.match(/url\(#([^)]+)\)/);
+      if (!m) continue;
+      el.removeAttribute('clip-path');
+      const clipEl = doc.getElementById(m[1]);
+      if (clipEl?.tagName === 'clipPath') {
+        const defs = clipEl.parentElement;
+        clipEl.remove();
+        if (defs?.tagName === 'defs' && defs.children.length === 0) defs.remove();
+      }
+      break;
+    }
+
+    return new XMLSerializer().serializeToString(doc);
+  }
+
   /* ── Pack ── */
   document.getElementById('xdPackBtn')!.addEventListener('click', async () => {
     if (!xdFiles.length) return;
@@ -268,7 +297,8 @@ const faq = [
       for (let i = 0; i < xdFiles.length; i++) {
         const { file } = xdFiles[i];
         const prefix = String(i + 1).padStart(pad, '0');
-        zip.file(`${prefix}_${file.name}`, file);
+        const cleaned = stripOuterClipPath(await file.text());
+        zip.file(`${prefix}_${file.name}`, cleaned);
         setProgress(10 + Math.round((i + 1) / xdFiles.length * 75));
       }
 
