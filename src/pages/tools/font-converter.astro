@@ -152,35 +152,16 @@ const faq = [
 <script>
   import * as opentype from 'opentype.js';
   // @ts-ignore
-  import decompressBinding from 'wawoff2/build/decompress_binding.js';
+  import wawoff2Decompress from 'wawoff2/decompress';
   // @ts-ignore
-  import compressBinding from 'wawoff2/build/compress_binding.js';
-
-  function waitForWasm(mod: any, fn: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (typeof mod[fn] === 'function') { resolve(); return; }
-      // Callback for when WASM finishes loading
-      mod.onRuntimeInitialized = () => resolve();
-      // Poll every 50ms as fallback in case the callback already fired
-      const iv = setInterval(() => {
-        if (typeof mod[fn] === 'function') { clearInterval(iv); resolve(); }
-      }, 50);
-      setTimeout(() => { clearInterval(iv); reject(new Error('WASM init timed out')); }, 10_000);
-    });
-  }
+  import wawoff2Compress from 'wawoff2/compress';
 
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    await waitForWasm(decompressBinding, 'decompress');
-    const result = decompressBinding.decompress(buf);
-    if (result === false) throw new Error('ConvertWOFF2ToTTF failed');
-    return result;
+    return wawoff2Decompress(buf);
   }
 
   async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    await waitForWasm(compressBinding, 'compress');
-    const result = compressBinding.compress(buf);
-    if (result === false) throw new Error('ConvertTTFToWOFF2 failed');
-    return result;
+    return wawoff2Compress(buf);
   }
 
   let fontFile: File | null = null;
