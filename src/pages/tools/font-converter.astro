@@ -342,6 +342,84 @@ const faq = [
     else { bar.classList.add('hidden'); fill.style.width = '0%'; }
   }
 
+  /* ── WOFF unwrapper (extracts raw sfnt from WOFF container) ── */
+  async function zlibDecompress(data: Uint8Array): Promise<Uint8Array> {
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(data);
+    writer.close();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const total = chunks.reduce((a, c) => a + c.length, 0);
+    const out = new Uint8Array(total);
+    let pos = 0;
+    for (const c of chunks) { out.set(c, pos); pos += c.length; }
+    return out;
+  }
+
+  async function unwrapWOFF(woffBuf: ArrayBuffer): Promise<ArrayBuffer> {
+    const dv = new DataView(woffBuf);
+    const wu8 = new Uint8Array(woffBuf);
+    const sfVersion = dv.getUint32(4);   // sfnt flavor ('true', OTTO, 0x00010000…)
+    const numTables = dv.getUint16(12);
+
+    // WOFF table directory starts at byte 44.
+    // Entry: tag(4) offset(4) compLength(4) origLength(4) origChecksum(4)
+    const tables: { tag: string; checksum: number; data: Uint8Array }[] = [];
+    for (let i = 0; i < numTables; i++) {
+      const o = 44 + i * 20;
+      const tag = String.fromCharCode(
+        dv.getUint8(o), dv.getUint8(o+1), dv.getUint8(o+2), dv.getUint8(o+3)
+      );
+      const offset     = dv.getUint32(o + 4);
+      const compLength = dv.getUint32(o + 8);
+      const origLength = dv.getUint32(o + 12);
+      const checksum   = dv.getUint32(o + 16);
+      const raw = wu8.subarray(offset, offset + compLength);
+      const data = compLength < origLength ? await zlibDecompress(raw) : raw;
+      tables.push({ tag, checksum, data });
+    }
+
+    // Build sfnt binary header fields
+    const n = numTables;
+    let pow2 = 1; while (pow2 * 2 <= n) pow2 *= 2;
+    const searchRange    = pow2 * 16;
+    const entrySelector  = Math.log2(pow2);
+    const rangeShift     = n * 16 - searchRange;
+
+    // Calculate table offsets (4-byte aligned)
+    const dirEnd = 12 + n * 16;
+    let dataPos = dirEnd;
+    const sfntOffsets = tables.map(t => {
+      const o = dataPos; dataPos += (t.data.length + 3) & ~3; return o;
+    });
+
+    const sfnt = new ArrayBuffer(dataPos);
+    const sdv = new DataView(sfnt);
+    const su8 = new Uint8Array(sfnt);
+
+    sdv.setUint32(0, sfVersion);
+    sdv.setUint16(4, n);
+    sdv.setUint16(6, searchRange);
+    sdv.setUint16(8, entrySelector);
+    sdv.setUint16(10, rangeShift);
+
+    tables.forEach((t, i) => {
+      const d = 12 + i * 16;
+      for (let c = 0; c < 4; c++) sdv.setUint8(d + c, t.tag.charCodeAt(c));
+      sdv.setUint32(d + 4, t.checksum);
+      sdv.setUint32(d + 8, sfntOffsets[i]);
+      sdv.setUint32(d + 12, t.data.length);
+      su8.set(t.data, sfntOffsets[i]);
+    });
+    return sfnt;
+  }
+
   /* ── WOFF builder (wraps raw sfnt data) ── */
   function buildWOFF(sfntBuffer: ArrayBuffer): ArrayBuffer {
     const dv = new DataView(sfntBuffer), u8 = new Uint8Array(sfntBuffer);
@@ -365,8 +443,7 @@ const faq = [
     od.setUint16(p, n); p += 2; od.setUint16(p, 0); p += 2;
     od.setUint32(p, sfntBuffer.byteLength); p += 4;
     od.setUint16(p, 1); p += 2; od.setUint16(p, 0); p += 2;
-    for (let i = 0; i < 4; i++) { od.setUint32(p, 0); p += 4; }
-    od.setUint32(p, 0); p += 4; od.setUint32(p, 0); p += 4;
+    for (let i = 0; i < 5; i++) { od.setUint32(p, 0); p += 4; }
     tables.forEach((t, i) => {
       for (let c = 0; c < 4; c++) od.setUint8(p + c, t.tag.charCodeAt(c));
       p += 4; od.setUint32(p, tOff[i]); p += 4; od.setUint32(p, t.len); p += 4;
@@ -479,12 +556,12 @@ const faq = [
       } else if (to === 'woff2') {
         showStatus('Encoding WOFF2…', 'info');
         try {
-          // Prefer the raw source bytes over toArrayBuffer() re-serialization.
-          // opentype.js CFF output can produce data that makes wawoff2 hang.
-          // WOFF input needs the re-serialised sfnt (the WOFF container must be
-          // unwrapped first); TTF, OTF and WOFF2 source bytes are already valid sfnt.
+          // Always use the original source bytes rather than toArrayBuffer() output.
+          // opentype.js re-serialization can produce data that makes wawoff2 hang,
+          // especially for CFF/OTF and WOFF-derived fonts.
+          // WOFF needs its container stripped first; TTF/OTF/WOFF2 bytes are raw sfnt.
           const isWoffInput = new DataView(fontAB).getUint32(0) === 0x774F4646; // 'wOFF'
-          const sfntToCompress = isWoffInput ? sfnt : parseAB;
+          const sfntToCompress = isWoffInput ? await unwrapWOFF(fontAB) : parseAB;
           const woff2Bytes = await compressWOFF2(new Uint8Array(sfntToCompress));
           buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
         } catch {
