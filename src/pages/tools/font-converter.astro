@@ -302,7 +302,13 @@ const faq = [
       } else if (to === 'woff2') {
         showStatus('Encoding WOFF2…', 'info');
         try {
-          const woff2Bytes = await compressWOFF2(new Uint8Array(sfnt));
+          // Prefer the raw source bytes over toArrayBuffer() re-serialization.
+          // opentype.js CFF output can produce data that makes wawoff2 hang.
+          // WOFF input needs the re-serialised sfnt (the WOFF container must be
+          // unwrapped first); TTF, OTF and WOFF2 source bytes are already valid sfnt.
+          const isWoffInput = new DataView(fontAB).getUint32(0) === 0x774F4646; // 'wOFF'
+          const sfntToCompress = isWoffInput ? sfnt : parseAB;
+          const woff2Bytes = await compressWOFF2(new Uint8Array(sfntToCompress));
           buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
         } catch {
           throw new Error('Failed to encode WOFF2.');
