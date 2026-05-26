@@ -286,6 +286,13 @@ const faq = [
       setProgress(55);
       const base = baseName(fontFile.name);
       let buf: ArrayBuffer;
+
+      // opentype.js bug: toArrayBuffer() crashes when postScriptName is absent
+      // and fontFamily has no English name record (common in some WOFF fonts).
+      if (!font.getEnglishName('postScriptName')) {
+        const family = font.getEnglishName('fontFamily') ?? 'Font';
+        font.names.postScriptName = { en: family.replace(/\s+/g, '') };
+      }
       const sfnt = font.toArrayBuffer();
 
       if (to === 'ttf' || to === 'otf') {
