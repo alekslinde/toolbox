@@ -1,0 +1,135 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+
+const EFFECTIVE_DATE = '26 May 2026';
+---
+
+<MainLayout
+  title="Legal & Disclaimer — Linde Toolbox"
+  description="Terms of use, disclaimer, and legal notice for Linde Toolbox."
+>
+  <main class="mx-auto max-w-3xl px-6 py-14 lg:px-8">
+
+    <div class="mb-10">
+      <h1 class="text-2xl font-semibold text-slate-900">Legal &amp; Disclaimer</h1>
+      <p class="mt-1 text-sm text-slate-500">Effective date: {EFFECTIVE_DATE}</p>
+    </div>
+
+    <div class="flex flex-col gap-10 text-sm leading-relaxed text-slate-700">
+
+      <!-- 1 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">1. About this platform</h2>
+        <p>
+          Linde Toolbox (<strong>lindetoolbox.com</strong>) is a free, browser-based utility suite operated by Alex Linde as a personal project.
+          All tools execute entirely on your device using client-side JavaScript. <strong>No files, data, or personal information are ever transmitted to or stored on any server operated by this platform.</strong>
+          The only network requests made are those explicitly described in each tool (e.g., the AI font-pairing feature calls the Anthropic API via a Cloudflare Worker).
+        </p>
+      </section>
+
+      <!-- 2 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">2. User responsibility for uploaded content</h2>
+        <p class="mb-3">
+          You are solely responsible for any files or content you process using this platform. By using these tools you represent and warrant that:
+        </p>
+        <ul class="list-disc space-y-2 pl-5">
+          <li>You own the content or have obtained all necessary rights, licences, and permissions required to process it.</li>
+          <li>Processing or converting the content does not violate any applicable law, regulation, or third-party right, including copyright, trade mark, privacy, or export-control law.</li>
+          <li>You will not use this platform to process content that is unlawful, defamatory, infringing, or otherwise objectionable.</li>
+        </ul>
+        <p class="mt-3">
+          Because all processing occurs locally in your browser, this platform has no visibility into, and exercises no control over, the content you choose to process.
+          Responsibility for lawful use rests entirely with you.
+        </p>
+      </section>
+
+      <!-- 3 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">3. Intellectual property &amp; copyright</h2>
+        <p class="mb-3">
+          Many font files, images, PDFs, and other assets are protected by copyright and may be subject to licence restrictions that limit conversion, redistribution, or modification.
+          Converting a font from WOFF to TTF, for example, does not grant you any rights beyond those already conferred by the original licence.
+        </p>
+        <p>
+          You assume full responsibility for ensuring that your use of any converted or processed output complies with the terms under which the original asset was obtained.
+          This platform does not provide legal advice and nothing on this site should be construed as such.
+        </p>
+      </section>
+
+      <!-- 4 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">4. Open-source software</h2>
+        <p class="mb-3">
+          The source code for this platform is made available on GitHub under the <strong>MIT Licence</strong>.
+          You are free to use, copy, modify, merge, publish, distribute, sublicence, and sell copies of the software, subject to the conditions of that licence.
+        </p>
+        <p class="mb-3">
+          The MIT Licence permits broad use but carries an important condition: <em>the software is provided "as is", without warranty of any kind.</em>
+          The full licence text is available in the repository.
+        </p>
+        <p>
+          Third-party libraries used by this platform (opentype.js, wawoff2, Alpine.js, and others) are distributed under their own licences.
+          Refer to each library's repository for the applicable terms.
+        </p>
+      </section>
+
+      <!-- 5 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">5. No warranty</h2>
+        <p>
+          This platform and all tools it provides are offered <strong>"as is" and "as available"</strong>, without warranty of any kind — express, implied, or statutory —
+          including but not limited to warranties of merchantability, fitness for a particular purpose, accuracy, completeness, or non-infringement.
+          The operator does not warrant that the tools will be error-free, uninterrupted, or produce results suitable for any particular purpose.
+          Use the tools at your own risk and always retain an unmodified copy of any file before processing it.
+        </p>
+      </section>
+
+      <!-- 6 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">6. Limitation of liability</h2>
+        <p>
+          To the maximum extent permitted by applicable law, Alex Linde and any contributors to this platform shall not be liable for any direct, indirect, incidental, special,
+          consequential, or exemplary damages arising out of or in connection with your use of, or inability to use, this platform or its tools —
+          including but not limited to loss of data, loss of revenue, or corruption of files —
+          even if advised of the possibility of such damages.
+          Some jurisdictions do not allow the exclusion or limitation of certain damages; in those jurisdictions liability is limited to the fullest extent permitted by law.
+        </p>
+      </section>
+
+      <!-- 7 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">7. Third-party services</h2>
+        <p>
+          This platform uses Cloudflare for hosting and Workers for edge compute, and may call the Anthropic API for AI-powered features.
+          These services have their own terms of use and privacy policies.
+          This platform is not affiliated with, endorsed by, or sponsored by any third-party service provider referenced herein.
+        </p>
+      </section>
+
+      <!-- 8 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">8. Changes to this notice</h2>
+        <p>
+          This legal notice may be updated from time to time. Material changes will be reflected in a revised effective date at the top of this page.
+          Continued use of the platform after a change constitutes acceptance of the updated terms.
+        </p>
+      </section>
+
+      <!-- 9 -->
+      <section>
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">9. Contact</h2>
+        <p>
+          Questions about this notice can be directed to
+          <a href="mailto:iamalexlinde@gmail.com" class="text-purple-600 underline underline-offset-2 hover:text-purple-800">iamalexlinde@gmail.com</a>.
+        </p>
+      </section>
+
+    </div>
+
+    <div class="mt-12 border-t border-slate-200 pt-6">
+      <a href="/" class="text-sm text-slate-500 no-underline hover:text-purple-600">&larr; Back to tools</a>
+    </div>
+
+  </main>
+</MainLayout>

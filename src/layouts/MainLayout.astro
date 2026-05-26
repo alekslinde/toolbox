@@ -257,6 +257,10 @@ const path = Astro.url.pathname;
   <!-- Page content -->
   <div class="flex min-h-screen flex-col pt-14">
     <slot />
+    <footer class="mt-auto border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-400 lg:px-8">
+      All tools run entirely in your browser — no files are uploaded to any server.
+      <a href="/legal" class="ml-3 text-slate-400 underline underline-offset-2 hover:text-purple-600">Legal &amp; Disclaimer</a>
+    </footer>
   </div>
 
   <script is:inline>
