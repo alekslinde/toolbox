@@ -116,8 +116,32 @@ const faq = [
 
 <script>
   import * as opentype from 'opentype.js';
-  import decompress from 'wawoff2/decompress';
-  import compress from 'wawoff2/compress';
+  // Import raw Emscripten bindings to avoid wawoff2's onRuntimeInitialized race condition
+  // @ts-ignore
+  import decompressBinding from 'wawoff2/build/decompress_binding.js';
+  // @ts-ignore
+  import compressBinding from 'wawoff2/build/compress_binding.js';
+
+  function waitForWasm(mod: any): Promise<void> {
+    return new Promise(resolve => {
+      if (mod.calledRun) { resolve(); return; }
+      mod.onRuntimeInitialized = resolve;
+    });
+  }
+
+  async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
+    await waitForWasm(decompressBinding);
+    const result = decompressBinding.decompress(buf);
+    if (result === false) throw new Error('ConvertWOFF2ToTTF failed');
+    return result;
+  }
+
+  async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
+    await waitForWasm(compressBinding);
+    const result = compressBinding.compress(buf);
+    if (result === false) throw new Error('ConvertTTFToWOFF2 failed');
+    return result;
+  }
 
   let fontFile: File | null = null;
   let fontAB: ArrayBuffer | null = null;
@@ -243,7 +267,7 @@ const faq = [
       if (isWoff2Input) {
         showStatus('Decompressing WOFF2…', 'info');
         try {
-          const ttfBytes = await decompress(new Uint8Array(fontAB));
+          const ttfBytes = await decompressWOFF2(new Uint8Array(fontAB));
           parseAB = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteOffset + ttfBytes.byteLength);
         } catch {
           throw new Error('Failed to decompress WOFF2 file.');
@@ -266,7 +290,7 @@ const faq = [
       } else if (to === 'woff2') {
         showStatus('Encoding WOFF2…', 'info');
         try {
-          const woff2Bytes = await compress(new Uint8Array(sfnt));
+          const woff2Bytes = await compressWOFF2(new Uint8Array(sfnt));
           buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
         } catch {
           throw new Error('Failed to encode WOFF2.');
