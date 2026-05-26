@@ -221,6 +221,15 @@ export const tools: Tool[] = [
     tags: ['XD', 'Figma', 'SVG', 'reorder', 'export', 'migration'],
     icon: 'XD',
   },
+  {
+    slug: 'svg-validator',
+    title: 'SVG Validator & Repair',
+    shortTitle: 'SVG Validator',
+    description: 'Validate, auto-repair and preview SVG files in your browser. Detects XML errors, missing attributes, and unsafe scripts.',
+    category: 'code',
+    tags: ['SVG', 'validate', 'repair', 'sanitize', 'xmlns', 'viewBox', 'preview'],
+    icon: 'SVG',
+  },
 ];
 
 export const toolsByCategory = (cat: Category) => tools.filter((t) => t.category === cat);
