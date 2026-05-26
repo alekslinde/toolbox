@@ -1,0 +1,746 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Drop or paste',   body: 'Drop an .svg file or paste raw markup into the editor. Validation runs live as you type.' },
+  { heading: 'Auto-repair',     body: 'Adds missing xmlns and viewBox (derived from width/height), removes empty unnamed groups.' },
+  { heading: 'Sanitize',        body: 'Strips <script>, on* event attributes and javascript: hrefs — safe to share or embed after.' },
+  { heading: 'SVGO Optimize',   body: 'Runs SVGO multipass over the SVG — typically cuts file size 20–80%. Loaded on demand from CDN.' },
+  { heading: 'Minify / Pretty', body: 'Minify strips comments and collapses whitespace. Pretty re-indents with 2-space nesting.' },
+  { heading: 'Copy as URI',     body: 'Produces a base64 data:image/svg+xml URI for use in CSS background-image or inline <img src>.' },
+];
+
+const cheatSheet = [
+  { label: 'xmlns',         value: 'Required on root <svg>' },
+  { label: 'viewBox',       value: 'Enables proportional scaling' },
+  { label: 'width / height', value: 'Optional; prefer unitless' },
+  { label: '<script>',      value: 'Unsafe — always strip' },
+  { label: 'on* attrs',     value: 'Event handlers — strip for safety' },
+  { label: 'external href', value: 'CORS / privacy risk' },
+];
+
+const faq = [
+  { question: 'What does validation check?',    answer: 'XML well-formedness, correct root element, xmlns and viewBox presence, embedded scripts, on* event attributes, external references, empty groups, missing <title>, and file size.' },
+  { question: 'What does auto-repair fix?',     answer: 'Adds xmlns="http://www.w3.org/2000/svg" if absent, derives viewBox from width/height if both are present, and removes empty unnamed <g> elements.' },
+  { question: 'What does sanitize do?',         answer: 'Removes all <script> elements, strips on* event attributes from every element, and removes javascript: href values. Does not alter valid SVG content.' },
+  { question: 'What does SVGO optimize do?',    answer: 'Runs SVGO v3 multipass over the SVG — removes comments, metadata, unused defs, optimises path data and numeric precision, merges transforms. SVGO is loaded on demand from CDN the first time you click Optimize.' },
+  { question: 'What is "Copy as URI"?',         answer: 'Produces a base64-encoded data:image/svg+xml string. Paste it directly into CSS background-image: url(…) or an <img src> attribute without needing a separate file on a server.' },
+  { question: 'What is the dark-mode contrast check?', answer: 'When the dark preview background is active, validation flags elements with black or default (inherited black) fill — these would be invisible on a dark background. Switch to the dark preview bg to trigger the check.' },
+  { question: 'Are files uploaded anywhere?',   answer: 'No. Validation, repair, sanitize, minify, pretty-print, and preview all run in your browser. SVGO is the only external network request — loaded once from CDN when you click Optimize.' },
+];
+---
+
+<MainLayout
+  title="SVG Validator & Repair — Free In-Browser Tool | Toolbox"
+  description="Validate, auto-repair, optimize and preview SVG files in your browser. Detects XML errors, missing attributes, unsafe scripts and external references. No uploads."
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="SVG Validator" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">SVG Validator &amp; Repair</h1>
+        <p class="mt-1 text-sm text-slate-500">Validate, repair, optimize and preview SVG files. Catches XML errors, unsafe scripts, external refs and contrast issues.</p>
+      </div>
+      <HelpfulButton />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+
+        <!-- Drop zone -->
+        <div id="dropZone"
+          class="mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center transition-colors hover:border-purple-300 hover:bg-purple-50/20"
+          role="button" tabindex="0" aria-label="Drop SVG file or click to browse"
+        >
+          <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 text-sm font-bold text-purple-600">SVG</div>
+          <p class="text-sm font-medium text-slate-700">Drop an SVG file here</p>
+          <p class="mt-1 text-xs text-slate-400">or <span class="text-purple-500 underline underline-offset-2">click to browse</span></p>
+          <input id="svgFileInput" type="file" accept=".svg,image/svg+xml" class="sr-only" />
+        </div>
+
+        <!-- Paste row -->
+        <div id="pasteRow" class="mb-5">
+          <label for="svgPasteArea" class="mb-1.5 block text-xs font-medium text-slate-600">Or paste SVG markup</label>
+          <textarea id="svgPasteArea" rows="3" spellcheck="false"
+            placeholder='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">…</svg>'
+            class="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:border-purple-400 focus:outline-none"></textarea>
+        </div>
+
+        <!-- Main panel (hidden until SVG is loaded) -->
+        <div id="mainPanel" class="hidden flex-col gap-4">
+
+          <!-- Toolbar -->
+          <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span id="svgFilename" class="max-w-[160px] truncate font-mono text-xs text-slate-500"></span>
+                <span id="charCount"   class="text-xs text-slate-400"></span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- Fix group -->
+                <button id="repairBtn"   class="tbtn">Auto-repair</button>
+                <button id="sanitizeBtn" class="tbtn">Sanitize</button>
+                <button id="optimizeBtn" class="tbtn">SVGO Optimize</button>
+                <span class="mx-0.5 hidden h-4 w-px self-center bg-slate-200 sm:block"></span>
+                <!-- Format group -->
+                <button id="minifyBtn" class="tbtn">Minify</button>
+                <button id="prettyBtn" class="tbtn">Pretty</button>
+                <span class="mx-0.5 hidden h-4 w-px self-center bg-slate-200 sm:block"></span>
+                <!-- Export group -->
+                <button id="copyBtn"    class="tbtn">Copy SVG</button>
+                <button id="copyUriBtn" class="tbtn">Copy URI</button>
+                <button id="downloadBtn"
+                  class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90">
+                  Download
+                </button>
+                <span class="mx-0.5 hidden h-4 w-px self-center bg-slate-200 sm:block"></span>
+                <button id="resetBtn"
+                  class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-rose-200 hover:text-rose-500">
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Split view: code editor + preview -->
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            <!-- Code editor -->
+            <div class="flex flex-col">
+              <div class="mb-1.5 flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-600">SVG Code</span>
+                <span id="editorStatus" class="text-xs font-medium"></span>
+              </div>
+              <textarea id="svgEditor" spellcheck="false"
+                class="flex-1 resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-800 focus:border-purple-400 focus:outline-none"
+                style="min-height:340px;"></textarea>
+            </div>
+
+            <!-- Preview -->
+            <div class="flex flex-col">
+              <div class="mb-1.5 flex items-center justify-between gap-2">
+                <span class="text-xs font-medium text-slate-600">Preview</span>
+                <div class="flex items-center gap-2">
+                  <!-- Zoom controls -->
+                  <div class="flex items-center gap-0.5" role="group" aria-label="Zoom">
+                    <button id="zoomOut"
+                      class="flex h-5 w-5 items-center justify-center rounded border border-slate-200 text-xs text-slate-500 hover:border-purple-300 hover:text-purple-600"
+                      title="Zoom out">−</button>
+                    <span id="zoomLevel" class="w-9 text-center text-[10px] tabular-nums text-slate-500">100%</span>
+                    <button id="zoomIn"
+                      class="flex h-5 w-5 items-center justify-center rounded border border-slate-200 text-xs text-slate-500 hover:border-purple-300 hover:text-purple-600"
+                      title="Zoom in">+</button>
+                  </div>
+                  <span class="h-3 w-px bg-slate-200"></span>
+                  <!-- Background toggles -->
+                  <div class="flex items-center gap-0.5" role="group" aria-label="Preview background">
+                    <button data-bg="checker"
+                      class="bg-toggle h-5 w-5 rounded border border-slate-300 text-[9px] ring-2 ring-purple-400"
+                      title="Checker" aria-pressed="true">⊞</button>
+                    <button data-bg="white"
+                      class="bg-toggle h-5 w-5 rounded border border-slate-300 bg-white text-[9px]"
+                      title="White" aria-pressed="false"> </button>
+                    <button data-bg="dark"
+                      class="bg-toggle h-5 w-5 rounded border border-slate-600 bg-slate-800 text-[9px]"
+                      title="Dark" aria-pressed="false"> </button>
+                  </div>
+                </div>
+              </div>
+              <div id="previewWrap"
+                class="relative flex flex-1 items-center justify-center overflow-hidden rounded-md border border-slate-200"
+                style="min-height:340px;background:repeating-conic-gradient(#e2e8f0 0% 25%,white 0% 50%) 0 0/16px 16px;">
+                <img id="svgPreviewImg" alt="SVG preview"
+                  class="max-h-full max-w-full object-contain p-4 transition-transform duration-150"
+                  style="display:none;" />
+                <p id="previewError" class="px-4 text-center text-xs text-rose-500" style="display:none;"></p>
+              </div>
+              <p id="svgDimensions" class="mt-1.5 truncate text-[10px] text-slate-400"></p>
+            </div>
+
+          </div>
+
+          <!-- Stats bar -->
+          <p id="statsBar" class="hidden text-[11px] text-slate-400"></p>
+
+          <!-- Issues panel -->
+          <div id="issuesPanel" class="hidden rounded-md border px-4 py-3 text-xs leading-relaxed"></div>
+
+        </div><!-- /mainPanel -->
+
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="lg:col-span-4">
+        <QuickTips tips={tips} cheatSheet={cheatSheet} />
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About SVG Validator & Repair"
+      faq={faq}
+      keywords="SVG validator, SVG repair, SVGO optimize, SVG preview, SVG sanitize, xmlns missing, viewBox missing, SVG minify, SVG pretty print, data URI, in-browser SVG tool"
+    />
+
+  </div>
+
+  <style>
+    .tbtn {
+      @apply rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-40;
+    }
+  </style>
+
+  <script>
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentSrc      = '';
+    let currentFilename = 'download.svg';
+    let blobUrl         = '';
+    let currentBg       = 'checker';
+    let zoomLevel       = 1;
+    let svgoReady       = false;
+    let svgoLoading     = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const ZOOM_STEP = 0.25;
+    const ZOOM_MIN  = 0.25;
+    const ZOOM_MAX  = 4;
+
+    // ── DOM refs ─────────────────────────────────────────────────────────────
+    const dropZone      = document.getElementById('dropZone')!;
+    const fileInput     = document.getElementById('svgFileInput') as HTMLInputElement;
+    const pasteArea     = document.getElementById('svgPasteArea') as HTMLTextAreaElement;
+    const pasteRow      = document.getElementById('pasteRow')!;
+    const mainPanel     = document.getElementById('mainPanel')!;
+    const svgEditor     = document.getElementById('svgEditor') as HTMLTextAreaElement;
+    const editorStatus  = document.getElementById('editorStatus')!;
+    const charCount     = document.getElementById('charCount')!;
+    const svgFilename   = document.getElementById('svgFilename')!;
+    const previewImg    = document.getElementById('svgPreviewImg') as HTMLImageElement;
+    const previewWrap   = document.getElementById('previewWrap')!;
+    const previewError  = document.getElementById('previewError')!;
+    const svgDimensions = document.getElementById('svgDimensions')!;
+    const statsBar      = document.getElementById('statsBar')!;
+    const issuesPanel   = document.getElementById('issuesPanel')!;
+    const repairBtn     = document.getElementById('repairBtn') as HTMLButtonElement;
+    const sanitizeBtn   = document.getElementById('sanitizeBtn')!;
+    const optimizeBtn   = document.getElementById('optimizeBtn') as HTMLButtonElement;
+    const minifyBtn     = document.getElementById('minifyBtn')!;
+    const prettyBtn     = document.getElementById('prettyBtn')!;
+    const copyBtn       = document.getElementById('copyBtn')!;
+    const copyUriBtn    = document.getElementById('copyUriBtn')!;
+    const downloadBtn   = document.getElementById('downloadBtn')!;
+    const resetBtn      = document.getElementById('resetBtn')!;
+    const zoomInBtn     = document.getElementById('zoomIn')!;
+    const zoomOutBtn    = document.getElementById('zoomOut')!;
+    const zoomLevelEl   = document.getElementById('zoomLevel')!;
+
+    // ── Drop zone ─────────────────────────────────────────────────────────────
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-purple-400', 'bg-purple-50/40');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-purple-400', 'bg-purple-50/40');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-purple-400', 'bg-purple-50/40');
+      const file = e.dataTransfer?.files[0];
+      if (file) loadFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files?.[0]) loadFile(fileInput.files[0]);
+    });
+
+    // ── Paste area ────────────────────────────────────────────────────────────
+    pasteArea.addEventListener('input', () => {
+      const v = pasteArea.value.trim();
+      if (v.startsWith('<')) loadSource(v, 'pasted.svg');
+    });
+
+    // ── File loader ───────────────────────────────────────────────────────────
+    function loadFile(file: File) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        if (text) loadSource(text, file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSource(src: string, filename: string) {
+      currentSrc      = src;
+      currentFilename = filename;
+      svgEditor.value = src;
+      svgFilename.textContent = filename;
+      charCount.textContent   = formatBytes(src.length);
+      zoomLevel = 1;
+      applyZoom();
+      dropZone.classList.add('hidden');
+      pasteRow.classList.add('hidden');
+      mainPanel.classList.remove('hidden');
+      mainPanel.classList.add('flex');
+      pasteArea.value = '';
+      fileInput.value = '';
+      runAll(src);
+    }
+
+    // ── Editor (debounced) ────────────────────────────────────────────────────
+    svgEditor.addEventListener('input', () => {
+      currentSrc = svgEditor.value;
+      charCount.textContent = formatBytes(currentSrc.length);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runAll(currentSrc), 350);
+    });
+
+    // ── Run all ───────────────────────────────────────────────────────────────
+    function runAll(src: string) {
+      const { errors, warnings, canRepair } = validateSVG(src, currentBg);
+      repairBtn.disabled = !canRepair;
+      renderIssues(errors, warnings);
+      const ok = errors.length === 0;
+      if (warnings.length && ok) {
+        editorStatus.textContent = `${warnings.length} warning${warnings.length > 1 ? 's' : ''}`;
+        editorStatus.className = 'text-xs font-medium text-amber-500';
+      } else if (ok) {
+        editorStatus.textContent = '✓ Valid';
+        editorStatus.className = 'text-xs font-medium text-emerald-600';
+      } else {
+        editorStatus.textContent = `${errors.length} error${errors.length > 1 ? 's' : ''}`;
+        editorStatus.className = 'text-xs font-medium text-rose-500';
+      }
+      updatePreview(src, ok);
+      updateStats(src, ok);
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    interface ValResult { errors: string[]; warnings: string[]; canRepair: boolean; }
+
+    function validateSVG(src: string, bg: string): ValResult {
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      let canRepair = false;
+
+      if (!src.trim()) return { errors, warnings, canRepair };
+
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      const parseErr = doc.querySelector('parsererror');
+      if (parseErr) {
+        const msg = parseErr.textContent?.trim().split('\n')[0] ?? 'Unknown parse error';
+        errors.push(`XML parse error: ${msg}`);
+        return { errors, warnings, canRepair };
+      }
+
+      const root = doc.documentElement;
+      if (root.tagName.toLowerCase() !== 'svg') {
+        errors.push(`Root element is <${root.tagName}>, expected <svg>.`);
+        return { errors, warnings, canRepair };
+      }
+
+      // xmlns
+      if (!root.getAttribute('xmlns')) {
+        warnings.push('Missing xmlns="http://www.w3.org/2000/svg" — some renderers may reject this SVG.');
+        canRepair = true;
+      }
+
+      // viewBox
+      const attrW = root.getAttribute('width');
+      const attrH = root.getAttribute('height');
+      if (!root.hasAttribute('viewBox')) {
+        const pw = parseFloat(attrW ?? '');
+        const ph = parseFloat(attrH ?? '');
+        if (!isNaN(pw) && !isNaN(ph) && pw > 0 && ph > 0) {
+          warnings.push(`No viewBox — won't scale proportionally. Can be derived from width="${attrW}" height="${attrH}".`);
+          canRepair = true;
+        } else {
+          warnings.push('No viewBox and no usable width/height — SVG has no intrinsic dimensions.');
+        }
+      }
+
+      // Scripts
+      const scriptCount = root.querySelectorAll('script').length;
+      if (scriptCount > 0) {
+        warnings.push(`${scriptCount} <script> element${scriptCount > 1 ? 's' : ''} — use Sanitize to remove.`);
+        canRepair = true;
+      }
+
+      // Event attributes
+      let evtCount = 0;
+      root.querySelectorAll('*').forEach(el => {
+        evtCount += Array.from(el.attributes).filter(a => a.name.startsWith('on')).length;
+      });
+      if (evtCount > 0) {
+        warnings.push(`${evtCount} on* event attribute${evtCount > 1 ? 's' : ''} — use Sanitize to remove.`);
+        canRepair = true;
+      }
+
+      // External references
+      const extUrls = new Set<string>();
+      root.querySelectorAll('[href],[xlink\\:href]').forEach(el => {
+        for (const attr of ['href', 'xlink:href']) {
+          const v = el.getAttribute(attr) ?? '';
+          if (isExternalUrl(v)) extUrls.add(v.length > 40 ? v.slice(0, 37) + '…' : v);
+        }
+      });
+      if (extUrls.size > 0) {
+        const sample = [...extUrls].slice(0, 2).join(', ');
+        warnings.push(`${extUrls.size} external reference${extUrls.size > 1 ? 's' : ''} (CORS / privacy risk): ${sample}${extUrls.size > 2 ? '…' : ''}`);
+      }
+
+      // Empty unnamed groups
+      const emptyGs = Array.from(root.querySelectorAll('g'))
+        .filter(g => g.childElementCount === 0 && !g.hasAttribute('id')).length;
+      if (emptyGs > 0) {
+        warnings.push(`${emptyGs} empty unnamed <g> element${emptyGs > 1 ? 's' : ''} — auto-repair can remove these.`);
+        canRepair = true;
+      }
+
+      // Accessibility
+      if (!root.querySelector(':scope > title')) {
+        warnings.push('No <title> element — adding one improves accessibility when SVG is used inline.');
+      }
+
+      // Dark-mode contrast check
+      if (bg === 'dark') {
+        const DARK_RE = /^(black|#000(000)?|rgb\(0,\s*0,\s*0\)|rgba\(0,\s*0,\s*0,\s*1\))$/i;
+        let darkCount = 0;
+        root.querySelectorAll('path,circle,rect,ellipse,polygon,polyline,line,text,tspan').forEach(el => {
+          const fill = (el.getAttribute('fill') ?? '').trim().replace(/\s/g, '');
+          if (!fill || DARK_RE.test(fill)) darkCount++;
+        });
+        if (darkCount > 0) {
+          warnings.push(`${darkCount} element${darkCount > 1 ? 's' : ''} with black or default fill — may be invisible on the dark preview background.`);
+        }
+      }
+
+      // File size
+      if (src.length > 100_000) {
+        warnings.push(`Large file (${(src.length / 1024).toFixed(1)} KB) — click SVGO Optimize to reduce size.`);
+      }
+
+      return { errors, warnings, canRepair };
+    }
+
+    function isExternalUrl(href: string): boolean {
+      const h = href.trim();
+      return /^https?:\/\//i.test(h) || h.startsWith('//');
+    }
+
+    // ── Issues panel ──────────────────────────────────────────────────────────
+    function renderIssues(errors: string[], warnings: string[]) {
+      if (errors.length === 0 && warnings.length === 0) {
+        issuesPanel.classList.add('hidden');
+        return;
+      }
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let html = '';
+      if (errors.length) {
+        html += `<p class="mb-1.5 font-semibold text-rose-600">✕ ${errors.length} Error${errors.length > 1 ? 's' : ''}</p>
+          <ul class="mb-3 flex flex-col gap-1">${errors.map(e => `<li class="text-rose-700">• ${esc(e)}</li>`).join('')}</ul>`;
+      }
+      if (warnings.length) {
+        html += `<p class="mb-1.5 font-semibold text-amber-600">⚠ ${warnings.length} Warning${warnings.length > 1 ? 's' : ''}</p>
+          <ul class="flex flex-col gap-1">${warnings.map(w => `<li class="text-amber-700">• ${esc(w)}</li>`).join('')}</ul>`;
+      }
+      issuesPanel.innerHTML = html;
+      issuesPanel.className = [
+        'rounded-md border px-4 py-3 text-xs leading-relaxed',
+        errors.length ? 'border-rose-200 bg-rose-50' : 'border-amber-200 bg-amber-50',
+      ].join(' ');
+      issuesPanel.classList.remove('hidden');
+    }
+
+    // ── Preview ───────────────────────────────────────────────────────────────
+    function updatePreview(src: string, valid: boolean) {
+      if (!valid) {
+        previewImg.style.display = 'none';
+        previewError.style.display = '';
+        previewError.textContent = 'Cannot preview — fix XML errors first.';
+        svgDimensions.textContent = '';
+        return;
+      }
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      const blob = new Blob([src], { type: 'image/svg+xml' });
+      blobUrl = URL.createObjectURL(blob);
+      previewImg.style.display = '';
+      previewError.style.display = 'none';
+      previewImg.src = blobUrl;
+
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      const root = doc.documentElement;
+      const vb = root.getAttribute('viewBox');
+      const pw = root.getAttribute('width')  || '—';
+      const ph = root.getAttribute('height') || '—';
+      svgDimensions.textContent = vb
+        ? `viewBox: ${vb}  ·  width: ${pw}  ·  height: ${ph}`
+        : `width: ${pw}  ·  height: ${ph}  ·  no viewBox`;
+    }
+
+    // ── Stats bar ─────────────────────────────────────────────────────────────
+    function updateStats(src: string, valid: boolean) {
+      if (!valid) { statsBar.classList.add('hidden'); return; }
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      const root = doc.documentElement;
+      const all = root.querySelectorAll('*').length;
+      const paths  = root.querySelectorAll('path').length;
+      const groups = root.querySelectorAll('g').length;
+      const defs   = root.querySelectorAll('defs').length;
+      const texts  = root.querySelectorAll('text,tspan').length;
+      const images = root.querySelectorAll('image').length;
+      const uses   = root.querySelectorAll('use').length;
+
+      const parts = [`${all} elements`];
+      if (paths)  parts.push(`${paths} path${paths > 1 ? 's' : ''}`);
+      if (groups) parts.push(`${groups} group${groups > 1 ? 's' : ''}`);
+      if (defs)   parts.push(`${defs} defs`);
+      if (texts)  parts.push(`${texts} text`);
+      if (images) parts.push(`${images} image${images > 1 ? 's' : ''}`);
+      if (uses)   parts.push(`${uses} use${uses > 1 ? 's' : ''}`);
+
+      statsBar.textContent = parts.join('  ·  ');
+      statsBar.classList.remove('hidden');
+    }
+
+    // ── Background toggles ────────────────────────────────────────────────────
+    const bgMap: Record<string, string> = {
+      checker: 'repeating-conic-gradient(#e2e8f0 0% 25%,white 0% 50%) 0 0/16px 16px',
+      white:   '#ffffff',
+      dark:    '#1e293b',
+    };
+    document.querySelectorAll<HTMLButtonElement>('.bg-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll<HTMLButtonElement>('.bg-toggle').forEach(b => {
+          b.classList.remove('ring-2', 'ring-purple-400');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('ring-2', 'ring-purple-400');
+        btn.setAttribute('aria-pressed', 'true');
+        currentBg = btn.dataset.bg!;
+        previewWrap.style.background = bgMap[currentBg] ?? bgMap.checker;
+        if (currentSrc) runAll(currentSrc);
+      });
+    });
+
+    // ── Zoom ──────────────────────────────────────────────────────────────────
+    function applyZoom() {
+      previewImg.style.transform       = `scale(${zoomLevel})`;
+      previewImg.style.transformOrigin = 'center center';
+      zoomLevelEl.textContent          = `${Math.round(zoomLevel * 100)}%`;
+    }
+    zoomInBtn.addEventListener('click', () => {
+      zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
+      applyZoom();
+    });
+    zoomOutBtn.addEventListener('click', () => {
+      zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
+      applyZoom();
+    });
+
+    // ── Auto-repair ───────────────────────────────────────────────────────────
+    repairBtn.addEventListener('click', () => applyEdit(repairSVG(currentSrc)));
+
+    function repairSVG(src: string): string {
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      if (doc.querySelector('parsererror')) return src;
+      const root = doc.documentElement;
+      if (!root.getAttribute('xmlns')) root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      if (!root.hasAttribute('viewBox')) {
+        const w = parseFloat(root.getAttribute('width')  ?? '');
+        const h = parseFloat(root.getAttribute('height') ?? '');
+        if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) root.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      }
+      root.querySelectorAll('g').forEach(g => {
+        if (g.childElementCount === 0 && !g.hasAttribute('id')) g.remove();
+      });
+      return new XMLSerializer().serializeToString(root);
+    }
+
+    // ── Sanitize ──────────────────────────────────────────────────────────────
+    sanitizeBtn.addEventListener('click', () => applyEdit(sanitizeSVG(currentSrc)));
+
+    function sanitizeSVG(src: string): string {
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      if (doc.querySelector('parsererror')) return src;
+      const root = doc.documentElement;
+      root.querySelectorAll('script').forEach(s => s.remove());
+      root.querySelectorAll('*').forEach(el => {
+        Array.from(el.attributes).filter(a => a.name.startsWith('on')).forEach(a => el.removeAttribute(a.name));
+      });
+      for (const attr of ['href', 'xlink:href']) {
+        root.querySelectorAll(`[${attr}]`).forEach(el => {
+          const v = el.getAttribute(attr) ?? '';
+          if (/^javascript:/i.test(v.trim())) el.removeAttribute(attr);
+        });
+      }
+      return new XMLSerializer().serializeToString(root);
+    }
+
+    // ── SVGO Optimize ─────────────────────────────────────────────────────────
+    optimizeBtn.addEventListener('click', async () => {
+      if (svgoLoading) return;
+      optimizeBtn.textContent = 'Loading…';
+      optimizeBtn.setAttribute('disabled', '');
+
+      const ok = await ensureSVGO();
+      if (!ok) {
+        optimizeBtn.textContent = 'SVGO Optimize';
+        optimizeBtn.removeAttribute('disabled');
+        alert('Failed to load SVGO from CDN. Check your connection and try again.');
+        return;
+      }
+
+      try {
+        optimizeBtn.textContent = 'Optimizing…';
+        const svgo = (window as any).svgo;
+        const result = svgo.optimize(currentSrc, {
+          multipass: true,
+          plugins: [{ name: 'preset-default', params: { overrides: { removeViewBox: false } } }],
+        });
+        applyEdit(result.data);
+      } catch (err) {
+        console.error('SVGO error:', err);
+        alert('SVGO optimization failed. The SVG may contain unsupported features.');
+      } finally {
+        optimizeBtn.textContent = 'SVGO Optimize';
+        optimizeBtn.removeAttribute('disabled');
+      }
+    });
+
+    async function ensureSVGO(): Promise<boolean> {
+      if (svgoReady) return true;
+      if (svgoLoading) return false;
+      svgoLoading = true;
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/svgo@3/dist/svgo.browser.js';
+        script.onload = () => { svgoReady = true; svgoLoading = false; resolve(true); };
+        script.onerror = () => { svgoLoading = false; resolve(false); };
+        document.head.appendChild(script);
+      });
+    }
+
+    // ── Minify ────────────────────────────────────────────────────────────────
+    minifyBtn.addEventListener('click', () => applyEdit(minifySVG(currentSrc)));
+
+    function minifySVG(src: string): string {
+      const stripped = src
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<\?xml[^?]*\?>/gi, '')
+        .trim();
+      const doc = new DOMParser().parseFromString(stripped, 'image/svg+xml');
+      if (doc.querySelector('parsererror')) return src;
+      return new XMLSerializer().serializeToString(doc.documentElement);
+    }
+
+    // ── Pretty-print ──────────────────────────────────────────────────────────
+    prettyBtn.addEventListener('click', () => applyEdit(prettySVG(currentSrc)));
+
+    function prettySVG(src: string): string {
+      const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
+      if (doc.querySelector('parsererror')) return src;
+
+      function esc(v: string) { return v.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+
+      function serialize(node: Node, depth: number): string {
+        const pad = '  '.repeat(depth);
+        if (node.nodeType === Node.TEXT_NODE) {
+          const t = (node.textContent ?? '').trim();
+          return t ? `${pad}${t}` : '';
+        }
+        if (node.nodeType === Node.COMMENT_NODE) {
+          return `${pad}<!--${node.textContent}-->`;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        const el = node as Element;
+        const attrs = Array.from(el.attributes).map(a => `${a.name}="${esc(a.value)}"`).join(' ');
+        const attrStr = attrs ? ' ' + attrs : '';
+        const tag = el.tagName;
+        const kids = Array.from(el.childNodes).map(c => serialize(c, depth + 1)).filter(s => s !== '');
+        if (kids.length === 0) return `${pad}<${tag}${attrStr}/>`;
+        if (kids.length === 1 && !kids[0].trimStart().startsWith('<')) {
+          const line = `${pad}<${tag}${attrStr}>${kids[0].trim()}</${tag}>`;
+          if (line.length <= 100) return line;
+        }
+        return `${pad}<${tag}${attrStr}>\n${kids.join('\n')}\n${pad}</${tag}>`;
+      }
+
+      return serialize(doc.documentElement, 0);
+    }
+
+    // ── Copy SVG ──────────────────────────────────────────────────────────────
+    copyBtn.addEventListener('click', async () => {
+      await copyToClipboard(currentSrc, copyBtn, 'Copy SVG');
+    });
+
+    // ── Copy as data URI ──────────────────────────────────────────────────────
+    copyUriBtn.addEventListener('click', async () => {
+      const uri = toDataURI(currentSrc);
+      await copyToClipboard(uri, copyUriBtn, 'Copy URI');
+    });
+
+    function toDataURI(src: string): string {
+      try {
+        return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(src)))}`;
+      } catch {
+        return `data:image/svg+xml,${encodeURIComponent(src)}`;
+      }
+    }
+
+    async function copyToClipboard(text: string, btn: Element, label: string) {
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        const ta = Object.assign(document.createElement('textarea'), { value: text });
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      }
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = label; }, 2000);
+    }
+
+    // ── Download ──────────────────────────────────────────────────────────────
+    downloadBtn.addEventListener('click', () => {
+      const blob = new Blob([currentSrc], { type: 'image/svg+xml' });
+      const url  = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: currentFilename.endsWith('.svg') ? currentFilename : `${currentFilename}.svg`,
+      });
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ── Apply edit ────────────────────────────────────────────────────────────
+    function applyEdit(newSrc: string) {
+      if (newSrc === currentSrc) return;
+      currentSrc = newSrc;
+      svgEditor.value = newSrc;
+      charCount.textContent = formatBytes(newSrc.length);
+      runAll(newSrc);
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────────────────
+    resetBtn.addEventListener('click', () => {
+      currentSrc = ''; currentFilename = 'download.svg';
+      pasteArea.value = ''; svgEditor.value = ''; fileInput.value = '';
+      if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = ''; }
+      zoomLevel = 1; applyZoom();
+      mainPanel.classList.add('hidden'); mainPanel.classList.remove('flex');
+      dropZone.classList.remove('hidden'); pasteRow.classList.remove('hidden');
+      issuesPanel.classList.add('hidden'); statsBar.classList.add('hidden');
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function formatBytes(n: number): string {
+      return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
+    }
+  </script>
+</MainLayout>
