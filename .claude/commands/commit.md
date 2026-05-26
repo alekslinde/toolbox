@@ -68,7 +68,7 @@ Do not add session URLs, `Co-Authored-By` trailers, or any other metadata to com
 3. Draft a subject line using the verb guide above.
 4. Decide if a body is needed — add one only if the motivation isn't obvious from the subject.
 5. Propose the message to the user.
-6. On confirmation, run:
+6. On confirmation, commit:
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -78,3 +78,14 @@ git commit -m "$(cat <<'EOF'
 EOF
 )"
 ```
+
+7. Before pushing, check whether the current branch has an open PR or is already merged:
+
+```bash
+branch=$(git rev-parse --abbrev-ref HEAD)
+gh pr view "$branch" --json state,number,url 2>/dev/null
+```
+
+- If `state` is `"MERGED"` or `"CLOSED"`: **do not push**. Tell the user the PR is already merged/closed and run `/branch` to start a new branch for this work instead.
+- If `state` is `"OPEN"`: push normally — `git push`.
+- If no PR exists yet: push normally — `git push`.
