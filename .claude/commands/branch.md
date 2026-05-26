@@ -24,14 +24,17 @@ Bad examples (avoid):
 
 ## Steps
 
-1. Check whether the current branch has a merged or closed PR:
+1. Check whether the current branch has a merged or closed PR.
 
-```bash
-branch=$(git rev-parse --abbrev-ref HEAD)
-gh pr view "$branch" --json state,number,url 2>/dev/null
-```
+   `gh` is not available — use the GitHub MCP tool instead:
 
-- If `state` is `"MERGED"` or `"CLOSED"`: identify any commits on the current branch that are **not** on `main` (they were pushed after the PR was merged and therefore orphaned):
+   ```
+   mcp__github__pull_request_read  method=get  owner=alekslinde  repo=toolbox  pullNumber=<N>
+   ```
+
+   To find the PR number, search recent PRs or ask the user. The `state` field will be `"open"`, `"closed"`, or the `merged` boolean will be `true`.
+
+- If `merged: true` or `state: "closed"`: identify any commits on the current branch that are **not** on `main` (they were pushed after the PR was merged and therefore orphaned):
 
 ```bash
 git log --oneline main..HEAD
