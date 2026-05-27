@@ -151,15 +151,6 @@ const faq = [
 </MainLayout>
 
 <script>
-  // Static imports ensure wawoff2 WebAssembly modules are bundled and initialised
-  // at page-load time, eliminating the dynamic-import race that caused TTF→WOFF2
-  // to hang indefinitely on "Encoding WOFF2…".
-  import * as opentype from 'opentype.js';
-  // @ts-ignore
-  import _compressWOFF2 from 'wawoff2/compress';
-  // @ts-ignore
-  import _decompressWOFF2 from 'wawoff2/decompress';
-
   import {
     inspectSfnt,
     repairNameRecords,
@@ -173,18 +164,27 @@ const faq = [
     extOf,
   } from '@/lib/font-converter';
 
+  // Pre-warm all heavy modules at page load so WASM initialises before the
+  // user clicks Convert. Keeping these as dynamic imports preserves the same
+  // chunk strategy that was already working in production; the previous hang
+  // was caused by initiating them only on click (too late for WASM init).
+  const _opentypeProm   = import('opentype.js');
+  const _compressProm   = import('wawoff2/compress').then((m: any) => m.default ?? m);
+  const _decompressProm = import('wawoff2/decompress').then((m: any) => m.default ?? m);
+
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    return _decompressWOFF2(buf);
+    const fn = await _decompressProm;
+    return fn(buf);
   }
 
   async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    const TIMEOUT_MS = 25_000;
+    const fn = await _compressProm;
     return Promise.race([
-      _compressWOFF2(buf),
+      fn(buf),
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error('WOFF2 encoding timed out. Try converting to WOFF instead, or use a different browser.')),
-          TIMEOUT_MS,
+          25_000,
         )
       ),
     ]);
@@ -314,6 +314,7 @@ const faq = [
         }
       }
 
+      const opentype = await _opentypeProm;
       let font: any;
       try { font = opentype.parse(parseAB); }
       catch (e: any) {
