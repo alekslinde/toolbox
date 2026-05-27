@@ -3,6 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "test": "vitest run",
     "dev": "astro dev",
     "build": "astro build",
     "build:minor": "node bump.js --minor && astro build",
@@ -12,6 +13,7 @@
   },
   "devDependencies": {
     "puppeteer": "^24.43.0",
+    "vitest": "^4.1.7",
     "wrangler": "^4.86.0"
   },
   "dependencies": {
