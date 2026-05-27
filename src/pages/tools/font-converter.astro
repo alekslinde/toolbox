@@ -164,30 +164,25 @@ const faq = [
     extOf,
   } from '@/lib/font-converter';
 
-  // Pre-warm all heavy modules at page load so WASM initialises before the
-  // user clicks Convert. Keeping these as dynamic imports preserves the same
-  // chunk strategy that was already working in production; the previous hang
-  // was caused by initiating them only on click (too late for WASM init).
-  const _opentypeProm   = import('opentype.js');
-  const _compressProm   = import('wawoff2/compress').then((m: any) => m.default ?? m);
-  const _decompressProm = import('wawoff2/decompress').then((m: any) => m.default ?? m);
+  // wawoff2 must be statically imported so esbuild (via optimizeDeps.include)
+  // pre-bundles the CJS modules. This keeps the runtimeInit Promise creation
+  // synchronous relative to WASM loading — dynamic imports break this ordering
+  // and cause runtimeInit to never resolve in production Rollup builds.
+  // @ts-ignore
+  import wawoff2Compress   from 'wawoff2/compress';
+  // @ts-ignore
+  import wawoff2Decompress from 'wawoff2/decompress';
+
+  // opentype.js is dynamically pre-warmed to avoid Rollup code-splitting it
+  // into a separate chunk that fails to load in the Cloudflare Workers env.
+  const _opentypeProm = import('opentype.js');
 
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    const fn = await _decompressProm;
-    return fn(buf);
+    return wawoff2Decompress(buf);
   }
 
   async function compressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
-    const fn = await _compressProm;
-    return Promise.race([
-      fn(buf),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error('WOFF2 encoding timed out. Try converting to WOFF instead, or use a different browser.')),
-          25_000,
-        )
-      ),
-    ]);
+    return wawoff2Compress(buf);
   }
 
   /* ── Diagnostic display ── */
