@@ -56,17 +56,33 @@ const faq = [
 
           <div id="fontControls" class="hidden flex-col gap-4">
 
-            <div class="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600">Convert to</label>
-                <select id="fontTo"
-                  class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none">
-                  <option value="woff2">WOFF2</option>
-                  <option value="woff">WOFF</option>
-                  <option value="ttf">TTF</option>
-                  <option value="otf">OTF</option>
-                  <option value="eot">EOT</option>
-                </select>
+            <!-- Format checkboxes -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-600">Convert to</span>
+                <button id="fontSelectAll" type="button" class="text-xs text-purple-500 hover:underline">Select all</button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <label id="pill-woff2" class="inline-flex cursor-pointer select-none items-center rounded-full border border-purple-400 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition-colors">
+                  <input type="checkbox" value="woff2" class="sr-only format-checkbox" checked />
+                  WOFF2
+                </label>
+                <label id="pill-woff" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
+                  <input type="checkbox" value="woff" class="sr-only format-checkbox" />
+                  WOFF
+                </label>
+                <label id="pill-ttf" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
+                  <input type="checkbox" value="ttf" class="sr-only format-checkbox" />
+                  TTF
+                </label>
+                <label id="pill-otf" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
+                  <input type="checkbox" value="otf" class="sr-only format-checkbox" />
+                  OTF
+                </label>
+                <label id="pill-eot" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
+                  <input type="checkbox" value="eot" class="sr-only format-checkbox" />
+                  EOT
+                </label>
               </div>
             </div>
 
@@ -74,6 +90,9 @@ const faq = [
             <div id="fontPBar" class="hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
               <div id="fontPFill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
             </div>
+
+            <!-- Per-format conversion log -->
+            <div id="fontFormatRows" class="hidden divide-y divide-slate-100 rounded-md border border-slate-100 bg-slate-50 px-3 py-1 text-xs"></div>
 
             <button id="fontConvertBtn"
               class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
@@ -173,9 +192,10 @@ const faq = [
   // @ts-ignore
   import wawoff2Decompress from 'wawoff2/decompress';
 
-  // opentype.js is dynamically pre-warmed to avoid Rollup code-splitting it
-  // into a separate chunk that fails to load in the Cloudflare Workers env.
+  // Pre-warm dynamic imports to avoid Rollup code-splitting issues in the
+  // Cloudflare Workers environment where split chunks fail to load.
   const _opentypeProm = import('opentype.js');
+  const _jsZipProm    = import('jszip');
 
   async function decompressWOFF2(buf: Uint8Array): Promise<Uint8Array> {
     return wawoff2Decompress(buf);
@@ -242,6 +262,64 @@ const faq = [
     else { bar.classList.add('hidden'); fill.style.width = '0%'; }
   }
 
+  /* ── Format pill helpers ── */
+  const PILL_ACTIVE   = 'inline-flex cursor-pointer select-none items-center rounded-full border border-purple-400 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition-colors';
+  const PILL_INACTIVE = 'inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200';
+
+  function getSelectedFormats(): string[] {
+    return Array.from(document.querySelectorAll<HTMLInputElement>('.format-checkbox:checked'))
+      .map(el => el.value);
+  }
+
+  function updatePillStyle(input: HTMLInputElement) {
+    const label = input.closest('label');
+    if (label) label.className = input.checked ? PILL_ACTIVE : PILL_INACTIVE;
+  }
+
+  function updateConvertBtn() {
+    const formats = getSelectedFormats();
+    const btn = document.getElementById('fontConvertBtn') as HTMLButtonElement;
+    btn.disabled = !fontFile || formats.length === 0;
+    btn.textContent = formats.length > 1 ? 'Convert & Download ZIP' : 'Convert & Download';
+  }
+
+  document.querySelectorAll<HTMLInputElement>('.format-checkbox').forEach(input => {
+    input.addEventListener('change', () => { updatePillStyle(input); updateConvertBtn(); });
+  });
+
+  document.getElementById('fontSelectAll')!.addEventListener('click', () => {
+    document.querySelectorAll<HTMLInputElement>('.format-checkbox').forEach(input => {
+      input.checked = true;
+      updatePillStyle(input);
+    });
+    updateConvertBtn();
+  });
+
+  /* ── Per-format log ── */
+  function buildFormatRows(formats: string[]) {
+    const container = document.getElementById('fontFormatRows')!;
+    container.innerHTML = formats.map(fmt => `
+      <div class="flex items-center justify-between py-1.5">
+        <span class="font-mono font-semibold uppercase tracking-wide text-slate-600">${fmt}</span>
+        <span id="fmtst-${fmt}" class="text-slate-400">Waiting…</span>
+      </div>
+    `).join('');
+    container.style.display = 'block';
+    container.classList.remove('hidden');
+  }
+
+  function setFmtStatus(fmt: string, status: 'converting' | 'done' | 'error', msg?: string) {
+    const el = document.getElementById(`fmtst-${fmt}`);
+    if (!el) return;
+    if (status === 'converting') {
+      el.className = 'italic text-slate-500'; el.textContent = 'Converting…';
+    } else if (status === 'done') {
+      el.className = 'font-medium text-emerald-600'; el.textContent = `✓ ${msg}`;
+    } else {
+      el.className = 'font-medium text-rose-500'; el.textContent = `✕ ${msg ?? 'Error'}`;
+    }
+  }
+
   /* ── Drop zone ── */
   const zone = document.getElementById('fontDropZone')!;
   const fileInput = document.getElementById('fontFileInput') as HTMLInputElement;
@@ -263,6 +341,7 @@ const faq = [
     infoEl.textContent = `${file.name} · ${fmtBytes(file.size)}`;
     infoEl.classList.remove('hidden');
     document.getElementById('fontDiag')!.classList.add('hidden');
+    document.getElementById('fontFormatRows')!.classList.add('hidden');
     showStatus(`Loaded: ${file.name}`, 'info');
 
     const reader = new FileReader();
@@ -278,24 +357,35 @@ const faq = [
         const { issues, warnings } = inspectSfnt(fontAB);
         showDiag(issues, warnings, []);
       }
+      updateConvertBtn();
     };
     reader.readAsArrayBuffer(file);
 
-    (document.getElementById('fontConvertBtn') as HTMLButtonElement).disabled = false;
     document.getElementById('fontControls')!.style.display = 'flex';
     document.getElementById('fontControls')!.classList.remove('hidden');
+    updateConvertBtn();
   }
 
   /* ── Convert ── */
+  const MIMES: Record<string, string> = {
+    ttf: 'font/truetype', otf: 'font/otf',
+    woff: 'font/woff', woff2: 'font/woff2', eot: 'application/vnd.ms-fontobject',
+  };
+
   document.getElementById('fontConvertBtn')!.addEventListener('click', async () => {
     if (!fontFile || !fontAB) return;
-    const to = (document.getElementById('fontTo') as HTMLSelectElement).value;
+
+    const formats = getSelectedFormats();
+    if (formats.length === 0) return;
+
     const btn = document.getElementById('fontConvertBtn') as HTMLButtonElement;
     btn.disabled = true;
-    try {
-      setProgress(20);
-      showStatus('Parsing…', 'info');
 
+    try {
+      setProgress(10);
+      showStatus('Parsing font…', 'info');
+
+      // Decompress WOFF2 input to raw sfnt bytes
       let parseAB = fontAB;
       const isWoff2Input = extOf(fontFile.name) === 'woff2'
         || new DataView(fontAB).getUint32(0) === 0x774F4632; // 'wOF2'
@@ -309,62 +399,89 @@ const faq = [
         }
       }
 
+      setProgress(30);
       const opentype = await _opentypeProm;
       let font: any;
       try { font = opentype.parse(parseAB); }
       catch (e: any) {
-        // Run structural inspection to give a specific diagnosis if possible.
         const { issues, warnings } = inspectSfnt(parseAB);
         if (issues.length) showDiag(issues, warnings, []);
         throw new Error(translateParseError(e?.message ?? 'Unknown parse error'));
       }
 
-      setProgress(55);
+      setProgress(50);
       const base = baseName(fontFile.name);
-      let buf: ArrayBuffer;
-
       const repairs = repairNameRecords(font, base);
       const sfnt = font.toArrayBuffer();
 
-      if (to === 'ttf' || to === 'otf') {
-        buf = sfnt;
-      } else if (to === 'woff') {
-        buf = buildWOFF(sfnt);
-      } else if (to === 'woff2') {
-        showStatus('Encoding WOFF2…', 'info');
-        try {
-          // Always use the original source bytes rather than toArrayBuffer() output.
-          // opentype.js re-serialization can produce data that makes wawoff2 hang,
-          // especially for CFF/OTF and WOFF-derived fonts.
-          // WOFF needs its container stripped first; TTF/OTF/WOFF2 bytes are raw sfnt.
-          const isWoffInput = new DataView(fontAB).getUint32(0) === 0x774F4646; // 'wOFF'
-          const sfntToCompress = isWoffInput ? await unwrapWOFF(fontAB) : parseAB;
-          const woff2Bytes = await compressWOFF2(new Uint8Array(sfntToCompress));
-          buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
-        } catch (e: any) {
-          throw new Error(e?.message ?? 'Failed to encode WOFF2.');
-        }
-      } else if (to === 'eot') {
-        buf = buildEOT(sfnt);
-      } else {
-        throw new Error('Unknown format.');
+      // Pre-compute sfnt bytes for WOFF2 compression: use original source rather
+      // than toArrayBuffer() output to avoid wawoff2 hanging on re-serialized data.
+      let sfntForWoff2: ArrayBuffer | undefined;
+      if (formats.includes('woff2')) {
+        const isWoffInput = new DataView(fontAB).getUint32(0) === 0x774F4646; // 'wOFF'
+        sfntForWoff2 = isWoffInput ? await unwrapWOFF(fontAB) : parseAB;
       }
 
-      setProgress(95);
-      const mimes: Record<string, string> = {
-        ttf: 'font/truetype', otf: 'font/otf',
-        woff: 'font/woff', woff2: 'font/woff2', eot: 'application/vnd.ms-fontobject',
-      };
-      dl(new Blob([buf], { type: mimes[to] ?? 'application/octet-stream' }), `${base}.${to}`);
+      buildFormatRows(formats);
+      showStatus('Converting…', 'info');
+
+      const results: Array<{ fmt: string; buf: ArrayBuffer }> = [];
+      const progressPerFmt = 40 / formats.length;
+
+      for (let i = 0; i < formats.length; i++) {
+        const fmt = formats[i];
+        setFmtStatus(fmt, 'converting');
+        try {
+          let buf: ArrayBuffer;
+          if (fmt === 'ttf' || fmt === 'otf') {
+            buf = sfnt;
+          } else if (fmt === 'woff') {
+            buf = buildWOFF(sfnt);
+          } else if (fmt === 'woff2') {
+            const woff2Bytes = await compressWOFF2(new Uint8Array(sfntForWoff2!));
+            buf = woff2Bytes.buffer.slice(woff2Bytes.byteOffset, woff2Bytes.byteOffset + woff2Bytes.byteLength);
+          } else if (fmt === 'eot') {
+            buf = buildEOT(sfnt);
+          } else {
+            throw new Error('Unknown format.');
+          }
+          results.push({ fmt, buf });
+          setFmtStatus(fmt, 'done', fmtBytes(buf.byteLength));
+        } catch (e: any) {
+          setFmtStatus(fmt, 'error', e.message);
+        }
+        setProgress(50 + (i + 1) * progressPerFmt);
+      }
+
+      if (results.length === 0) throw new Error('All conversions failed.');
+
+      setProgress(92);
+
+      if (results.length === 1) {
+        const { fmt, buf } = results[0];
+        dl(new Blob([buf], { type: MIMES[fmt] ?? 'application/octet-stream' }), `${base}.${fmt}`);
+        showStatus(`✓ Downloaded ${base}.${fmt}`, 'ok');
+      } else {
+        showStatus('Creating ZIP…', 'info');
+        const { default: JSZip } = await _jsZipProm;
+        const zip = new JSZip();
+        for (const { fmt, buf } of results) zip.file(`${base}.${fmt}`, buf);
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        dl(zipBlob, `${base}-fonts.zip`);
+        showStatus(`✓ Downloaded ${results.length} formats as ZIP`, 'ok');
+      }
+
       setProgress(100);
-      showStatus(`✓ Downloaded as ${base}.${to}`, 'ok');
       if (repairs.length) showDiag([], [], repairs);
+
     } catch (e: any) {
       showStatus('✕ ' + e.message, 'err');
       setProgress(0);
     }
+
     setTimeout(() => setProgress(0), 1500);
     btn.disabled = false;
+    updateConvertBtn();
   });
 
   function dl(blob: Blob, name: string) {
