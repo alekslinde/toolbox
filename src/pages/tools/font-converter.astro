@@ -63,8 +63,8 @@ const faq = [
                 <button id="fontSelectAll" type="button" class="text-xs text-purple-500 hover:underline">Select all</button>
               </div>
               <div class="flex flex-wrap gap-2">
-                <label id="pill-woff2" class="inline-flex cursor-pointer select-none items-center rounded-full border border-purple-400 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition-colors">
-                  <input type="checkbox" value="woff2" class="sr-only format-checkbox" checked />
+                <label id="pill-woff2" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
+                  <input type="checkbox" value="woff2" class="sr-only format-checkbox" />
                   WOFF2
                 </label>
                 <label id="pill-woff" class="inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200">
@@ -84,6 +84,7 @@ const faq = [
                   EOT
                 </label>
               </div>
+              <p id="fontFormatNote" class="hidden mt-2 text-xs text-slate-400"></p>
             </div>
 
             <!-- Progress -->
@@ -263,8 +264,13 @@ const faq = [
   }
 
   /* ── Format pill helpers ── */
-  const PILL_ACTIVE   = 'inline-flex cursor-pointer select-none items-center rounded-full border border-purple-400 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition-colors';
-  const PILL_INACTIVE = 'inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200';
+  const PILL_ACTIVE    = 'inline-flex cursor-pointer select-none items-center rounded-full border border-purple-400 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition-colors';
+  const PILL_INACTIVE  = 'inline-flex cursor-pointer select-none items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-purple-200';
+  const PILL_DISABLED  = 'inline-flex cursor-not-allowed select-none items-center rounded-full border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors';
+
+  // 'convert'     — file needs repair/conversion; checkboxes enabled
+  // 'passthrough' — file is clean; checkboxes locked, download original as-is
+  let convertMode: 'convert' | 'passthrough' = 'convert';
 
   function getSelectedFormats(): string[] {
     return Array.from(document.querySelectorAll<HTMLInputElement>('.format-checkbox:checked'))
@@ -273,14 +279,40 @@ const faq = [
 
   function updatePillStyle(input: HTMLInputElement) {
     const label = input.closest('label');
-    if (label) label.className = input.checked ? PILL_ACTIVE : PILL_INACTIVE;
+    if (!label) return;
+    label.className = input.disabled ? PILL_DISABLED : input.checked ? PILL_ACTIVE : PILL_INACTIVE;
   }
 
   function updateConvertBtn() {
-    const formats = getSelectedFormats();
     const btn = document.getElementById('fontConvertBtn') as HTMLButtonElement;
-    btn.disabled = !fontFile || formats.length === 0;
-    btn.textContent = formats.length > 1 ? 'Convert & Download ZIP' : 'Convert & Download';
+    if (convertMode === 'passthrough') {
+      btn.disabled = !fontFile;
+      btn.textContent = 'Download';
+    } else {
+      const formats = getSelectedFormats();
+      btn.disabled = !fontFile || formats.length === 0;
+      btn.textContent = formats.length > 1 ? 'Convert & Download ZIP' : 'Convert & Download';
+    }
+  }
+
+  function setFormatMode(mode: 'convert' | 'passthrough', srcExt: string) {
+    convertMode = mode;
+    const checkboxes = document.querySelectorAll<HTMLInputElement>('.format-checkbox');
+    const selectAll  = document.getElementById('fontSelectAll')!;
+    const note       = document.getElementById('fontFormatNote')!;
+    const label      = document.querySelector<HTMLElement>('[for], #fontControls .text-xs.font-medium.text-slate-600');
+
+    if (mode === 'passthrough') {
+      checkboxes.forEach(cb => { cb.checked = false; cb.disabled = true; updatePillStyle(cb); });
+      selectAll.classList.add('hidden');
+      note.textContent = `Your file is already a valid ${srcExt.toUpperCase()} — downloading as-is`;
+      note.classList.remove('hidden');
+    } else {
+      checkboxes.forEach(cb => { cb.disabled = false; updatePillStyle(cb); });
+      selectAll.classList.remove('hidden');
+      note.classList.add('hidden');
+    }
+    updateConvertBtn();
   }
 
   document.querySelectorAll<HTMLInputElement>('.format-checkbox').forEach(input => {
@@ -347,23 +379,26 @@ const faq = [
     const reader = new FileReader();
     reader.onload = (ev) => {
       fontAB = ev.target!.result as ArrayBuffer;
-      // Run structural check immediately for sfnt-flavoured files (TTF/OTF).
-      // WOFF/WOFF2 have their own container — we only inspect the inner sfnt
-      // during conversion where we have the decoded bytes.
       const magic = new DataView(fontAB).getUint32(0);
       const isSfntDirect = magic === 0x00010000 || magic === 0x4F54544F
         || magic === 0x74727565 || magic === 0x74797031;
+
       if (isSfntDirect) {
         const { issues, warnings } = inspectSfnt(fontAB);
+        const needsWork = issues.length > 0 || warnings.length > 0;
         showDiag(issues, warnings, []);
+        // Clean file → lock selector and offer direct download; broken → let user pick targets
+        setFormatMode(needsWork ? 'convert' : 'passthrough', extOf(file.name));
+      } else {
+        // WOFF/WOFF2 containers need decompression before inspection — default to convert
+        setFormatMode('convert', extOf(file.name));
       }
-      updateConvertBtn();
     };
     reader.readAsArrayBuffer(file);
 
     document.getElementById('fontControls')!.style.display = 'flex';
     document.getElementById('fontControls')!.classList.remove('hidden');
-    updateConvertBtn();
+    // Button stays disabled until FileReader finishes and setFormatMode runs
   }
 
   /* ── Convert ── */
@@ -375,11 +410,21 @@ const faq = [
   document.getElementById('fontConvertBtn')!.addEventListener('click', async () => {
     if (!fontFile || !fontAB) return;
 
-    const formats = getSelectedFormats();
-    if (formats.length === 0) return;
-
     const btn = document.getElementById('fontConvertBtn') as HTMLButtonElement;
     btn.disabled = true;
+
+    // Passthrough: file is already valid, just download the original
+    if (convertMode === 'passthrough') {
+      const ext = extOf(fontFile.name);
+      dl(new Blob([fontAB], { type: MIMES[ext] ?? 'application/octet-stream' }), fontFile.name);
+      showStatus(`✓ Downloaded ${fontFile.name}`, 'ok');
+      btn.disabled = false;
+      updateConvertBtn();
+      return;
+    }
+
+    const formats = getSelectedFormats();
+    if (formats.length === 0) { btn.disabled = false; return; }
 
     try {
       setProgress(10);
