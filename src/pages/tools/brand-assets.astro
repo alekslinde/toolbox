@@ -116,8 +116,37 @@ const faq = [
 
           <!-- Icons -->
           <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Icons, Logos &amp; Images</p>
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Icons, Logos &amp; Images</p>
+              <div class="flex items-center gap-2">
+                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700">
+                  <input id="brandIconsSelectAll" type="checkbox" class="h-3.5 w-3.5 accent-purple-500" />
+                  All
+                </label>
+                <button id="brandIconsDownloadBtn" disabled
+                  class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-40">
+                  Download selected
+                </button>
+              </div>
+            </div>
             <div id="brandIcons" class="flex flex-wrap gap-3"></div>
+          </div>
+
+          <!-- Discovered pages / advanced crawl -->
+          <div id="brandCrawlSection" class="hidden rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Crawl More Pages</p>
+              <span id="brandCrawlCount" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500"></span>
+            </div>
+            <p class="mb-3 text-xs text-slate-500">Select pages to extract additional brand assets from. <span class="font-medium text-amber-600">Fetching many pages can take a while.</span> Max 10 pages.</p>
+            <div id="brandCrawlList" class="mb-3 flex max-h-52 flex-col gap-1 overflow-y-auto"></div>
+            <div class="flex items-center gap-2">
+              <button id="brandCrawlFetchBtn" disabled
+                class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40">
+                Fetch selected pages
+              </button>
+              <span id="brandCrawlStatus" class="text-xs text-slate-400"></span>
+            </div>
           </div>
 
           <!-- Meta -->
@@ -194,9 +223,17 @@ const faq = [
   .brand-font-name { font-size: 0.8rem; font-weight: 600; color: #334155; }
   .brand-font-source { font-size: 0.7rem; color: #94a3b8; }
 
-  .brand-icon-card { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 5rem; cursor: pointer; }
-  .brand-icon-card img { width: 3rem; height: 3rem; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 0.4rem; padding: 0.25rem; }
+  .brand-icon-card { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 5rem; position: relative; }
+  .brand-icon-card img { width: 3rem; height: 3rem; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 0.4rem; padding: 0.25rem; transition: border-color 0.15s; }
   .brand-icon-label { font-size: 0.6rem; color: #94a3b8; text-align: center; }
+  .brand-icon-cb { position: absolute; top: -0.3rem; right: -0.3rem; width: 1rem; height: 1rem; accent-color: #a855f7; cursor: pointer; z-index: 1; }
+  .brand-icon-card:has(.brand-icon-cb:checked) img { border-color: #a855f7; box-shadow: 0 0 0 2px #a855f733; }
+  .brand-icon-card:has(.brand-icon-cb:checked) .brand-icon-label { color: #7c3aed; }
+
+  .brand-crawl-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 0.3rem; }
+  .brand-crawl-item:hover { background: #f8fafc; }
+  .brand-crawl-item input[type=checkbox] { flex-shrink: 0; accent-color: #a855f7; width: 0.85rem; height: 0.85rem; cursor: pointer; }
+  .brand-crawl-item label { font-size: 0.72rem; color: #475569; cursor: pointer; word-break: break-all; line-height: 1.3; }
 
   .brand-logo-box img { height: 2.5rem; max-width: 8rem; object-fit: contain; }
   .brand-logo-placeholder { width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; background: #f1f5f9; font-size: 1.2rem; font-weight: 700; color: #64748b; }
@@ -250,6 +287,7 @@ const faq = [
     wcagLabel, isSkippable, contrastText, extractAllColoursFromCSS, dedupeColours, firstHex,
     extractColourPairs, extractFontsFromCSS, extractMeta, extractLogoUrl,
     darkenHex, lightenHex, buildIonicColor, buildAllIonicColors,
+    extractButtonStyle, extractInternalLinks, MAX_CRAWL_PAGES,
   } from '@/lib/brand-extract';
 
   let brandData: any = null;
@@ -446,6 +484,8 @@ const faq = [
         bgHttpImages.push({ url: bgHm[1], label: 'BG Image' });
       }
 
+      const buttonStyle = extractButtonStyle(allCSS);
+      const internalLinks = extractInternalLinks(doc, url, domain);
       const totalImages = svgImages.length + imgElements.length + bgDataImages.length + bgHttpImages.length;
       progStep('assets', 'done', fonts.length+' font'+(fonts.length!==1?'s':'')+' · '+totalImages+' image'+(totalImages!==1?'s':''));
       setProgress(82, 'Building Ionic palette…');
@@ -456,6 +496,7 @@ const faq = [
                     colors, pairs, fonts, logoUrl, faviconUrl,
                     standardIcons, svgImages, imgElements: imgElements.slice(0, 12),
                     bgImages: [...bgDataImages, ...bgHttpImages].slice(0, 6),
+                    buttonStyle, internalLinks,
                     meta:{ description:meta.desc, twitter:meta.twitterSite||null,
                            themeColor:meta.themeColor||null, ogImage:meta.ogImage||null } };
       progStep('palette', 'done', '9 colour roles');
@@ -518,10 +559,13 @@ const faq = [
     renderColourCombinations(data.pairs || []);
 
     // UI Elements
-    renderUIComponents(data.colors || []);
+    renderUIComponents(data.colors || [], data.buttonStyle || null);
 
     // Ionic
     renderIonicPalette(data.colors || []);
+
+    // Crawl
+    renderCrawlSection(data.internalLinks || [], data.domain);
 
     // Fonts
     const fontsEl = document.getElementById('brandFonts')!;
@@ -557,23 +601,38 @@ const faq = [
       ...(data.imgElements||[]).map((i: {url:string;label:string}) => ({ ...i, group:'img' })),
       ...(data.bgImages||[]).map((i: {url:string;label:string}) => ({ ...i, group:'bg' })),
     ];
-    // Dedupe by URL
     const seenUrls = new Set<string>();
+    const updateDownloadBtn = () => {
+      const checked = iconsEl.querySelectorAll('.brand-icon-cb:checked').length;
+      const btn = document.getElementById('brandIconsDownloadBtn') as HTMLButtonElement;
+      btn.disabled = checked === 0;
+      btn.textContent = checked > 0 ? 'Download '+checked+' image'+(checked>1?'s':'') : 'Download selected';
+    };
     allImages.forEach((item) => {
       if (seenUrls.has(item.url)) return;
       seenUrls.add(item.url);
       const card = document.createElement('div');
       card.className = 'brand-icon-card';
-      card.title = 'Click to open: ' + item.label;
-      if (!/^data:/i.test(item.url)) {
-        card.onclick = () => { const a=document.createElement('a'); a.href=item.url; a.target='_blank'; a.click(); };
-      }
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'brand-icon-cb';
+      cb.addEventListener('change', updateDownloadBtn);
+      card.appendChild(cb);
       const groupTag = item.group === 'svg' ? ' <span style="font-size:0.55rem;background:#ede9fe;color:#6d28d9;border-radius:3px;padding:0 3px;">SVG</span>'
                      : item.group === 'bg'  ? ' <span style="font-size:0.55rem;background:#f0fdf4;color:#166534;border-radius:3px;padding:0 3px;">CSS</span>'
                      : '';
-      card.innerHTML = '<img src="'+item.url+'" alt="'+item.label+'" onerror="this.parentElement.style.display=\'none\'"><div class="brand-icon-label">'+item.label+groupTag+'</div>';
+      card.innerHTML += '<img src="'+item.url+'" alt="'+item.label+'" onerror="this.parentElement.style.display=\'none\'"'+
+        (!/^data:/i.test(item.url) ? ' style="cursor:pointer;" onclick="window.open(\''+item.url.replace(/'/g,"\\'")+'\')"' : '')+'>'+
+        '<div class="brand-icon-label">'+item.label+groupTag+'</div>';
       iconsEl.appendChild(card);
     });
+
+    // Select-all checkbox
+    const selectAllCb = document.getElementById('brandIconsSelectAll') as HTMLInputElement;
+    selectAllCb.checked = false;
+    selectAllCb.onchange = () => {
+      iconsEl.querySelectorAll<HTMLInputElement>('.brand-icon-cb').forEach(cb => cb.checked = selectAllCb.checked);
+      updateDownloadBtn();
+    };
 
     // Meta table
     const meta = data.meta||{};
@@ -647,9 +706,7 @@ const faq = [
       const card = document.createElement('div');
       card.className = 'brand-ionic-card';
       card.innerHTML =
-        '<div class="brand-ionic-role">'+ic.name+
-          (!ic.fromBrand ? '<span class="brand-ionic-default-badge">ionic default</span>' : '')+
-        '</div>'+
+        '<div class="brand-ionic-role">'+ic.name+'</div>'+
         '<div class="brand-ionic-swatches">'+
           '<div class="brand-ionic-swatch-wrap">'+
             '<div class="brand-ionic-swatch" style="background:'+ic.shade+';">'+
@@ -704,7 +761,7 @@ const faq = [
   }
 
   /* ── UI Elements Preview ── */
-  function renderUIComponents(colors: any[]) {
+  function renderUIComponents(colors: any[], buttonStyle: {bg:string;fg:string}|null) {
     const el = document.getElementById('brandUIComponents')!;
     el.innerHTML = '';
     if (colors.length < 1) {
@@ -712,9 +769,10 @@ const faq = [
       return;
     }
 
-    const primary   = colors[0]?.hex?.toLowerCase() || '#3880ff';
+    // Use detected button style from CSS if available, else fall back to brand primary
+    const primary   = (buttonStyle?.bg || colors[0]?.hex)?.toLowerCase() || '#3880ff';
     const secondary = colors[1]?.hex?.toLowerCase() || '#3dc2ff';
-    const pContrast = contrastText(primary);
+    const pContrast = buttonStyle?.fg?.toLowerCase() || contrastText(primary);
     const sContrast = contrastText(secondary);
 
     function makeSection(label: string): HTMLElement {
@@ -888,6 +946,182 @@ const faq = [
     el.appendChild(cardSection);
   }
 
+  /* ── Image download ── */
+  async function downloadSelectedImages() {
+    const iconsEl = document.getElementById('brandIcons')!;
+    const selected = [...iconsEl.querySelectorAll<HTMLInputElement>('.brand-icon-cb:checked')]
+      .map(cb => {
+        const card = cb.parentElement!;
+        const img  = card.querySelector('img')!;
+        const label = (card.querySelector('.brand-icon-label')?.textContent || 'image').replace(/\s+/g,'_').replace(/[^a-z0-9_.-]/gi,'');
+        return { url: img.src, label };
+      });
+    if (!selected.length) return;
+    const btn = document.getElementById('brandIconsDownloadBtn') as HTMLButtonElement;
+    const orig = btn.textContent!;
+    btn.disabled = true; btn.textContent = 'Preparing…';
+
+    if (selected.length === 1) {
+      // Single image: direct download
+      const { url, label } = selected[0];
+      const a = document.createElement('a');
+      if (/^data:/i.test(url)) {
+        a.href = url;
+      } else {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          a.href = URL.createObjectURL(blob);
+          setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+        } catch { a.href = url; a.target = '_blank'; }
+      }
+      const ext = url.match(/\.([a-z0-9]+)(\?|$)/i)?.[1] || (url.startsWith('data:image/svg') ? 'svg' : 'png');
+      a.download = label + '.' + ext;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } else {
+      // Multiple: ZIP
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      await Promise.all(selected.map(async ({ url, label }, i) => {
+        try {
+          let blob: Blob;
+          if (/^data:/i.test(url)) {
+            const [meta, b64] = url.split(',');
+            const mime = meta.match(/:(.*?);/)?.[1] || 'image/png';
+            blob = await fetch(url).then(r => r.blob()).catch(() => {
+              const bytes = atob(b64);
+              const arr = new Uint8Array(bytes.length);
+              for (let j=0;j<bytes.length;j++) arr[j]=bytes.charCodeAt(j);
+              return new Blob([arr],{type:mime});
+            });
+          } else {
+            blob = await fetch(url).then(r => r.blob());
+          }
+          const ext = url.match(/\.([a-z0-9]+)(\?|$)/i)?.[1] || (url.includes('svg') ? 'svg' : 'png');
+          zip.file((label||'image_'+i) + '.' + ext, blob);
+        } catch { /* skip unloadable */ }
+      }));
+      const content = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      a.download = (brandData?.domain||'brand') + '-images.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+    }
+
+    btn.disabled = false; btn.textContent = orig;
+  }
+
+  /* ── Advanced crawl ── */
+  function renderCrawlSection(links: string[], domain: string) {
+    const section = document.getElementById('brandCrawlSection')!;
+    const listEl  = document.getElementById('brandCrawlList')!;
+    const countEl = document.getElementById('brandCrawlCount')!;
+    const fetchBtn = document.getElementById('brandCrawlFetchBtn') as HTMLButtonElement;
+    const statusEl = document.getElementById('brandCrawlStatus')!;
+
+    if (!links.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    countEl.textContent = links.length + ' page'+(links.length!==1?'s':'')+' found on '+domain;
+
+    listEl.innerHTML = '';
+    const updateFetchBtn = () => {
+      const checked = listEl.querySelectorAll('input:checked').length;
+      fetchBtn.disabled = checked === 0;
+      fetchBtn.textContent = checked > 0 ? 'Fetch '+checked+' page'+(checked>1?'s':'') : 'Fetch selected pages';
+      if (checked > MAX_CRAWL_PAGES) {
+        fetchBtn.disabled = true;
+        fetchBtn.textContent = 'Max '+MAX_CRAWL_PAGES+' pages';
+        statusEl.textContent = 'Limit: select up to '+MAX_CRAWL_PAGES+' pages at a time.';
+      } else {
+        statusEl.textContent = '';
+      }
+    };
+
+    links.forEach((link, i) => {
+      const id = 'crawl-cb-'+i;
+      const row = document.createElement('div');
+      row.className = 'brand-crawl-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = id; cb.value = link;
+      cb.addEventListener('change', updateFetchBtn);
+      const lbl = document.createElement('label');
+      lbl.htmlFor = id;
+      lbl.textContent = link.replace(/^https?:\/\/[^/]+/, '') || '/';
+      lbl.title = link;
+      row.appendChild(cb); row.appendChild(lbl);
+      listEl.appendChild(row);
+    });
+
+    fetchBtn.onclick = async () => {
+      const selected = [...listEl.querySelectorAll<HTMLInputElement>('input:checked')]
+        .map(cb => cb.value).slice(0, MAX_CRAWL_PAGES);
+      if (!selected.length) return;
+      fetchBtn.disabled = true;
+      const origText = fetchBtn.textContent!;
+      let merged = { colors: [...(brandData?.colors||[])], fonts: [...(brandData?.fonts||[])], images: [] as string[] };
+
+      for (let i = 0; i < selected.length; i++) {
+        const pageUrl = selected[i];
+        statusEl.textContent = 'Fetching page '+(i+1)+' of '+selected.length+'…';
+        try {
+          const html = await fetchViaProxy(pageUrl);
+          const doc2 = new DOMParser().parseFromString(html, 'text/html');
+          const chunks: string[] = [];
+          doc2.querySelectorAll('style').forEach(s => chunks.push(s.textContent||''));
+          const sheets = [...doc2.querySelectorAll('link[rel="stylesheet"]')]
+            .map(l => l.getAttribute('href')).filter(Boolean) as string[];
+          for (const href of sheets.slice(0, 4)) {
+            if (/fonts\.googleapis/i.test(toAbsolute(href, pageUrl))) continue;
+            const t = await fetchCSSText(href, pageUrl).catch(()=>'');
+            if (t) chunks.push(t);
+          }
+          const css = chunks.join('\n');
+          const newColors = dedupeColours(extractAllColoursFromCSS(css), 5);
+          newColors.forEach(hex => {
+            if (!merged.colors.some(c => colourDist(c.hex.toLowerCase(), hex) < 28)) {
+              const idx = merged.colors.length;
+              merged.colors.push({
+                hex: hex.toUpperCase(),
+                name: ['Primary','Secondary','Accent','Neutral','Surface','Tint','Shade','Highlight','Muted','Dark'][idx] || 'Colour '+(idx+1),
+                role: ['primary','secondary','accent','neutral','surface','tint','shade','highlight','muted','dark'][idx] || 'accent',
+              });
+            }
+          });
+          const newFonts = extractFontsFromCSS(css, []);
+          newFonts.forEach(f => { if (!merged.fonts.some(e => e.name === f.name)) merged.fonts.push(f); });
+        } catch { /* skip unreachable pages */ }
+      }
+
+      // Merge back into brandData and re-render
+      brandData.colors = dedupeColours(merged.colors.map(c => c.hex.toLowerCase()), 10)
+        .map((hex, i) => ({
+          hex: hex.toUpperCase(),
+          name: ['Primary','Secondary','Accent','Neutral','Surface','Tint','Shade','Highlight','Muted','Dark'][i] || 'Colour '+(i+1),
+          role: ['primary','secondary','accent','neutral','surface','tint','shade','highlight','muted','dark'][i] || 'accent',
+        }));
+      brandData.fonts = merged.fonts.slice(0, 8);
+
+      statusEl.textContent = '✓ Merged assets from '+selected.length+' page'+(selected.length>1?'s':'');
+      fetchBtn.textContent = origText;
+      fetchBtn.disabled = false;
+
+      // Re-render colour and ionic sections with merged data
+      const colorsEl = document.getElementById('brandColors')!;
+      colorsEl.innerHTML = '';
+      brandData.colors.forEach((c: any) => {
+        const lum = relativeLuminance(c.hex.toLowerCase());
+        const t = lum > 0.35 ? '#1a1817' : '#f5f2ec';
+        const card = document.createElement('div');
+        card.className = 'brand-color-card';
+        card.innerHTML = '<div class="brand-color-swatch" style="background:'+c.hex+';"><button class="brand-color-copy" style="color:'+t+';border-color:'+t+'20;" onclick="copyBrandColor(this,\''+c.hex+'\')">'+c.hex+'</button></div><div class="brand-color-info"><div class="brand-color-hex">'+c.hex+'</div><div class="brand-color-role">'+c.name+'</div></div>';
+        colorsEl.appendChild(card);
+      });
+      renderIonicPalette(brandData.colors);
+      renderUIComponents(brandData.colors, brandData.buttonStyle || null);
+    };
+  }
+
   /* ── Globals for inline onclick ── */
   (window as any).copyBrandColor = (btn: HTMLElement, hex: string) => {
     navigator.clipboard.writeText(hex).then(() => {
@@ -973,5 +1207,6 @@ const faq = [
 
   document.getElementById('brandUrl')!.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key==='Enter') fetchBrandAssets(); });
   document.getElementById('brandFetchBtn')!.addEventListener('click', fetchBrandAssets);
+  document.getElementById('brandIconsDownloadBtn')!.addEventListener('click', downloadSelectedImages);
 
 </script>
