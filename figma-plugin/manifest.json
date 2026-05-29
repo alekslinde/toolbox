@@ -1,0 +1,17 @@
+{
+  "name": "Brand Assets Extractor",
+  "id": "com.lindetoolbox.brand-assets",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "ui.html",
+  "editorType": ["figma", "figjam"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "https://api.allorigins.win",
+      "https://api.codetabs.com",
+      "https://fonts.googleapis.com"
+    ],
+    "reasoning": "Fetches brand CSS and HTML via CORS proxies to extract colours and fonts."
+  }
+}
