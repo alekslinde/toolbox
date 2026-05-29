@@ -31,6 +31,8 @@ export const RGB_RE  = /rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/g
 export const RGBA_RE = /rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*[\d.]+\s*\)/g;
 export const HSL_RE  = /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*[\d.]+)?\s*\)/g;
 export const HSL_MODERN_RE = /hsla?\(\s*([\d.]+)(?:deg)?\s+([\d.]+)%\s+([\d.]+)%(?:\s*\/\s*[\d.%]+)?\s*\)/g;
+// CSS variables storing raw HSL components: --accent-hsl: 35, 99%, 46%  or  35 99% 46%
+export const HSL_COMP_RE = /--[\w-]+-hsl\s*:\s*([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%/g;
 
 export const IONIC_SEMANTIC_DEFAULTS: Record<string, string> = {
   success: '#2dd36f',
@@ -161,9 +163,12 @@ export function extractAllColoursFromCSS(css: string): string[] {
   css.replace(RGBA_RE, (_, r,g,b) => { add(rgbToHex(r,g,b)); return _; });
   css.replace(HSL_RE,        (_, h,s,l) => { add(hslToHex(+h,+s,+l)); return _; });
   css.replace(HSL_MODERN_RE, (_, h,s,l) => { add(hslToHex(+h,+s,+l)); return _; });
+  css.replace(HSL_COMP_RE,   (_, h,s,l) => { add(hslToHex(+h,+s,+l)); return _; });
   css.replace(/--(color|clr|colour|brand|primary|secondary|accent|bg|background|text|foreground|surface)[^:]*:\s*([^;}\n]+)/gi, (_:string,_n:string,val:string) => {
     val.replace(HEX_RE,  (_:string,h:string)     => { add(hexNorm('#'+h)); return _; });
     val.replace(RGB_RE,  (_:string,r:string,g:string,b:string) => { add(rgbToHex(r,g,b)); return _; });
+    const hslComp = val.match(/([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%/);
+    if (hslComp) add(hslToHex(+hslComp[1], +hslComp[2], +hslComp[3]));
     return _;
   });
   return Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([hex])=>hex);
