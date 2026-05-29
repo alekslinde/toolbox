@@ -52,6 +52,16 @@ const faq = [
             </button>
           </div>
           <p id="brandStatus" class="hidden mt-3 text-sm"></p>
+          <div id="brandProgress" class="hidden mt-4 select-none">
+            <div class="mb-2 flex items-center justify-between">
+              <span id="brandProgressLabel" class="text-xs font-medium text-slate-600"></span>
+              <span id="brandProgressPct" class="text-xs tabular-nums text-slate-400">0%</span>
+            </div>
+            <div class="mb-3 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+              <div id="brandProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-300" style="width:0%"></div>
+            </div>
+            <div id="brandProgressSteps" class="flex flex-col"></div>
+          </div>
           <div class="mt-4 flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2.5">
             <svg class="h-4 w-4 flex-shrink-0 text-indigo-400" viewBox="0 0 38 57" fill="currentColor" aria-hidden="true">
               <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/>
@@ -212,6 +222,20 @@ const faq = [
   .brand-ui-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
   .brand-ui-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
+  /* ── Progress panel ── */
+  .prog-step { display: flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0; }
+  .prog-step-icon { width: 1rem; height: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .prog-step-icon svg { display: block; }
+  .prog-step-text { display: flex; align-items: baseline; gap: 0.35rem; }
+  .prog-step-label { font-size: 0.72rem; }
+  .prog-step-detail { font-size: 0.68rem; color: #94a3b8; }
+  .prog-step--pending .prog-step-label { color: #cbd5e1; }
+  .prog-step--active  .prog-step-label { color: #1e293b; font-weight: 600; }
+  .prog-step--done    .prog-step-label { color: #64748b; }
+  .prog-step--error   .prog-step-label { color: #ef4444; font-weight: 600; }
+  @keyframes prog-spin { to { transform: rotate(360deg); } }
+  .prog-spin { animation: prog-spin 0.8s linear infinite; transform-origin: center; }
+
   .brand-empty-note { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
   .brand-export-btn { border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.375rem 0.875rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: all 0.15s; }
   .brand-export-btn:hover { border-color: #a855f7; color: #7c3aed; }
@@ -230,6 +254,67 @@ const faq = [
 
   let brandData: any = null;
 
+  /* ── Progress panel ── */
+  const PROG_STEPS = [
+    { id: 'fetch-html',  label: 'Fetching page HTML' },
+    { id: 'fetch-css',   label: 'Loading stylesheets' },
+    { id: 'colours',     label: 'Extracting colours' },
+    { id: 'assets',      label: 'Scanning fonts & images' },
+    { id: 'palette',     label: 'Building Ionic palette' },
+  ];
+
+  const ICON_PENDING = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="#cbd5e1" stroke-width="1.5"/></svg>';
+  const ICON_ACTIVE  = '<svg width="12" height="12" viewBox="0 0 12 12" class="prog-spin"><circle cx="6" cy="6" r="4" fill="none" stroke="#e2e8f0" stroke-width="1.5"/><path d="M6 2a4 4 0 0 1 4 4" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  const ICON_DONE    = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#10b981"/><path d="M3.5 6l2 2 3-3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+  const ICON_ERROR   = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#ef4444"/><path d="M4 4l4 4M8 4l-4 4" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+  function initProgress() {
+    document.getElementById('brandStatus')!.classList.add('hidden');
+    const prog = document.getElementById('brandProgress')!;
+    prog.classList.remove('hidden');
+    const stepsEl = document.getElementById('brandProgressSteps')!;
+    stepsEl.innerHTML = PROG_STEPS.map(s =>
+      '<div id="ps-'+s.id+'" class="prog-step prog-step--pending">'+
+        '<span class="prog-step-icon">'+ICON_PENDING+'</span>'+
+        '<span class="prog-step-text">'+
+          '<span class="prog-step-label">'+s.label+'</span>'+
+          '<span class="prog-step-detail"></span>'+
+        '</span>'+
+      '</div>'
+    ).join('');
+    setProgress(0, '');
+  }
+
+  function setProgress(pct: number, label: string) {
+    (document.getElementById('brandProgressBar') as HTMLElement).style.width = pct+'%';
+    (document.getElementById('brandProgressPct') as HTMLElement).textContent = pct+'%';
+    if (label) (document.getElementById('brandProgressLabel') as HTMLElement).textContent = label;
+  }
+
+  function progStep(id: string, state: 'active'|'done'|'error', detail = '') {
+    const el = document.getElementById('ps-'+id);
+    if (!el) return;
+    el.className = 'prog-step prog-step--'+state;
+    el.querySelector('.prog-step-icon')!.innerHTML =
+      state === 'active' ? ICON_ACTIVE : state === 'done' ? ICON_DONE : ICON_ERROR;
+    (el.querySelector('.prog-step-detail') as HTMLElement).textContent = detail ? ' — '+detail : '';
+  }
+
+  function hideProgress() {
+    document.getElementById('brandProgress')!.classList.add('hidden');
+  }
+
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('brandStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mt-3 text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mt-3 text-sm text-rose-500'
+        : 'mt-3 text-sm text-slate-500';
+    el.classList.remove('hidden');
+  }
+
   /* ── Main fetch ── */
   async function fetchBrandAssets() {
     const rawUrl = (document.getElementById('brandUrl') as HTMLInputElement).value.trim();
@@ -240,19 +325,24 @@ const faq = [
 
     const btn = document.getElementById('brandFetchBtn') as HTMLButtonElement;
     btn.disabled = true;
-    btn.textContent = 'Fetching…';
+    btn.textContent = 'Extracting…';
     const r = document.getElementById('brandResults')!;
     r.classList.add('hidden');
     r.style.display = '';
-    showStatus('Fetching page HTML…', 'info');
 
+    initProgress();
     const domain = new URL(url).hostname.replace(/^www\./,'');
 
     try {
+      // ── Step 1: Fetch HTML ──
+      progStep('fetch-html', 'active');
+      setProgress(5, 'Connecting to '+domain+'…');
       const html = await fetchViaProxy(url);
+      progStep('fetch-html', 'done', 'page received');
+      setProgress(22, 'Parsing HTML…');
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      showStatus('Parsing CSS and extracting assets…', 'info');
 
       const cssChunks: string[] = [];
       const googleFontLinks: string[] = [];
@@ -261,17 +351,27 @@ const faq = [
 
       const sheetLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')]
         .map(l => l.getAttribute('href')).filter(Boolean) as string[];
+      const externalSheets = sheetLinks.filter(h => !/fonts\.googleapis\.com/i.test(toAbsolute(h, url)));
+      sheetLinks.forEach(h => { if (/fonts\.googleapis\.com/i.test(toAbsolute(h, url))) googleFontLinks.push(toAbsolute(h, url)); });
 
-      for (const href of sheetLinks) {
-        const absHref = toAbsolute(href, url);
-        if (/fonts\.googleapis\.com/i.test(absHref)) { googleFontLinks.push(absHref); continue; }
-        if (cssChunks.length < 8) {
-          const text = await fetchCSSText(absHref, url).catch(()=>'');
-          if (text) cssChunks.push(text);
-        }
+      // ── Step 2: Load stylesheets ──
+      progStep('fetch-css', 'active', externalSheets.length ? externalSheets.length+' found' : 'none');
+      setProgress(28, 'Loading stylesheets…');
+      for (let i = 0; i < externalSheets.length; i++) {
+        if (cssChunks.length >= 8) break;
+        progStep('fetch-css', 'active', (i+1)+' / '+externalSheets.length);
+        setProgress(28 + Math.round((i+1)/Math.max(externalSheets.length,1)*18), 'Loading stylesheets…');
+        const text = await fetchCSSText(externalSheets[i], url).catch(()=>'');
+        if (text) cssChunks.push(text);
       }
+      progStep('fetch-css', 'done', cssChunks.length+' chunks loaded');
+      setProgress(48, 'Analysing CSS…');
 
       const allCSS = cssChunks.join('\n');
+
+      // ── Step 3: Extract colours ──
+      progStep('colours', 'active');
+      setProgress(52, 'Extracting colours…');
       const rawColors = extractAllColoursFromCSS(allCSS);
       const meta = extractMeta(doc);
       if (meta.themeColor && /^#[0-9a-f]{3,6}$/i.test(meta.themeColor)) {
@@ -284,13 +384,16 @@ const faq = [
         name: ['Primary','Secondary','Accent','Neutral','Surface','Tint','Shade','Highlight','Muted','Dark'][i] || 'Colour '+(i+1),
         role: ['primary','secondary','accent','neutral','surface','tint','shade','highlight','muted','dark'][i] || 'accent',
       }));
+      const pairs = extractColourPairs(allCSS, dedupedColours);
+      progStep('colours', 'done', colors.length+' colours · '+pairs.length+' combinations');
+      setProgress(65, 'Scanning fonts & images…');
 
-      const pairs   = extractColourPairs(allCSS, dedupedColours);
-      const fonts   = extractFontsFromCSS(allCSS, googleFontLinks);
+      // ── Step 4: Fonts & images ──
+      progStep('assets', 'active');
+      const fonts = extractFontsFromCSS(allCSS, googleFontLinks);
       const logoUrl    = extractLogoUrl(doc, url, domain);
-      const faviconUrl = meta.faviconUrl ? toAbsolute(meta.faviconUrl, url) : `https://${domain}/favicon.ico`;
+      const faviconUrl = meta.faviconUrl ? toAbsolute(meta.faviconUrl, url) : 'https://'+domain+'/favicon.ico';
 
-      // Standard brand icon URLs
       const standardIcons: Array<{url:string;label:string}> = [
         { url: toAbsolute('/apple-touch-icon.png', url), label: 'Apple Icon' },
         { url: toAbsolute('/favicon.svg', url),          label: 'Favicon SVG' },
@@ -298,7 +401,6 @@ const faq = [
       ];
       if (meta.ogImage) standardIcons.push({ url: toAbsolute(meta.ogImage, url), label: 'OG Image' });
 
-      // Inline SVGs from DOM
       const svgImages: Array<{url:string;label:string}> = [];
       doc.querySelectorAll('svg').forEach((svg, i) => {
         if (svgImages.length >= 12) return;
@@ -309,7 +411,7 @@ const faq = [
           const vbNums = vb.split(/\s+/).map(Number);
           const vbW = vbNums[2] || 0, vbH = vbNums[3] || 0;
           const effectiveW = wA || vbW, effectiveH = hA || vbH;
-          if (effectiveW > 0 && effectiveW < 8 && effectiveH > 0 && effectiveH < 8) return; // skip tiny decorative
+          if (effectiveW > 0 && effectiveW < 8 && effectiveH > 0 && effectiveH < 8) return;
           const svgStr = new XMLSerializer().serializeToString(svg);
           const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
           const label = svg.getAttribute('aria-label') || svg.querySelector('title')?.textContent || ('SVG ' + (i + 1));
@@ -317,7 +419,6 @@ const faq = [
         } catch {}
       });
 
-      // img tags from page
       const imgElements: Array<{url:string;label:string}> = [];
       doc.querySelectorAll('img[src]').forEach(img => {
         if (imgElements.length >= 16) return;
@@ -331,7 +432,6 @@ const faq = [
       });
       imgElements.sort((a: any, b: any) => a.priority - b.priority);
 
-      // CSS background data URLs (inline base64)
       const bgDataImages: Array<{url:string;label:string}> = [];
       const bgDataRe = /url\(['"]?(data:image\/(?:svg\+xml|png|jpeg|gif|webp|x-icon)[^'")\s]{1,200000})['"]?\)/g;
       let bgDm;
@@ -339,7 +439,6 @@ const faq = [
         bgDataImages.push({ url: bgDm[1], label: 'CSS Image' });
       }
 
-      // CSS background http URLs
       const bgHttpImages: Array<{url:string;label:string}> = [];
       const bgHttpRe = /background(?:-image)?\s*:[^;]*url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/g;
       let bgHm;
@@ -347,32 +446,39 @@ const faq = [
         bgHttpImages.push({ url: bgHm[1], label: 'BG Image' });
       }
 
+      const totalImages = svgImages.length + imgElements.length + bgDataImages.length + bgHttpImages.length;
+      progStep('assets', 'done', fonts.length+' font'+(fonts.length!==1?'s':'')+' · '+totalImages+' image'+(totalImages!==1?'s':''));
+      setProgress(82, 'Building Ionic palette…');
+
+      // ── Step 5: Ionic palette ──
+      progStep('palette', 'active');
       brandData = { name:meta.name||domain, domain, tagline:meta.desc?meta.desc.slice(0,160):'',
                     colors, pairs, fonts, logoUrl, faviconUrl,
                     standardIcons, svgImages, imgElements: imgElements.slice(0, 12),
                     bgImages: [...bgDataImages, ...bgHttpImages].slice(0, 6),
                     meta:{ description:meta.desc, twitter:meta.twitterSite||null,
                            themeColor:meta.themeColor||null, ogImage:meta.ogImage||null } };
+      progStep('palette', 'done', '9 colour roles');
+      setProgress(100, 'Done');
 
-      showStatus('✓ Brand assets extracted from CSS and HTML.', 'ok');
-      renderBrandResults(brandData, url);
+      setTimeout(() => {
+        hideProgress();
+        showStatus('✓ Brand assets extracted from '+domain, 'ok');
+        renderBrandResults(brandData, url);
+      }, 400);
+
     } catch(err: any) {
+      // mark the first active step as errored
+      for (const s of PROG_STEPS) {
+        const el = document.getElementById('ps-'+s.id);
+        if (el?.classList.contains('prog-step--active')) { progStep(s.id, 'error', err.message); break; }
+      }
+      setProgress(parseInt((document.getElementById('brandProgressBar') as HTMLElement).style.width)||0, 'Failed');
       showStatus('✕ '+err.message, 'err');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Extract Brand';
     }
-  }
-
-  function showStatus(msg: string, type: 'ok'|'err'|'info') {
-    const el = document.getElementById('brandStatus')!;
-    el.textContent = msg;
-    el.className = type === 'ok'
-      ? 'mb-4 text-sm text-emerald-600'
-      : type === 'err'
-        ? 'mb-4 text-sm text-rose-500'
-        : 'mb-4 text-sm text-slate-500';
-    el.classList.remove('hidden');
   }
 
   /* ── Render ── */
