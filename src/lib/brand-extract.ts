@@ -78,6 +78,20 @@ export function toAbsolute(href: string, base: string): string {
   try { return new URL(href, base).href; } catch { return href; }
 }
 
+// CDN/framework domains that serve generic component CSS, not brand styles.
+const SKIP_CSS_HOSTS_RE = /\b(cloudfront\.net|fastly\.net|sqspcdn\.com|bootstrapcdn\.com|akamaihd\.net|jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|googletagmanager\.com|intercomcdn\.com|hubspot\.net|zendesk\.com|zopim\.com|tidiochat\.com)\b/i;
+
+export function isBrandStylesheet(href: string, baseUrl: string, domain: string): boolean {
+  const abs = toAbsolute(href, baseUrl);
+  if (!abs) return false;
+  try {
+    const h = new URL(abs).hostname;
+    if (h === domain || h.endsWith('.' + domain)) return true;
+    if (SKIP_CSS_HOSTS_RE.test(h)) return false;
+    return true;
+  } catch { return false; }
+}
+
 /* ── Colour utils ── */
 
 export function hexNorm(h: string): string {

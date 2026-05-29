@@ -286,7 +286,7 @@ const faq = [
     wcagLabel, isSkippable, contrastText, extractAllColoursFromCSS, dedupeColours, firstHex,
     extractColourPairs, extractFontsFromCSS, extractMeta, extractLogoUrl,
     darkenHex, lightenHex, buildIonicColor, buildAllIonicColors,
-    extractButtonStyle, extractInternalLinks, MAX_CRAWL_PAGES,
+    extractButtonStyle, extractInternalLinks, MAX_CRAWL_PAGES, isBrandStylesheet,
   } from '@/lib/brand-extract';
 
   let brandData: any = null;
@@ -406,7 +406,9 @@ const faq = [
 
       const sheetLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')]
         .map(l => l.getAttribute('href')).filter(Boolean) as string[];
-      const externalSheets = sheetLinks.filter(h => !/fonts\.googleapis\.com/i.test(toAbsolute(h, url)));
+      const externalSheets = sheetLinks
+        .filter(h => !/fonts\.googleapis\.com/i.test(toAbsolute(h, url)))
+        .filter(h => isBrandStylesheet(h, url, domain));
       sheetLinks.forEach(h => { if (/fonts\.googleapis\.com/i.test(toAbsolute(h, url))) googleFontLinks.push(toAbsolute(h, url)); });
 
       // ── Step 2: Load stylesheets ──
