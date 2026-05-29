@@ -34,7 +34,20 @@ const faq = [
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Brand Assets Extractor</h1>
         <p class="mt-1 text-sm text-slate-500">Extract colours, fonts and logos from any website URL.</p>
       </div>
-      <HelpfulButton />
+      <div class="flex items-center gap-2">
+        <HelpfulButton />
+        <a href="https://github.com/alekslinde/toolbox/tree/main/figma-plugin" target="_blank" rel="noopener"
+           class="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100">
+          <svg class="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 38 57" fill="currentColor" aria-hidden="true">
+            <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/>
+            <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 0 1-19 0z"/>
+            <path d="M19 0v19h9.5a9.5 9.5 0 0 0 0-19H19z"/>
+            <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/>
+            <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/>
+          </svg>
+          Figma plugin
+        </a>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
@@ -43,11 +56,11 @@ const faq = [
 
         <!-- URL Input -->
         <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
-          <div class="flex gap-2">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input id="brandUrl" type="url" placeholder="https://example.com"
               class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
-            <button id="brandFetchBtn"
-              class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-50">
+            <button id="brandFetchBtn" disabled
+              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">
               Extract Brand
             </button>
           </div>
@@ -61,20 +74,6 @@ const faq = [
               <div id="brandProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-300" style="width:0%"></div>
             </div>
             <div id="brandProgressSteps" class="flex flex-col"></div>
-          </div>
-          <div class="mt-4 flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2.5">
-            <svg class="h-4 w-4 flex-shrink-0 text-indigo-400" viewBox="0 0 38 57" fill="currentColor" aria-hidden="true">
-              <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/>
-              <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 0 1-19 0z"/>
-              <path d="M19 0v19h9.5a9.5 9.5 0 0 0 0-19H19z"/>
-              <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/>
-              <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/>
-            </svg>
-            <p class="text-xs text-indigo-700">
-              <span class="font-semibold">Also available as a Figma plugin.</span>
-              Apply brand colours and Ionic variables directly to your designs.
-              <a href="https://github.com/alekslinde/toolbox/tree/main/figma-plugin" target="_blank" rel="noopener" class="ml-1 underline underline-offset-2 hover:text-indigo-900">Get the plugin →</a>
-            </p>
           </div>
         </div>
 
@@ -291,6 +290,24 @@ const faq = [
   } from '@/lib/brand-extract';
 
   let brandData: any = null;
+
+  /* ── URL validation ── */
+  const urlInput  = document.getElementById('brandUrl') as HTMLInputElement;
+  const fetchBtn  = document.getElementById('brandFetchBtn') as HTMLButtonElement;
+
+  function isValidBrandUrl(raw: string): boolean {
+    const s = raw.trim();
+    if (!s) return false;
+    const full = /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    try {
+      const u = new URL(full);
+      return u.hostname.includes('.') && u.hostname.length > 3;
+    } catch { return false; }
+  }
+
+  urlInput.addEventListener('input', () => {
+    fetchBtn.disabled = !isValidBrandUrl(urlInput.value);
+  });
 
   /* ── Progress panel ── */
   const PROG_STEPS = [
