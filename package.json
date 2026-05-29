@@ -8,10 +8,13 @@
     "build": "astro build",
     "build:minor": "node bump.js --minor && astro build",
     "build:major": "node bump.js --major && astro build",
+    "build:figma": "node figma-plugin/build.js",
     "preview": "astro preview",
     "deploy": "astro build && wrangler deploy"
   },
   "devDependencies": {
+    "@figma/plugin-typings": "^1.111.0",
+    "esbuild": "^0.25.0",
     "puppeteer": "^24.43.0",
     "vitest": "^4.1.7",
     "wrangler": "^4.86.0"

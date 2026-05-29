@@ -52,6 +52,30 @@ const faq = [
             </button>
           </div>
           <p id="brandStatus" class="hidden mt-3 text-sm"></p>
+          <div id="brandProgress" class="hidden mt-4 select-none">
+            <div class="mb-2 flex items-center justify-between">
+              <span id="brandProgressLabel" class="text-xs font-medium text-slate-600"></span>
+              <span id="brandProgressPct" class="text-xs tabular-nums text-slate-400">0%</span>
+            </div>
+            <div class="mb-3 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+              <div id="brandProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-300" style="width:0%"></div>
+            </div>
+            <div id="brandProgressSteps" class="flex flex-col"></div>
+          </div>
+          <div class="mt-4 flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2.5">
+            <svg class="h-4 w-4 flex-shrink-0 text-indigo-400" viewBox="0 0 38 57" fill="currentColor" aria-hidden="true">
+              <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/>
+              <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 0 1-19 0z"/>
+              <path d="M19 0v19h9.5a9.5 9.5 0 0 0 0-19H19z"/>
+              <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/>
+              <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/>
+            </svg>
+            <p class="text-xs text-indigo-700">
+              <span class="font-semibold">Also available as a Figma plugin.</span>
+              Apply brand colours and Ionic variables directly to your designs.
+              <a href="https://github.com/alekslinde/toolbox/tree/main/figma-plugin" target="_blank" rel="noopener" class="ml-1 underline underline-offset-2 hover:text-indigo-900">Get the plugin →</a>
+            </p>
+          </div>
         </div>
 
         <!-- Results -->
@@ -198,258 +222,97 @@ const faq = [
   .brand-ui-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
   .brand-ui-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
+  /* ── Progress panel ── */
+  .prog-step { display: flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0; }
+  .prog-step-icon { width: 1rem; height: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .prog-step-icon svg { display: block; }
+  .prog-step-text { display: flex; align-items: baseline; gap: 0.35rem; }
+  .prog-step-label { font-size: 0.72rem; }
+  .prog-step-detail { font-size: 0.68rem; color: #94a3b8; }
+  .prog-step--pending .prog-step-label { color: #cbd5e1; }
+  .prog-step--active  .prog-step-label { color: #1e293b; font-weight: 600; }
+  .prog-step--done    .prog-step-label { color: #64748b; }
+  .prog-step--error   .prog-step-label { color: #ef4444; font-weight: 600; }
+  @keyframes prog-spin { to { transform: rotate(360deg); } }
+  .prog-spin { animation: prog-spin 0.8s linear infinite; transform-origin: center; }
+
   .brand-empty-note { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
   .brand-export-btn { border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.375rem 0.875rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: all 0.15s; }
   .brand-export-btn:hover { border-color: #a855f7; color: #7c3aed; }
 </style>
 
 <script>
+  import {
+    CORS_PROXIES, HEX_RE, RGB_RE, RGBA_RE, HSL_RE,
+    IONIC_SEMANTIC_DEFAULTS,
+    fetchViaProxy, fetchCSSText, toAbsolute,
+    hexNorm, rgbToHex, hslToHex, hexToRgb, colourDist, relativeLuminance, contrastRatio,
+    wcagLabel, isSkippable, contrastText, extractAllColoursFromCSS, dedupeColours, firstHex,
+    extractColourPairs, extractFontsFromCSS, extractMeta, extractLogoUrl,
+    darkenHex, lightenHex, buildIonicColor, buildAllIonicColors,
+  } from '@/lib/brand-extract';
+
   let brandData: any = null;
 
-  const CORS_PROXIES = [
-    (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  /* ── Progress panel ── */
+  const PROG_STEPS = [
+    { id: 'fetch-html',  label: 'Fetching page HTML' },
+    { id: 'fetch-css',   label: 'Loading stylesheets' },
+    { id: 'colours',     label: 'Extracting colours' },
+    { id: 'assets',      label: 'Scanning fonts & images' },
+    { id: 'palette',     label: 'Building Ionic palette' },
   ];
 
-  async function fetchViaProxy(url: string): Promise<string> {
-    for (const makeProxy of CORS_PROXIES) {
-      try {
-        const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(12000) });
-        if (!res.ok) continue;
-        const text = await res.text().catch(() => null);
-        if (!text) continue;
-        try { const json = JSON.parse(text); if (json?.contents) return json.contents; } catch {}
-        if (text.length > 100) return text;
-      } catch { /* try next */ }
-    }
-    throw new Error('Could not fetch the URL. The site may block external requests — try a different URL.');
+  const ICON_PENDING = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="#cbd5e1" stroke-width="1.5"/></svg>';
+  const ICON_ACTIVE  = '<svg width="12" height="12" viewBox="0 0 12 12" class="prog-spin"><circle cx="6" cy="6" r="4" fill="none" stroke="#e2e8f0" stroke-width="1.5"/><path d="M6 2a4 4 0 0 1 4 4" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  const ICON_DONE    = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#10b981"/><path d="M3.5 6l2 2 3-3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+  const ICON_ERROR   = '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="#ef4444"/><path d="M4 4l4 4M8 4l-4 4" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+  function initProgress() {
+    document.getElementById('brandStatus')!.classList.add('hidden');
+    const prog = document.getElementById('brandProgress')!;
+    prog.classList.remove('hidden');
+    const stepsEl = document.getElementById('brandProgressSteps')!;
+    stepsEl.innerHTML = PROG_STEPS.map(s =>
+      '<div id="ps-'+s.id+'" class="prog-step prog-step--pending">'+
+        '<span class="prog-step-icon">'+ICON_PENDING+'</span>'+
+        '<span class="prog-step-text">'+
+          '<span class="prog-step-label">'+s.label+'</span>'+
+          '<span class="prog-step-detail"></span>'+
+        '</span>'+
+      '</div>'
+    ).join('');
+    setProgress(0, '');
   }
 
-  async function fetchCSSText(cssUrl: string, baseUrl: string): Promise<string> {
-    const abs = toAbsolute(cssUrl, baseUrl);
-    for (const makeProxy of CORS_PROXIES) {
-      try {
-        const res = await fetch(makeProxy(abs), { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) continue;
-        const text = await res.text().catch(() => null);
-        if (!text) continue;
-        try { const json = JSON.parse(text); if (json?.contents) return json.contents; } catch {}
-        return text;
-      } catch { /* try next */ }
-    }
-    return '';
+  function setProgress(pct: number, label: string) {
+    (document.getElementById('brandProgressBar') as HTMLElement).style.width = pct+'%';
+    (document.getElementById('brandProgressPct') as HTMLElement).textContent = pct+'%';
+    if (label) (document.getElementById('brandProgressLabel') as HTMLElement).textContent = label;
   }
 
-  function toAbsolute(href: string, base: string): string {
-    if (!href) return '';
-    if (/^https?:\/\//i.test(href)) return href;
-    try { return new URL(href, base).href; } catch { return href; }
+  function progStep(id: string, state: 'active'|'done'|'error', detail = '') {
+    const el = document.getElementById('ps-'+id);
+    if (!el) return;
+    el.className = 'prog-step prog-step--'+state;
+    el.querySelector('.prog-step-icon')!.innerHTML =
+      state === 'active' ? ICON_ACTIVE : state === 'done' ? ICON_DONE : ICON_ERROR;
+    (el.querySelector('.prog-step-detail') as HTMLElement).textContent = detail ? ' — '+detail : '';
   }
 
-  /* ── Colour utils ── */
-  const HEX_RE  = /#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
-  const RGB_RE  = /rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/g;
-  const RGBA_RE = /rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*[\d.]+\s*\)/g;
-  const HSL_RE  = /hsl\(\s*(\d{1,3})\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/g;
-
-  function hexNorm(h: string): string {
-    h = h.replace('#','').toLowerCase();
-    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-    return '#'+h;
-  }
-  function rgbToHex(r: number|string, g: number|string, b: number|string): string {
-    return '#'+[r,g,b].map(v=>parseInt(String(v)).toString(16).padStart(2,'0')).join('');
-  }
-  function hslToHex(h: number, s: number, l: number): string {
-    s/=100; l/=100; h/=360;
-    const q = l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
-    const hue = (p: number,q: number,t: number) => {
-      if(t<0)t++;if(t>1)t--;
-      if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;
-    };
-    return rgbToHex(Math.round(hue(p,q,h+1/3)*255),Math.round(hue(p,q,h)*255),Math.round(hue(p,q,h-1/3)*255));
-  }
-  function hexToRgb(hex: string): { r: number; g: number; b: number } {
-    const h = hex.replace('#','');
-    return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
-  }
-  function colourDist(a: string, b: string): number {
-    const A=hexToRgb(a), B=hexToRgb(b);
-    return Math.abs(A.r-B.r)+Math.abs(A.g-B.g)+Math.abs(A.b-B.b);
-  }
-  function relativeLuminance(hex: string): number {
-    const {r,g,b} = hexToRgb(hex);
-    const lin = (v: number) => { v/=255; return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4); };
-    return 0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b);
-  }
-  function contrastRatio(hex1: string, hex2: string): number {
-    const l1=relativeLuminance(hex1), l2=relativeLuminance(hex2);
-    return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
-  }
-  function wcagLabel(ratio: number): { level: string; cls: string } {
-    if (ratio >= 7)   return { level:'AAA', cls:'combo-aaa' };
-    if (ratio >= 4.5) return { level:'AA',  cls:'combo-aa'  };
-    if (ratio >= 3.0) return { level:'AA Large', cls:'combo-aa-lg' };
-    return { level:'Fail', cls:'combo-fail' };
-  }
-  function isSkippable(hex: string): boolean {
-    if (!hex || hex.length !== 7) return true;
-    const {r,g,b} = hexToRgb(hex);
-    const lum = (r+g+b)/3;
-    return lum > 245 || lum < 8;
-  }
-  function contrastText(hex: string): string {
-    return relativeLuminance(hex.toLowerCase()) > 0.35 ? '#1a1817' : '#ffffff';
+  function hideProgress() {
+    document.getElementById('brandProgress')!.classList.add('hidden');
   }
 
-  function extractAllColoursFromCSS(css: string): string[] {
-    const freq: Record<string,number> = {};
-    const add = (hex: string) => { if (!isSkippable(hex)) freq[hex] = (freq[hex]||0)+1; };
-    css.replace(HEX_RE,  (_, h) => { add(hexNorm('#'+h)); return _; });
-    css.replace(RGB_RE,  (_, r,g,b) => { add(rgbToHex(r,g,b)); return _; });
-    css.replace(RGBA_RE, (_, r,g,b) => { add(rgbToHex(r,g,b)); return _; });
-    css.replace(HSL_RE,  (_, h,s,l) => { add(hslToHex(+h,+s,+l)); return _; });
-    css.replace(/--(color|clr|colour|brand|primary|secondary|accent|bg|background|text|foreground|surface)[^:]*:\s*([^;}\n]+)/gi, (_:string,_n:string,val:string) => {
-      val.replace(HEX_RE,  (_:string,h:string)     => { add(hexNorm('#'+h)); return _; });
-      val.replace(RGB_RE,  (_:string,r:string,g:string,b:string) => { add(rgbToHex(r,g,b)); return _; });
-      return _;
-    });
-    return Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([hex])=>hex);
-  }
-
-  function dedupeColours(colours: string[], max=10): string[] {
-    const kept: string[] = [];
-    for (const hex of colours) {
-      if (kept.length >= max) break;
-      if (!kept.some(k => colourDist(k,hex) < 28)) kept.push(hex);
-    }
-    return kept;
-  }
-
-  function firstHex(val: string): string | null {
-    const m = val.match(HEX_RE);
-    if (m) return hexNorm(m[0]);
-    const r = val.match(RGB_RE);
-    if (r) { const parts=r[0].match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)||[]; return parts[1]?rgbToHex(parts[1],parts[2],parts[3]):null; }
-    return null;
-  }
-
-  function extractColourPairs(css: string, _knownColours: string[]): Array<{fg:string;bg:string;count:number}> {
-    const pairs = new Map<string,number>();
-    const blocks = css.split('}');
-    for (const block of blocks) {
-      const braceIdx = block.indexOf('{');
-      if (braceIdx < 0) continue;
-      const decls = block.slice(braceIdx+1);
-      const found: string[] = [];
-      decls.replace(HEX_RE,  (_:string, h:string) => { const c=hexNorm('#'+h); if (!isSkippable(c)) found.push(c); return _; });
-      decls.replace(RGB_RE,  (_:string, r:string,g:string,b:string) => { const c=rgbToHex(r,g,b); if (!isSkippable(c)) found.push(c); return _; });
-      decls.replace(RGBA_RE, (_:string, r:string,g:string,b:string) => { const c=rgbToHex(r,g,b); if (!isSkippable(c)) found.push(c); return _; });
-      if (found.length < 2) continue;
-      let fg: string|null=null, bg: string|null=null, border: string|null=null;
-      decls.replace(/\bcolor\s*:\s*([^;]+)/gi,            (_:string, v:string) => { const c=firstHex(v); if(c) fg=c; return _; });
-      decls.replace(/\bbackground(?:-color)?\s*:\s*([^;]+)/gi, (_:string,v:string) => { const c=firstHex(v); if(c) bg=c; return _; });
-      decls.replace(/\bborder(?:-color)?\s*:\s*([^;]+)/gi, (_:string,v:string) => { const c=firstHex(v); if(c) border=c; return _; });
-      if (fg && bg && fg!==bg) { const key=fg+'|'+bg; pairs.set(key,(pairs.get(key)||0)+1); }
-      if (fg && border && fg!==border) { const key=fg+'|'+border; pairs.set(key,(pairs.get(key)||0)+1); }
-    }
-    return [...pairs.entries()]
-      .sort((a,b)=>b[1]-a[1]).slice(0,8)
-      .map(([key, count]) => { const [fg,bg]=key.split('|'); return { fg, bg, count }; })
-      .filter(p => contrastRatio(p.fg,p.bg) > 1.2);
-  }
-
-  function extractFontsFromCSS(css: string, googleFontLinks: string[]): Array<{name:string;role:string;source:string;sample:string}> {
-    const found = new Map<string,{source:string;role:string}>();
-    googleFontLinks.forEach(href => {
-      const m = href.match(/family=([^&:;]+)/i);
-      if (m) {
-        const name = decodeURIComponent(m[1]).replace(/\+/g,' ').split(':')[0].trim();
-        if (name && !found.has(name)) found.set(name, { source:'Google Fonts', role:'body' });
-      }
-    });
-    css.replace(/font-family\s*:\s*([^;}{]+)/gi, (_:string,val:string) => {
-      val.split(',').forEach(part => {
-        let name = part.trim().replace(/^['"]|['"]$/g,'').trim();
-        if (!name || /^(inherit|initial|unset|sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|-apple-system|BlinkMacSystemFont|Arial|Helvetica|Georgia|Times|Verdana|Tahoma|Trebuchet|Impact)$/i.test(name)) return;
-        if (!found.has(name)) found.set(name, { source:'Custom', role:'body' });
-      });
-      return _;
-    });
-    css.replace(/@import\s+url\(['"]?(https:\/\/fonts\.googleapis\.com[^'")\s]+)['"]?\)/gi, (_:string,href:string) => {
-      const m = href.match(/family=([^&:;]+)/i);
-      if (m) {
-        const name = decodeURIComponent(m[1]).replace(/\+/g,' ').split(':')[0].trim();
-        if (name && !found.has(name)) found.set(name, { source:'Google Fonts', role:'body' });
-      }
-      return _;
-    });
-    css.replace(/h[1-6][^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
-      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
-      if (found.has(name)) found.get(name)!.role='heading';
-      return _;
-    });
-    css.replace(/(?:code|pre|kbd|samp)[^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
-      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
-      if (found.has(name)) found.get(name)!.role='mono';
-      return _;
-    });
-    css.replace(/(?:body|p|main)[^{]*\{[^}]*font-family\s*:\s*['"]?([^'";,}]+)/gi, (_:string,name:string) => {
-      name=name.trim().replace(/^['"]|['"]$/g,'').trim();
-      if (found.has(name)) found.get(name)!.role='body';
-      return _;
-    });
-    const arr = [...found.entries()];
-    if (arr.length===1) arr[0][1].role='heading';
-    if (arr.length>=2 && arr[0][1].role===arr[1][1].role) arr[1][1].role='body';
-    return arr.slice(0,5).map(([name,info])=>({ name, role:info.role, source:info.source, sample:'Aa Bb Cc 123' }));
-  }
-
-  function extractMeta(doc: Document): { name:string;desc:string;themeColor:string;faviconUrl:string;ogImage:string;twitterSite:string } {
-    const get  = (sel: string) => doc.querySelector(sel)?.getAttribute('content') || '';
-    const getH = (sel: string) => doc.querySelector(sel)?.getAttribute('href') || '';
-    const name = get('meta[property="og:site_name"]') || get('meta[name="application-name"]') ||
-                 doc.querySelector('title')?.textContent?.split(/[|\-–—]/)[0]?.trim() || '';
-    const desc = get('meta[property="og:description"]') || get('meta[name="description"]') || '';
-    const themeColor = get('meta[name="theme-color"]') || get('meta[name="msapplication-TileColor"]') || '';
-    let faviconUrl = '';
-    for (const sel of ['link[rel="icon"][type="image/svg+xml"]','link[rel="shortcut icon"]','link[rel="icon"]','link[rel="apple-touch-icon"]']) {
-      const h = getH(sel); if (h) { faviconUrl=h; break; }
-    }
-    return { name, desc, themeColor, faviconUrl,
-             ogImage: get('meta[property="og:image"]') || '',
-             twitterSite: get('meta[name="twitter:site"]') || '' };
-  }
-
-  function extractLogoUrl(doc: Document, baseUrl: string, domain: string): string {
-    const logoLink = doc.querySelector('link[rel~="logo"]')?.getAttribute('href');
-    if (logoLink) return toAbsolute(logoLink, baseUrl);
-    for (const el of [...doc.querySelectorAll('img, svg')]) {
-      const src = el.getAttribute('src') || '';
-      const combined = src + (el.getAttribute('alt')||'') + (el.getAttribute('class')||'') + (el.getAttribute('id')||'');
-      if (/logo/i.test(combined) && src) return toAbsolute(src, baseUrl);
-    }
-    return 'https://'+domain+'/logo.svg';
-  }
-
-  /* ── Ionic palette ── */
-  function darkenHex(hex: string, amount=0.12): string {
-    const {r,g,b} = hexToRgb(hex);
-    return rgbToHex(Math.round(r*(1-amount)), Math.round(g*(1-amount)), Math.round(b*(1-amount)));
-  }
-  function lightenHex(hex: string, amount=0.10): string {
-    const {r,g,b} = hexToRgb(hex);
-    return rgbToHex(Math.min(255,Math.round(r+(255-r)*amount)), Math.min(255,Math.round(g+(255-g)*amount)), Math.min(255,Math.round(b+(255-b)*amount)));
-  }
-  function buildIonicColor(name: string, hex: string) {
-    const base  = hex.toUpperCase();
-    const shade = darkenHex(hex).toUpperCase();
-    const tint  = lightenHex(hex).toUpperCase();
-    const {r,g,b} = hexToRgb(hex);
-    const contrast = contrastText(hex).toUpperCase();
-    const cRgb = hexToRgb(contrast === '#FFFFFF' ? '#ffffff' : '#1a1817');
-    return { name, base, shade, tint, rgb:`${r}, ${g}, ${b}`, contrast, contrastRgb:`${cRgb.r}, ${cRgb.g}, ${cRgb.b}` };
+  function showStatus(msg: string, type: 'ok'|'err'|'info') {
+    const el = document.getElementById('brandStatus')!;
+    el.textContent = msg;
+    el.className = type === 'ok'
+      ? 'mt-3 text-sm text-emerald-600'
+      : type === 'err'
+        ? 'mt-3 text-sm text-rose-500'
+        : 'mt-3 text-sm text-slate-500';
+    el.classList.remove('hidden');
   }
 
   /* ── Main fetch ── */
@@ -462,19 +325,24 @@ const faq = [
 
     const btn = document.getElementById('brandFetchBtn') as HTMLButtonElement;
     btn.disabled = true;
-    btn.textContent = 'Fetching…';
+    btn.textContent = 'Extracting…';
     const r = document.getElementById('brandResults')!;
     r.classList.add('hidden');
     r.style.display = '';
-    showStatus('Fetching page HTML…', 'info');
 
+    initProgress();
     const domain = new URL(url).hostname.replace(/^www\./,'');
 
     try {
+      // ── Step 1: Fetch HTML ──
+      progStep('fetch-html', 'active');
+      setProgress(5, 'Connecting to '+domain+'…');
       const html = await fetchViaProxy(url);
+      progStep('fetch-html', 'done', 'page received');
+      setProgress(22, 'Parsing HTML…');
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      showStatus('Parsing CSS and extracting assets…', 'info');
 
       const cssChunks: string[] = [];
       const googleFontLinks: string[] = [];
@@ -483,17 +351,27 @@ const faq = [
 
       const sheetLinks = [...doc.querySelectorAll('link[rel="stylesheet"]')]
         .map(l => l.getAttribute('href')).filter(Boolean) as string[];
+      const externalSheets = sheetLinks.filter(h => !/fonts\.googleapis\.com/i.test(toAbsolute(h, url)));
+      sheetLinks.forEach(h => { if (/fonts\.googleapis\.com/i.test(toAbsolute(h, url))) googleFontLinks.push(toAbsolute(h, url)); });
 
-      for (const href of sheetLinks) {
-        const absHref = toAbsolute(href, url);
-        if (/fonts\.googleapis\.com/i.test(absHref)) { googleFontLinks.push(absHref); continue; }
-        if (cssChunks.length < 8) {
-          const text = await fetchCSSText(absHref, url).catch(()=>'');
-          if (text) cssChunks.push(text);
-        }
+      // ── Step 2: Load stylesheets ──
+      progStep('fetch-css', 'active', externalSheets.length ? externalSheets.length+' found' : 'none');
+      setProgress(28, 'Loading stylesheets…');
+      for (let i = 0; i < externalSheets.length; i++) {
+        if (cssChunks.length >= 8) break;
+        progStep('fetch-css', 'active', (i+1)+' / '+externalSheets.length);
+        setProgress(28 + Math.round((i+1)/Math.max(externalSheets.length,1)*18), 'Loading stylesheets…');
+        const text = await fetchCSSText(externalSheets[i], url).catch(()=>'');
+        if (text) cssChunks.push(text);
       }
+      progStep('fetch-css', 'done', cssChunks.length+' chunks loaded');
+      setProgress(48, 'Analysing CSS…');
 
       const allCSS = cssChunks.join('\n');
+
+      // ── Step 3: Extract colours ──
+      progStep('colours', 'active');
+      setProgress(52, 'Extracting colours…');
       const rawColors = extractAllColoursFromCSS(allCSS);
       const meta = extractMeta(doc);
       if (meta.themeColor && /^#[0-9a-f]{3,6}$/i.test(meta.themeColor)) {
@@ -506,13 +384,16 @@ const faq = [
         name: ['Primary','Secondary','Accent','Neutral','Surface','Tint','Shade','Highlight','Muted','Dark'][i] || 'Colour '+(i+1),
         role: ['primary','secondary','accent','neutral','surface','tint','shade','highlight','muted','dark'][i] || 'accent',
       }));
+      const pairs = extractColourPairs(allCSS, dedupedColours);
+      progStep('colours', 'done', colors.length+' colours · '+pairs.length+' combinations');
+      setProgress(65, 'Scanning fonts & images…');
 
-      const pairs   = extractColourPairs(allCSS, dedupedColours);
-      const fonts   = extractFontsFromCSS(allCSS, googleFontLinks);
+      // ── Step 4: Fonts & images ──
+      progStep('assets', 'active');
+      const fonts = extractFontsFromCSS(allCSS, googleFontLinks);
       const logoUrl    = extractLogoUrl(doc, url, domain);
-      const faviconUrl = meta.faviconUrl ? toAbsolute(meta.faviconUrl, url) : `https://${domain}/favicon.ico`;
+      const faviconUrl = meta.faviconUrl ? toAbsolute(meta.faviconUrl, url) : 'https://'+domain+'/favicon.ico';
 
-      // Standard brand icon URLs
       const standardIcons: Array<{url:string;label:string}> = [
         { url: toAbsolute('/apple-touch-icon.png', url), label: 'Apple Icon' },
         { url: toAbsolute('/favicon.svg', url),          label: 'Favicon SVG' },
@@ -520,7 +401,6 @@ const faq = [
       ];
       if (meta.ogImage) standardIcons.push({ url: toAbsolute(meta.ogImage, url), label: 'OG Image' });
 
-      // Inline SVGs from DOM
       const svgImages: Array<{url:string;label:string}> = [];
       doc.querySelectorAll('svg').forEach((svg, i) => {
         if (svgImages.length >= 12) return;
@@ -531,7 +411,7 @@ const faq = [
           const vbNums = vb.split(/\s+/).map(Number);
           const vbW = vbNums[2] || 0, vbH = vbNums[3] || 0;
           const effectiveW = wA || vbW, effectiveH = hA || vbH;
-          if (effectiveW > 0 && effectiveW < 8 && effectiveH > 0 && effectiveH < 8) return; // skip tiny decorative
+          if (effectiveW > 0 && effectiveW < 8 && effectiveH > 0 && effectiveH < 8) return;
           const svgStr = new XMLSerializer().serializeToString(svg);
           const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
           const label = svg.getAttribute('aria-label') || svg.querySelector('title')?.textContent || ('SVG ' + (i + 1));
@@ -539,7 +419,6 @@ const faq = [
         } catch {}
       });
 
-      // img tags from page
       const imgElements: Array<{url:string;label:string}> = [];
       doc.querySelectorAll('img[src]').forEach(img => {
         if (imgElements.length >= 16) return;
@@ -553,7 +432,6 @@ const faq = [
       });
       imgElements.sort((a: any, b: any) => a.priority - b.priority);
 
-      // CSS background data URLs (inline base64)
       const bgDataImages: Array<{url:string;label:string}> = [];
       const bgDataRe = /url\(['"]?(data:image\/(?:svg\+xml|png|jpeg|gif|webp|x-icon)[^'")\s]{1,200000})['"]?\)/g;
       let bgDm;
@@ -561,7 +439,6 @@ const faq = [
         bgDataImages.push({ url: bgDm[1], label: 'CSS Image' });
       }
 
-      // CSS background http URLs
       const bgHttpImages: Array<{url:string;label:string}> = [];
       const bgHttpRe = /background(?:-image)?\s*:[^;]*url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/g;
       let bgHm;
@@ -569,32 +446,39 @@ const faq = [
         bgHttpImages.push({ url: bgHm[1], label: 'BG Image' });
       }
 
+      const totalImages = svgImages.length + imgElements.length + bgDataImages.length + bgHttpImages.length;
+      progStep('assets', 'done', fonts.length+' font'+(fonts.length!==1?'s':'')+' · '+totalImages+' image'+(totalImages!==1?'s':''));
+      setProgress(82, 'Building Ionic palette…');
+
+      // ── Step 5: Ionic palette ──
+      progStep('palette', 'active');
       brandData = { name:meta.name||domain, domain, tagline:meta.desc?meta.desc.slice(0,160):'',
                     colors, pairs, fonts, logoUrl, faviconUrl,
                     standardIcons, svgImages, imgElements: imgElements.slice(0, 12),
                     bgImages: [...bgDataImages, ...bgHttpImages].slice(0, 6),
                     meta:{ description:meta.desc, twitter:meta.twitterSite||null,
                            themeColor:meta.themeColor||null, ogImage:meta.ogImage||null } };
+      progStep('palette', 'done', '9 colour roles');
+      setProgress(100, 'Done');
 
-      showStatus('✓ Brand assets extracted from CSS and HTML.', 'ok');
-      renderBrandResults(brandData, url);
+      setTimeout(() => {
+        hideProgress();
+        showStatus('✓ Brand assets extracted from '+domain, 'ok');
+        renderBrandResults(brandData, url);
+      }, 400);
+
     } catch(err: any) {
+      // mark the first active step as errored
+      for (const s of PROG_STEPS) {
+        const el = document.getElementById('ps-'+s.id);
+        if (el?.classList.contains('prog-step--active')) { progStep(s.id, 'error', err.message); break; }
+      }
+      setProgress(parseInt((document.getElementById('brandProgressBar') as HTMLElement).style.width)||0, 'Failed');
       showStatus('✕ '+err.message, 'err');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Extract Brand';
     }
-  }
-
-  function showStatus(msg: string, type: 'ok'|'err'|'info') {
-    const el = document.getElementById('brandStatus')!;
-    el.textContent = msg;
-    el.className = type === 'ok'
-      ? 'mb-4 text-sm text-emerald-600'
-      : type === 'err'
-        ? 'mb-4 text-sm text-rose-500'
-        : 'mb-4 text-sm text-slate-500';
-    el.classList.remove('hidden');
   }
 
   /* ── Render ── */
@@ -745,15 +629,6 @@ const faq = [
     });
   }
 
-  const IONIC_SEMANTIC_DEFAULTS: Record<string,string> = {
-    success: '#2dd36f',
-    warning: '#ffc409',
-    danger:  '#eb445a',
-    dark:    '#222428',
-    medium:  '#92949c',
-    light:   '#f4f5f8',
-  };
-
   function renderIonicPalette(colors: any[]) {
     const el = document.getElementById('brandIonic')!;
     el.innerHTML = '';
@@ -763,15 +638,7 @@ const faq = [
     }
 
     // Build all 9 Ionic color roles
-    const brandDefaults = ['#3880ff', '#3dc2ff', '#5260ff'];
-    const allIonicColors: Array<any> = [];
-    ['primary','secondary','tertiary'].forEach((role, i) => {
-      const hex = colors[i] ? colors[i].hex.toLowerCase() : brandDefaults[i];
-      allIonicColors.push({ ...buildIonicColor(role, hex), fromBrand: !!colors[i] });
-    });
-    Object.entries(IONIC_SEMANTIC_DEFAULTS).forEach(([name, defaultHex]) => {
-      allIonicColors.push({ ...buildIonicColor(name, defaultHex), fromBrand: false });
-    });
+    const allIonicColors = buildAllIonicColors(colors);
 
     const grid = document.createElement('div');
     grid.className = 'brand-ionic-grid';
