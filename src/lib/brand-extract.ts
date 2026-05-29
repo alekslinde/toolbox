@@ -298,7 +298,112 @@ export function buildAllIonicColors(colors: BrandColor[]): IonicColor[] {
     allIonicColors.push({ ...buildIonicColor(role, hex), fromBrand: !!colors[i] });
   });
   Object.entries(IONIC_SEMANTIC_DEFAULTS).forEach(([name, defaultHex]) => {
-    allIonicColors.push({ ...buildIonicColor(name, defaultHex), fromBrand: false });
+    const detected = detectSemanticBrandColor(colors, name as keyof typeof IONIC_SEMANTIC_DEFAULTS);
+    allIonicColors.push({ ...buildIonicColor(name, detected ?? defaultHex), fromBrand: detected !== null });
   });
   return allIonicColors;
+}
+
+/* ── Semantic colour detection ── */
+
+function getHueDeg(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const rn = r/255, gn = g/255, bn = b/255;
+  const max = Math.max(rn,gn,bn), min = Math.min(rn,gn,bn);
+  if (max === min) return 0;
+  const d = max - min;
+  let h = 0;
+  if (max === rn)      h = ((gn-bn)/d + (gn<bn?6:0));
+  else if (max === gn) h = ((bn-rn)/d + 2);
+  else                 h = ((rn-gn)/d + 4);
+  return (h/6)*360;
+}
+
+function getSaturation(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  return max === 0 ? 0 : (max-min)/max;
+}
+
+export function detectSemanticBrandColor(
+  colors: BrandColor[],
+  role: keyof typeof IONIC_SEMANTIC_DEFAULTS
+): string | null {
+  const hueRanges: Partial<Record<keyof typeof IONIC_SEMANTIC_DEFAULTS, [number,number]>> = {
+    success: [100, 165],
+    warning: [35,  65 ],
+    danger:  [340, 20 ],  // wraps around 360°
+  };
+  const range = hueRanges[role];
+  if (range) {
+    const [lo, hi] = range;
+    for (const c of colors.slice(3)) {
+      const hex = c.hex.toLowerCase();
+      const hue = getHueDeg(hex);
+      const sat = getSaturation(hex);
+      if (sat < 0.3) continue;
+      const matches = hi < lo ? (hue >= lo || hue <= hi) : (hue >= lo && hue <= hi);
+      if (matches) return hex;
+    }
+    return null;
+  }
+  if (role === 'dark') {
+    const sorted = [...colors].sort((a,b) => relativeLuminance(a.hex.toLowerCase()) - relativeLuminance(b.hex.toLowerCase()));
+    return sorted[0] && relativeLuminance(sorted[0].hex.toLowerCase()) < 0.05 ? sorted[0].hex.toLowerCase() : null;
+  }
+  if (role === 'light') {
+    const sorted = [...colors].sort((a,b) => relativeLuminance(b.hex.toLowerCase()) - relativeLuminance(a.hex.toLowerCase()));
+    return sorted[0] && relativeLuminance(sorted[0].hex.toLowerCase()) > 0.6 ? sorted[0].hex.toLowerCase() : null;
+  }
+  if (role === 'medium') {
+    const sorted = [...colors].sort((a,b) => getSaturation(a.hex.toLowerCase()) - getSaturation(b.hex.toLowerCase()));
+    return sorted[0] && getSaturation(sorted[0].hex.toLowerCase()) < 0.15 ? sorted[0].hex.toLowerCase() : null;
+  }
+  return null;
+}
+
+/* ── Button style extraction ── */
+
+export function extractButtonStyle(css: string): { bg: string; fg: string } | null {
+  const BTN_RE = /\.btn[\s{[,>]|button\s*\{|\[type\s*=\s*['"]?submit|\[type\s*=\s*['"]?button|\.button[\s{[,>]/i;
+  const blocks = css.split('}');
+  for (const block of blocks) {
+    const braceIdx = block.indexOf('{');
+    if (braceIdx < 0) continue;
+    const selector = block.slice(0, braceIdx);
+    if (!BTN_RE.test(selector)) continue;
+    const decls = block.slice(braceIdx+1);
+    let bg: string|null = null, fg: string|null = null;
+    decls.replace(/\bbackground(?:-color)?\s*:\s*([^;]+)/gi, (_:string, v:string) => {
+      const c = firstHex(v); if (c && !isSkippable(c)) bg = c; return _;
+    });
+    decls.replace(/\bcolor\s*:\s*([^;]+)/gi, (_:string, v:string) => {
+      const c = firstHex(v); if (c) fg = c; return _;
+    });
+    if (bg) return { bg, fg: fg || contrastText(bg) };
+  }
+  return null;
+}
+
+/* ── Internal link discovery ── */
+
+export const MAX_CRAWL_PAGES = 10;
+
+export function extractInternalLinks(doc: Document, baseUrl: string, domain: string): string[] {
+  const links = new Set<string>();
+  const basePath = new URL(baseUrl).origin + new URL(baseUrl).pathname;
+  doc.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    if (!href || /^(#|mailto:|tel:|javascript:)/i.test(href)) return;
+    const abs = toAbsolute(href, baseUrl);
+    try {
+      const p = new URL(abs);
+      const hostMatch = p.hostname === domain || p.hostname === 'www.'+domain || 'www.'+p.hostname === domain;
+      if (!hostMatch) return;
+      if (/\.(css|js|png|jpe?g|gif|svg|ico|woff2?|ttf|otf|pdf|zip|xml|json|mp[34]|webp|avif)(\?|#|$)/i.test(p.pathname)) return;
+      const normalized = p.origin + p.pathname;
+      if (normalized !== basePath) links.add(normalized);
+    } catch {}
+  });
+  return [...links].slice(0, 50);
 }
