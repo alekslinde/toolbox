@@ -3,3 +3,5 @@ dist
 .astro
 .claude/settings.local.json
 figma-plugin/dist/
+.env
+.env.*
