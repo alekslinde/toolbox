@@ -30,6 +30,7 @@ export function getStaticPaths() {
     'semantic-html',
     'color-extractor',
     'color-namer',
+    'token-saver',
   ]);
   return tools
     .filter((t) => !implemented.has(t.slug))

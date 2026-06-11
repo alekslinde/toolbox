@@ -230,6 +230,15 @@ export const tools: Tool[] = [
     tags: ['SVG', 'validate', 'repair', 'sanitize', 'xmlns', 'viewBox', 'preview'],
     icon: 'SVG',
   },
+  {
+    slug: 'token-saver',
+    title: 'Prompt Token Saver',
+    shortTitle: 'Token Saver',
+    description: 'Compress verbose AI prompts to cut token usage. Collapses filler phrases, abbreviates tech jargon, and protects code blocks.',
+    category: 'code',
+    tags: ['AI', 'prompt', 'token', 'compress', 'LLM', 'GPT', 'cost'],
+    icon: 'AI',
+  },
 ];
 
 export const toolsByCategory = (cat: Category) => tools.filter((t) => t.category === cat);

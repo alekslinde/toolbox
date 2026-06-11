@@ -1,5 +1,21 @@
 [
   {
+    "version": "7.0",
+    "date": "2026-06-11",
+    "changes": [
+      "Prompt Token Saver: overhauled compression engine — pre-compiled regexes, longest-match-first phrase ordering, fixed pass ordering and PROT restore bug, structural boilerplate pass, moved multi-word synonyms to phrase dict",
+      "Prompt Token Saver: added optional domain packs (SQL, React, DevOps, Data Science) as sidebar checkboxes with localStorage persistence",
+      "Prompt Token Saver: updated token estimate to 3.5 chars/token for post-compression abbreviated text"
+    ]
+  },
+  {
+    "version": "6.9",
+    "date": "2026-06-11",
+    "changes": [
+      "New tool: Prompt Token Saver — compress verbose AI prompts to reduce LLM token usage with phrase collapsing, abbreviations, and an environmental impact calculator"
+    ]
+  },
+  {
     "version": "6.8",
     "date": "2026-05-26",
     "changes": [
