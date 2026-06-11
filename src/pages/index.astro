@@ -62,7 +62,7 @@ const categories = [
   </header>
 
   <!-- Tool directory -->
-  <main id="tools" class="px-8 py-14 lg:px-14">
+  <main id="tools" class="px-8 py-14 lg:px-14 max-w-[1440px] mx-auto">
     {categories.map((cat) => (
       <section id={cat.id} class="mb-14" aria-label={cat.label}>
         <h2 class="mb-6 text-xs font-semibold uppercase tracking-widest text-slate-400">
@@ -85,38 +85,32 @@ const categories = [
 
   <!-- Use cases strip -->
   <section class="border-t border-slate-200 bg-white px-8 py-14 lg:px-14" aria-label="Example use cases">
-    <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">// Real-world friction</p>
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {[
-        { quote: 'You got handed a TTF and the project needs WOFF2. Two minutes, done.', tool: 'Font Tools', href: '/tools/font-converter' },
-        { quote: 'Client wants the hero image in WebP. No Photoshop, no plugins, just drag and drop.', tool: 'Image Tools', href: '/tools/image-compress' },
-        { quote: 'Does this background/text combo pass WCAG AA? Check it before the PR review.', tool: 'Color & WCAG', href: '/tools/wcag-contrast' },
-        { quote: 'Marketing sent a 14 MB PDF. Legal needs it under 5 MB by 3 pm.', tool: 'PDF Compress', href: '/tools/pdf-compress' },
-        { quote: 'New brand guidelines dropped. What fonts and colours are they actually using?', tool: 'Brand Assets', href: '/tools/brand-assets' },
-        { quote: 'Inherited div-soup HTML. Need semantic markup before the accessibility audit.', tool: 'Code Tools', href: '/tools/semantic-html' },
-      ].map((uc) => (
-        <a
-          href={uc.href}
-          class="group flex flex-col justify-between rounded-md border border-slate-200 bg-slate-50 p-5 no-underline transition-all hover:border-purple-200 hover:bg-purple-50"
-        >
-          <p class="mb-4 text-sm italic leading-relaxed text-slate-600">"{uc.quote}"</p>
-          <span class="text-xs font-semibold text-purple-500 transition-colors group-hover:text-purple-600">
-            {uc.tool} →
-          </span>
-        </a>
-      ))}
+    <div class="max-w-[1440px] mx-auto">
+
+
+      <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">// Real-world friction</p>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { quote: 'You got handed a TTF and the project needs WOFF2. Two minutes, done.', tool: 'Font Tools', href: '/tools/font-converter' },
+          { quote: 'Client wants the hero image in WebP. No Photoshop, no plugins, just drag and drop.', tool: 'Image Tools', href: '/tools/image-compress' },
+          { quote: 'Does this background/text combo pass WCAG AA? Check it before the PR review.', tool: 'Color & WCAG', href: '/tools/wcag-contrast' },
+          { quote: 'Marketing sent a 14 MB PDF. Legal needs it under 5 MB by 3 pm.', tool: 'PDF Compress', href: '/tools/pdf-compress' },
+          { quote: 'New brand guidelines dropped. What fonts and colours are they actually using?', tool: 'Brand Assets', href: '/tools/brand-assets' },
+          { quote: 'Inherited div-soup HTML. Need semantic markup before the accessibility audit.', tool: 'Code Tools', href: '/tools/semantic-html' },
+        ].map((uc) => (
+          <a
+            href={uc.href}
+            class="group flex flex-col justify-between rounded-md border border-slate-200 bg-slate-50 p-5 no-underline transition-all hover:border-purple-200 hover:bg-purple-50"
+          >
+            <p class="mb-4 text-sm italic leading-relaxed text-slate-600">"{uc.quote}"</p>
+            <span class="text-xs font-semibold text-purple-500 transition-colors group-hover:text-purple-600">
+              {uc.tool} →
+            </span>
+          </a>
+        ))}
+      </div>
     </div>
   </section>
-
-  <!-- About strip -->
-  <footer class="border-t border-slate-200 bg-sidebar px-8 py-12 text-center lg:px-14">
-    <p class="mx-auto max-w-xl text-sm leading-relaxed text-slate-400">
-      Built by <a href="https://alekslinde.github.io/portfolio/" class="text-purple-400 hover:text-purple-300 transition-colors">Aleks Linde</a>.
-      All tools run entirely in your browser — nothing is uploaded to a server.
-      Licensed <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 transition-colors">CC BY-NC-SA 4.0</a>.
-      <a href="/legal" class="text-slate-400 underline underline-offset-2 hover:text-purple-300 transition-colors">Legal &amp; Disclaimer</a>
-    </p>
-  </footer>
 
 </MainLayout>
 

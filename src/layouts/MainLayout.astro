@@ -80,7 +80,7 @@ const path = Astro.url.pathname;
 
   <!-- Header -->
   <header class="fixed inset-x-0 top-0 z-40 flex h-14 items-center border-b border-white/10 bg-sidebar">
-    <div class="flex h-full w-full items-center justify-between px-5 lg:px-8">
+    <div class="max-w-[1440px] mx-auto flex h-full w-full max-w-[1440px] items-center justify-between px-5 lg:px-8">
 
       <!-- Left: brand -->
       <a
@@ -258,9 +258,13 @@ const path = Astro.url.pathname;
   <!-- Page content -->
   <div class="flex min-h-screen flex-col pt-14">
     <slot />
-    <footer class="mt-auto border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-400 lg:px-8">
-      All tools run entirely in your browser — no files are uploaded to any server.
-      <a href="/legal" class="ml-3 text-slate-400 underline underline-offset-2 hover:text-purple-600">Legal &amp; Disclaimer</a>
+    <footer class="mt-auto border-t border-slate-200 bg-sidebar px-8 py-8 text-center lg:px-14">
+      <p class="mx-auto max-w-xl text-sm leading-relaxed text-slate-400">
+        Built by <a href="https://alekslinde.github.io/portfolio/" class="text-purple-400 hover:text-purple-300 transition-colors">Aleks Linde</a>.
+        All tools run entirely in your browser — nothing is uploaded to a server.
+        Licensed <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 transition-colors">CC BY-NC-SA 4.0</a>.
+        <a href="/legal" class="text-slate-400 underline underline-offset-2 hover:text-purple-300 transition-colors">Legal &amp; Disclaimer</a>
+      </p>
     </footer>
   </div>
 
