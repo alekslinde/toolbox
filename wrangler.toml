@@ -9,9 +9,17 @@ directory = "dist"
 name       = "COUNTERS"
 class_name = "Counter"
 
+[[durable_objects.bindings]]
+name       = "FEEDBACK"
+class_name = "FeedbackStore"
+
 [[migrations]]
 tag                = "v1"
 new_sqlite_classes = ["Counter"]
+
+[[migrations]]
+tag                = "v2"
+new_sqlite_classes = ["FeedbackStore"]
 
 [[routes]]
 pattern = "lindetoolbox.com"

@@ -1,5 +1,12 @@
 [
   {
+    "version": "7.1",
+    "date": "2026-06-11",
+    "changes": [
+      "Prompt Token Saver: added bad-output feedback loop — a thumbs-down button appears after compression, letting users report a bad result with an optional note"
+    ]
+  },
+  {
     "version": "7.0",
     "date": "2026-06-11",
     "changes": [

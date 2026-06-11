@@ -138,6 +138,62 @@ async function callClaude(apiKey, body) {
 
 
 
+// ── Feedback Durable Object ───────────────────────────────────────────────────
+// Stores bad-output reports as rows in SQLite. One DO instance ("feedback").
+export class FeedbackStore {
+  constructor(state) {
+    this.state = state;
+    this.state.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS reports (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts        INTEGER NOT NULL,
+        ip_hash   TEXT    NOT NULL,
+        day       TEXT    NOT NULL,
+        content_hash TEXT NOT NULL,
+        original  TEXT    NOT NULL,
+        compressed TEXT   NOT NULL,
+        note      TEXT    NOT NULL DEFAULT ''
+      )
+    `);
+  }
+
+  async fetch(request) {
+    const url    = new URL(request.url);
+    const action = url.searchParams.get('action');
+
+    if (action === 'submit') {
+      const { ipHash, day, contentHash, original, compressed, note } = await request.json();
+
+      // Dedup: same IP + same content hash on the same day → reject
+      const dup = this.state.storage.sql
+        .exec('SELECT 1 FROM reports WHERE ip_hash=? AND content_hash=? AND day=? LIMIT 1', ipHash, contentHash, day)
+        .toArray();
+      if (dup.length > 0) return Response.json({ ok: false, reason: 'duplicate' });
+
+      // Per-IP daily cap: max 10 reports/IP/day
+      const count = this.state.storage.sql
+        .exec('SELECT COUNT(*) as n FROM reports WHERE ip_hash=? AND day=?', ipHash, day)
+        .toArray()[0].n;
+      if (count >= 10) return Response.json({ ok: false, reason: 'rate_limited' });
+
+      this.state.storage.sql.exec(
+        'INSERT INTO reports (ts,ip_hash,day,content_hash,original,compressed,note) VALUES (?,?,?,?,?,?,?)',
+        Date.now(), ipHash, day, contentHash, original, compressed, note
+      );
+      return Response.json({ ok: true });
+    }
+
+    if (action === 'list') {
+      const rows = this.state.storage.sql
+        .exec('SELECT id,ts,original,compressed,note FROM reports ORDER BY id DESC LIMIT 500')
+        .toArray();
+      return Response.json({ rows });
+    }
+
+    return new Response('Bad request', { status: 400 });
+  }
+}
+
 // ── Counter keys for page-load count injection ────────────────────────────────
 
 const COUNTER_KEYS = [
@@ -221,6 +277,73 @@ export default {
       const stub = env.COUNTERS.get(env.COUNTERS.idFromName(key));
       await stub.fetch(new Request(`https://x/?action=up`, { method: 'GET' }));
       return new Response(null, { status: 204 });
+    }
+
+    // ── Feedback ───────────────────────────────────────────────────────────────
+    if (url.pathname === '/feedback') {
+      const origin = request.headers.get('Origin');
+      if (origin && origin !== 'https://lindetoolbox.com') {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Admin read — Bearer token required
+      if (request.method === 'GET') {
+        const auth   = request.headers.get('Authorization') || '';
+        const secret = env.FEEDBACK_SECRET;
+        if (!secret || auth !== `Bearer ${secret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+        return stub.fetch(new Request('https://x/?action=list'));
+      }
+
+      if (request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch (_) {
+          return new Response('Bad request', { status: 400 });
+        }
+
+        const { original, compressed, note = '' } = body;
+
+        // Payload validation
+        if (
+          typeof original   !== 'string' || original.length   < 10 || original.length   > 2000 ||
+          typeof compressed !== 'string' || compressed.length  < 1  || compressed.length > 2000 ||
+          typeof note       !== 'string' || note.length > 280
+        ) {
+          return new Response('Bad request', { status: 400 });
+        }
+
+        const ip  = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const day = new Date().toISOString().slice(0, 10);
+
+        // Hash IP for storage (no PII retained)
+        const ipHash = await hashIP(ip);
+
+        // Hash content so we can dedup without storing the IP alongside raw text
+        const contentRaw  = original + '\x00' + compressed;
+        const contentBuf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(contentRaw));
+        const contentHash = Array.from(new Uint8Array(contentBuf)).slice(0, 8)
+          .map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const stub   = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+        const result = await (await stub.fetch(new Request('https://x/?action=submit', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ ipHash, day, contentHash, original, compressed, note }),
+        }))).json();
+
+        if (result.reason === 'duplicate') {
+          return Response.json({ ok: false, error: 'Already reported.' }, { status: 409 });
+        }
+        if (result.reason === 'rate_limited') {
+          return Response.json({ ok: false, error: 'Too many reports today.' }, { status: 429 });
+        }
+
+        return Response.json({ ok: true });
+      }
+
+      return new Response('Method not allowed', { status: 405 });
     }
 
     // ── Usage counter ──────────────────────────────────────────────────────────

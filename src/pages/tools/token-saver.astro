@@ -103,6 +103,34 @@ const faq = [
               <span class="output-placeholder text-slate-400">Your compressed prompt will appear here…</span>
             </div>
           </div>
+
+          <!-- Feedback -->
+          <div id="feedbackArea" class="hidden mt-3">
+            <button id="btnBadOutput"
+              class="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667l1.5-2.333H14z" />
+              </svg>
+              Bad output? Report it
+            </button>
+            <div id="feedbackForm" class="hidden mt-2 rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-2">
+              <p class="text-xs text-slate-500">What went wrong? <span class="text-slate-400">(optional — 280 chars max)</span></p>
+              <textarea id="feedbackNote" rows="2" maxlength="280"
+                placeholder="e.g. 'auth' is wrong here — it changed the meaning"
+                class="w-full resize-none rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-rose-400 focus:outline-none"></textarea>
+              <div class="flex items-center gap-2">
+                <button id="btnSubmitFeedback"
+                  class="rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-600">
+                  Submit report
+                </button>
+                <button id="btnCancelFeedback"
+                  class="text-xs text-slate-400 hover:text-slate-600">
+                  Cancel
+                </button>
+                <span id="feedbackStatus" class="ml-auto text-xs text-slate-400"></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Impact calculator -->
@@ -934,6 +962,15 @@ document.getElementById('btnCompress')!.addEventListener('click', () => {
   outputCnt.textContent = result.length + ' chars';
   savingsPctEl.textContent = pct + '%';
   badge.style.display = 'flex';
+
+  // Show feedback trigger after each compression
+  const feedbackArea = document.getElementById('feedbackArea') as HTMLElement;
+  feedbackArea.classList.remove('hidden');
+  // Reset the form state in case it was open from a prior run
+  (document.getElementById('feedbackForm') as HTMLElement).classList.add('hidden');
+  (document.getElementById('btnBadOutput') as HTMLElement).classList.remove('hidden');
+  (document.getElementById('feedbackStatus') as HTMLElement).textContent = '';
+  (document.getElementById('feedbackNote') as HTMLTextAreaElement).value = '';
 });
 
 document.getElementById('btnClear')!.addEventListener('click', () => {
@@ -942,6 +979,64 @@ document.getElementById('btnClear')!.addEventListener('click', () => {
   inputCnt.textContent  = '0 chars';
   outputCnt.textContent = '0 chars';
   badge.style.display = 'none';
+  (document.getElementById('feedbackArea') as HTMLElement).classList.add('hidden');
+});
+
+// ─── FEEDBACK ────────────────────────────────────────────────────────────────
+document.getElementById('btnBadOutput')!.addEventListener('click', () => {
+  (document.getElementById('feedbackForm') as HTMLElement).classList.remove('hidden');
+  (document.getElementById('btnBadOutput') as HTMLElement).classList.add('hidden');
+});
+
+document.getElementById('btnCancelFeedback')!.addEventListener('click', () => {
+  (document.getElementById('feedbackForm') as HTMLElement).classList.add('hidden');
+  (document.getElementById('btnBadOutput') as HTMLElement).classList.remove('hidden');
+  (document.getElementById('feedbackStatus') as HTMLElement).textContent = '';
+});
+
+document.getElementById('btnSubmitFeedback')!.addEventListener('click', async () => {
+  const original   = inputEl.value.trim();
+  const compressed = (outputEl.textContent ?? '').trim();
+  const note       = (document.getElementById('feedbackNote') as HTMLTextAreaElement).value.trim();
+  const statusEl   = document.getElementById('feedbackStatus') as HTMLElement;
+  const btn        = document.getElementById('btnSubmitFeedback') as HTMLButtonElement;
+
+  if (!original || !compressed || compressed === 'Your compressed prompt will appear here…') return;
+
+  btn.disabled = true;
+  statusEl.textContent = 'Sending…';
+
+  try {
+    const res = await fetch('/feedback', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ original, compressed, note }),
+    });
+    if (res.ok) {
+      (document.getElementById('feedbackForm') as HTMLElement).classList.add('hidden');
+      statusEl.textContent = '✓ Thanks — your report helps improve the tool.';
+      statusEl.classList.remove('text-rose-500');
+      statusEl.classList.add('text-emerald-600');
+      (document.getElementById('feedbackArea') as HTMLElement).appendChild(statusEl);
+      statusEl.classList.remove('hidden');
+    } else if (res.status === 409) {
+      statusEl.textContent = 'Already reported.';
+      statusEl.classList.add('text-rose-500');
+      btn.disabled = false;
+    } else if (res.status === 429) {
+      statusEl.textContent = 'Too many reports today.';
+      statusEl.classList.add('text-rose-500');
+      btn.disabled = false;
+    } else {
+      statusEl.textContent = 'Something went wrong — try again.';
+      statusEl.classList.add('text-rose-500');
+      btn.disabled = false;
+    }
+  } catch (_) {
+    statusEl.textContent = 'Network error — try again.';
+    statusEl.classList.add('text-rose-500');
+    btn.disabled = false;
+  }
 });
 
 document.getElementById('btnCopy')!.addEventListener('click', function(this: HTMLElement) {
