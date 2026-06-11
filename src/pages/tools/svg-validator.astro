@@ -9,7 +9,7 @@ const tips = [
   { heading: 'Drop or paste',   body: 'Drop an .svg file or paste raw markup into the editor. Validation runs live as you type.' },
   { heading: 'Auto-repair',     body: 'Adds missing xmlns and viewBox (derived from width/height), removes empty unnamed groups.' },
   { heading: 'Sanitize',        body: 'Strips <script>, on* event attributes and javascript: hrefs — safe to share or embed after.' },
-  { heading: 'SVGO Optimize',   body: 'Runs SVGO multipass over the SVG — typically cuts file size 20–80%. Loaded on demand from CDN.' },
+  { heading: 'SVGO Optimize',   body: 'Runs SVGO multipass over the SVG — typically cuts file size 20–80%. Loaded on demand.' },
   { heading: 'Minify / Pretty', body: 'Minify strips comments and collapses whitespace. Pretty re-indents with 2-space nesting.' },
   { heading: 'Copy as URI',     body: 'Produces a base64 data:image/svg+xml URI for use in CSS background-image or inline <img src>.' },
 ];
@@ -27,10 +27,10 @@ const faq = [
   { question: 'What does validation check?',    answer: 'XML well-formedness, correct root element, xmlns and viewBox presence, embedded scripts, on* event attributes, external references, empty groups, missing <title>, and file size.' },
   { question: 'What does auto-repair fix?',     answer: 'Adds xmlns="http://www.w3.org/2000/svg" if absent, derives viewBox from width/height if both are present, and removes empty unnamed <g> elements.' },
   { question: 'What does sanitize do?',         answer: 'Removes all <script> elements, strips on* event attributes from every element, and removes javascript: href values. Does not alter valid SVG content.' },
-  { question: 'What does SVGO optimize do?',    answer: 'Runs SVGO v3 multipass over the SVG — removes comments, metadata, unused defs, optimises path data and numeric precision, merges transforms. SVGO is loaded on demand from CDN the first time you click Optimize.' },
+  { question: 'What does SVGO optimize do?',    answer: 'Runs SVGO multipass over the SVG — removes comments, metadata, unused defs, optimises path data and numeric precision, merges transforms. Loaded on demand the first time you click Optimize.' },
   { question: 'What is "Copy as URI"?',         answer: 'Produces a base64-encoded data:image/svg+xml string. Paste it directly into CSS background-image: url(…) or an <img src> attribute without needing a separate file on a server.' },
   { question: 'What is the dark-mode contrast check?', answer: 'When the dark preview background is active, validation flags elements with black or default (inherited black) fill — these would be invisible on a dark background. Switch to the dark preview bg to trigger the check.' },
-  { question: 'Are files uploaded anywhere?',   answer: 'No. Validation, repair, sanitize, minify, pretty-print, and preview all run in your browser. SVGO is the only external network request — loaded once from CDN when you click Optimize.' },
+  { question: 'Are files uploaded anywhere?',   answer: 'No. Everything — validation, repair, sanitize, minify, pretty-print, optimize, and preview — runs entirely in your browser. No files or data leave your device.' },
 ];
 ---
 
@@ -204,7 +204,6 @@ const faq = [
     let blobUrl         = '';
     let currentBg       = 'checker';
     let zoomLevel       = 1;
-    let svgoReady       = false;
     let svgoLoading     = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -589,21 +588,14 @@ const faq = [
     // ── SVGO Optimize ─────────────────────────────────────────────────────────
     optimizeBtn.addEventListener('click', async () => {
       if (svgoLoading) return;
+      svgoLoading = true;
       optimizeBtn.textContent = 'Loading…';
       optimizeBtn.setAttribute('disabled', '');
 
-      const ok = await ensureSVGO();
-      if (!ok) {
-        optimizeBtn.textContent = 'SVGO Optimize';
-        optimizeBtn.removeAttribute('disabled');
-        alert('Failed to load SVGO from CDN. Check your connection and try again.');
-        return;
-      }
-
       try {
         optimizeBtn.textContent = 'Optimizing…';
-        const svgo = (window as any).svgo;
-        const result = svgo.optimize(currentSrc, {
+        const { optimize } = await import('svgo/browser');
+        const result = optimize(currentSrc, {
           multipass: true,
           plugins: [{ name: 'preset-default', params: { overrides: { removeViewBox: false } } }],
         });
@@ -612,23 +604,11 @@ const faq = [
         console.error('SVGO error:', err);
         alert('SVGO optimization failed. The SVG may contain unsupported features.');
       } finally {
+        svgoLoading = false;
         optimizeBtn.textContent = 'SVGO Optimize';
         optimizeBtn.removeAttribute('disabled');
       }
     });
-
-    async function ensureSVGO(): Promise<boolean> {
-      if (svgoReady) return true;
-      if (svgoLoading) return false;
-      svgoLoading = true;
-      return new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/svgo@3/dist/svgo.browser.js';
-        script.onload = () => { svgoReady = true; svgoLoading = false; resolve(true); };
-        script.onerror = () => { svgoLoading = false; resolve(false); };
-        document.head.appendChild(script);
-      });
-    }
 
     // ── Minify ────────────────────────────────────────────────────────────────
     minifyBtn.addEventListener('click', () => applyEdit(minifySVG(currentSrc)));
