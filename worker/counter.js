@@ -149,6 +149,14 @@ const COUNTER_KEYS = [
   'h-pdf-compress', 'h-pdf-convert', 'h-pdf-organiser', 'h-scss-compiler',
   'h-semantic-html', 'h-svg-validator', 'h-tints-shades', 'h-token-saver',
   'h-wcag-contrast', 'h-xd-to-figma',
+  // per-tool page-view counts
+  'pv-brand-assets', 'pv-code-formatter', 'pv-code-minifier', 'pv-color-extractor',
+  'pv-color-gradient', 'pv-color-namer', 'pv-color-palette', 'pv-file-diff',
+  'pv-font-converter', 'pv-font-inspector', 'pv-font-pairs', 'pv-ico-generator',
+  'pv-image-compress', 'pv-image-convert', 'pv-image-resize', 'pv-pdf-compress',
+  'pv-pdf-convert', 'pv-pdf-organiser', 'pv-scss-compiler', 'pv-semantic-html',
+  'pv-svg-validator', 'pv-tints-shades', 'pv-token-saver', 'pv-wcag-contrast',
+  'pv-xd-to-figma',
 ];
 
 // ── Main worker ───────────────────────────────────────────────────────────────
@@ -201,6 +209,18 @@ export default {
       return result
         ? Response.json(result)
         : Response.json({ error: 'Font pairing failed. Please try again.' }, { status: 502 });
+    }
+
+    // ── Page-view counter ─────────────────────────────────────────────────────
+    if (url.pathname === '/pv' && request.method === 'POST') {
+      const slug = url.searchParams.get('s');
+      if (!slug || !/^[a-z][a-z0-9-]*$/.test(slug)) {
+        return new Response('Bad request', { status: 400 });
+      }
+      const key  = `pv-${slug}`;
+      const stub = env.COUNTERS.get(env.COUNTERS.idFromName(key));
+      await stub.fetch(new Request(`https://x/?action=up`, { method: 'GET' }));
+      return new Response(null, { status: 204 });
     }
 
     // ── Usage counter ──────────────────────────────────────────────────────────
