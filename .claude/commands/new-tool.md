@@ -31,7 +31,7 @@ const faq  = [ ... ];   // FAQ entries
 ---
 
 <MainLayout title="..." description="...">
-  <div class="px-8 py-10 lg:px-14">
+  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
     <!-- Breadcrumbs + title -->
     <!-- Tool UI -->
     <!-- QuickTips -->

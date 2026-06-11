@@ -326,6 +326,12 @@ const path = Astro.url.pathname;
           el.addEventListener('click', function () { track(el.dataset.track); });
         });
 
+        // Page-view tracking: fire on tool pages only
+        var pvMatch = window.location.pathname.match(/^\/tools\/([a-z][a-z0-9-]*)$/);
+        if (pvMatch) {
+          fetch('/pv?s=' + pvMatch[1], { method: 'POST' }).catch(function () {});
+        }
+
         // Same-page hash scroll: intercept /#section links only when the target
         // exists in the current DOM (i.e. we are already on the home page).
         document.querySelectorAll('a[href^="/#"]').forEach(function (link) {

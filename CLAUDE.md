@@ -85,7 +85,7 @@ Set in Cloudflare dashboard → Workers → lindetoolbox → Settings → Variab
 
 This project uses **Tailwind CSS**. Follow the utility class patterns already used in the existing tool pages. Key conventions:
 
-- Containers: `px-8 py-10 lg:px-14`
+- Containers: `px-8 py-10 lg:px-8 max-w-[1440px] mx-auto`
 - Cards/panels: `rounded-xl border border-slate-200 bg-white p-6`
 - Inputs: `w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none`
 - Primary button: `rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90`
