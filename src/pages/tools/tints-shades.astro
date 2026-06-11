@@ -32,7 +32,7 @@ const faq = [
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Tints &amp; Shades</h1>
         <p class="mt-1 text-sm text-slate-500">Generate light and dark variants of any colour. Click any swatch to copy.</p>
       </div>
-      <HelpfulButton />
+      <HelpfulButton toolKey="tints-shades" />
     </div>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
@@ -249,13 +249,6 @@ const faq = [
         shades: shadesData.map(h => h.toUpperCase()),
       };
       navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn(this, '✓ Copied'));
-    });
-
-    document.getElementById('helpfulBtn')!.addEventListener('click', () => {
-      let n = parseInt(document.getElementById('helpfulCount')!.textContent || '0') + 1;
-      document.getElementById('helpfulBtn')!.classList.add('border-purple-300','bg-purple-50','text-purple-600');
-      const c = document.getElementById('helpfulCount')!;
-      c.textContent = String(n); c.classList.remove('hidden');
     });
 
     render();

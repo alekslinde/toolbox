@@ -140,7 +140,16 @@ async function callClaude(apiKey, body) {
 
 // ── Counter keys for page-load count injection ────────────────────────────────
 
-const COUNTER_KEYS = ['font', 'img', 'diff', 'color', 'brand', 'pdf', 'code', 'xd'];
+const COUNTER_KEYS = [
+  'font', 'img', 'diff', 'color', 'brand', 'pdf', 'code', 'xd',
+  // per-tool helpful counts
+  'h-brand-assets', 'h-code-formatter', 'h-code-minifier', 'h-color-extractor',
+  'h-color-gradient', 'h-color-namer', 'h-color-palette', 'h-file-diff',
+  'h-font-converter', 'h-font-pairs', 'h-ico-generator', 'h-image-convert',
+  'h-pdf-compress', 'h-pdf-convert', 'h-pdf-organiser', 'h-scss-compiler',
+  'h-semantic-html', 'h-svg-validator', 'h-tints-shades', 'h-token-saver',
+  'h-wcag-contrast', 'h-xd-to-figma',
+];
 
 // ── Main worker ───────────────────────────────────────────────────────────────
 
@@ -197,7 +206,7 @@ export default {
     // ── Usage counter ──────────────────────────────────────────────────────────
     if (url.pathname === '/u') {
       const key = url.searchParams.get('k');
-      if (!key || !/^[a-z]+$/.test(key)) {
+      if (!key || !/^[a-z][a-z0-9-]*$/.test(key)) {
         return new Response('Bad request', { status: 400 });
       }
 
