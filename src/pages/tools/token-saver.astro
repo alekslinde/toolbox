@@ -1,0 +1,962 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Phrase collapsing', body: 'Verbose filler like "could you please help me with" is removed or shortened to a tight equivalent.' },
+  { heading: 'Synonym compression', body: 'Common long words — "application", "configuration", "authentication" — are swapped for their abbreviated forms.' },
+  { heading: 'Code is protected', body: 'Content inside backtick code blocks is never touched; only the surrounding prose is compressed.' },
+  { heading: 'Domain packs', body: 'Enable optional vocab packs in the compress section for deeper abbreviation in SQL, React, DevOps, UI, or UX contexts.' },
+];
+
+const faq = [
+  { question: 'Will the compressed prompt give the same result?', answer: 'For most technical prompts, yes. The compressions use abbreviations and phrase-collapses that LLMs handle natively. Highly nuanced or creative prompts may benefit from lighter compression.' },
+  { question: 'How are token savings estimated?', answer: 'Character savings are divided by 3.5, which is the rough average characters-per-token for abbreviated technical text with GPT-class tokenisers.' },
+  { question: 'Is anything sent to a server?', answer: 'No. All compression runs entirely in your browser. Your prompt text never leaves your device.' },
+  { question: 'What is the environmental impact calculation based on?', answer: 'A rough estimate of ~0.001 mWh per 1,000 tokens for GPT-4-class inference, 0.021 kg CO₂/kWh for the grid, and a tree absorbing ~21 kg CO₂/year.' },
+];
+---
+
+<MainLayout
+  title="AI Prompt Token Saver — Free In-Browser Tool | Toolbox"
+  description="Compress verbose AI prompts to cut token usage. Collapses filler phrases, abbreviates common terms, and protects code blocks. Runs entirely in your browser."
+  alpine={false}
+>
+  <div class="px-8 py-10 lg:px-14">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Prompt Token Saver" category="Code & Web" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Prompt Token Saver</h1>
+        <p class="mt-1 text-sm text-slate-500">Compress verbose AI prompts to reduce token usage — collapses filler phrases, abbreviates tech jargon, and never touches your code blocks.</p>
+      </div>
+      <HelpfulButton />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <!-- Left: Tool -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <!-- Playground -->
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="mb-4 text-sm font-semibold text-slate-700">Compress a Prompt</h2>
+
+          <div class="mb-3">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label for="inputPrompt" class="text-xs font-medium text-slate-600">Your prompt</label>
+              <span id="inputCount" class="text-xs text-slate-400">0 chars</span>
+            </div>
+            <textarea id="inputPrompt" rows="6" spellcheck="false"
+              placeholder="Paste your verbose prompt here…"
+              class="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <!-- Domain packs -->
+          <div class="mb-4">
+            <p class="mb-2 text-xs font-medium text-slate-600">Domain packs <span class="font-normal text-slate-400">(optional — enable extra abbreviations)</span></p>
+            <div class="flex flex-wrap gap-2" id="packToggles">
+              {[
+                { id: 'pack-sql',    label: 'SQL / Database' },
+                { id: 'pack-react',  label: 'React / Frontend' },
+                { id: 'pack-devops', label: 'DevOps / K8s' },
+                { id: 'pack-data',   label: 'Data Science / ML' },
+                { id: 'pack-ui',     label: 'UI Design' },
+                { id: 'pack-ux',     label: 'UX Research' },
+              ].map(p => (
+                <label class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition-colors hover:border-purple-300 has-[:checked]:border-purple-400 has-[:checked]:bg-purple-50 has-[:checked]:text-purple-700">
+                  <input type="checkbox" id={p.id} class="h-3 w-3 accent-purple-500" />
+                  {p.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div class="mb-4 flex flex-wrap gap-2">
+            <button id="btnCompress"
+              class="rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
+              Compress
+            </button>
+            <button id="btnClear"
+              class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:border-purple-300">
+              Clear
+            </button>
+          </div>
+
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Compressed output</label>
+              <div class="flex items-center gap-3">
+                <span id="outputCount" class="text-xs text-slate-400">0 chars</span>
+                <span id="savingsBadge"
+                  class="hidden items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                  <span>↓</span><span id="savingsPct"></span> saved
+                </span>
+                <button id="btnCopy" class="text-xs text-slate-400 hover:text-purple-600">copy</button>
+              </div>
+            </div>
+            <div id="outputText"
+              class="min-h-[6rem] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 whitespace-pre-wrap break-words">
+              <span class="output-placeholder text-slate-400">Your compressed prompt will appear here…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Impact calculator -->
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="mb-1 text-sm font-semibold text-slate-700">Environmental Impact Calculator</h2>
+          <p class="mb-5 text-xs text-slate-400">Estimate how much energy you save by compressing your prompts over time.</p>
+
+          <div class="space-y-4 mb-6">
+            <div>
+              <div class="mb-1 flex justify-between text-xs text-slate-500">
+                <span>Prompts per day</span><span id="valMsgs" class="font-medium text-slate-700">20</span>
+              </div>
+              <input type="range" id="sliderMsgs" min="1" max="200" value="20"
+                class="w-full accent-purple-500" />
+            </div>
+            <div>
+              <div class="mb-1 flex justify-between text-xs text-slate-500">
+                <span>Avg. prompt length (chars)</span><span id="valLen" class="font-medium text-slate-700">500</span>
+              </div>
+              <input type="range" id="sliderLen" min="50" max="5000" step="50" value="500"
+                class="w-full accent-purple-500" />
+            </div>
+            <div>
+              <div class="mb-1 flex justify-between text-xs text-slate-500">
+                <span>Days per year active</span><span id="valDays" class="font-medium text-slate-700">250</span>
+              </div>
+              <input type="range" id="sliderDays" min="1" max="365" value="250"
+                class="w-full accent-purple-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="impTokens" class="text-lg font-bold text-purple-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">tokens saved/yr</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="impEnergy" class="text-lg font-bold text-indigo-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">mWh saved/yr</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="impTrees" class="text-lg font-bold text-emerald-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">tree-days equivalent</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="impPhones" class="text-lg font-bold text-amber-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">phone charges equiv.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test suite summary -->
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="mb-1 text-sm font-semibold text-slate-700">Benchmark — 29 Real-World Prompts</h2>
+          <p class="mb-5 text-xs text-slate-400">Average compression across a suite of verbose developer prompts.</p>
+
+          <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="sumAvgSaving" class="text-lg font-bold text-purple-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">avg chars saved</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="sumBestSaving" class="text-lg font-bold text-indigo-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">best case</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="sumTotalChars" class="text-lg font-bold text-emerald-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">total chars stripped</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div id="sumLeaves" class="text-lg font-bold text-amber-600">—</div>
+              <div class="mt-0.5 text-xs text-slate-500">mWh saved (bench)</div>
+            </div>
+          </div>
+
+          <div id="resultsBody" class="max-h-96 overflow-y-auto space-y-1 pr-1"></div>
+        </div>
+
+      </div>
+
+      <!-- Right: Quick tips -->
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About Prompt Token Saver"
+      faq={faq}
+      related={`<a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a> · <a href="/tools/semantic-html" class="text-purple-500 hover:underline">Semantic HTML Converter</a>`}
+      keywords="prompt compression, token saver, LLM token reduction, AI prompt optimizer, reduce AI costs, GPT token counter"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">
+        Verbose AI prompts waste tokens — and tokens cost money, latency, and energy. This tool compresses your prompt by collapsing filler phrases ("could you please help me with" → ""), abbreviating common technical terms ("authentication" → "auth", "configuration" → "config"), and applying logic symbol substitutions ("greater than or equal to" → ">="). Code blocks are automatically protected and passed through unchanged. Savings of 20–50% are typical for developer-style prompts.
+      </p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<style>
+  .savings-pct { display: inline-block; border-radius: 9999px; padding: 1px 8px; font-size: 0.7rem; font-weight: 600; }
+  .savings-pct.high { background: #d1fae5; color: #065f46; }
+  .savings-pct.mid  { background: #fef3c7; color: #92400e; }
+  .savings-pct.low  { background: #f1f5f9; color: #64748b; }
+</style>
+
+<script>
+// ─── DICTIONARIES ─────────────────────────────────────────────────────────────
+const coreDictionaries = {
+  phrases: {
+    "act as a": "be", "act as an": "be", "you are a": "you", "you are an": "you",
+    "pretend to be": "be", "pretend you are": "be", "i want you to act as": "be",
+    "assume the role of": "be", "i need you to be": "be",
+    "could you please help me with": "", "can you show me how to": "how to",
+    "i was wondering if you could": "", "it would be great if you could": "",
+    "i would really appreciate it if": "", "if you don't mind": "",
+    "can you please": "", "could you please": "", "i would like you to": "",
+    "i want you to": "", "please provide": "return", "give me": "return",
+    "show me": "return", "i need you to": "", "would you mind": "",
+    "let's create": "create", "how do i": "how to", "i am trying to figure out": "",
+    "help me understand": "explain", "can you explain": "explain",
+    "is it possible to": "can i", "do you know how to": "how to",
+    "i need help with": "", "can you help me": "", "i would like to know": "",
+    "can you tell me": "", "i am looking for": "", "could you give me": "return",
+    "could you walk me through": "explain", "walk me through": "explain",
+    "i need to know": "", "i am curious about": "", "i have a question about": "",
+    "tell me about": "explain", "tell me how": "how to", "i'd like you to": "",
+    "i would want you to": "", "what i need is": "", "what i want is": "",
+    "in the event that": "if", "due to the fact that": "because",
+    "for the purpose of": "to", "with the exception of": "except",
+    "in addition to": "&", "as well as": "&", "a large number of": "many",
+    "a small number of": "few", "at this point in time": "now",
+    "take into consideration": "consider", "has the capability to": "can",
+    "is required to": "must", "is located in": "in", "in order to": "to",
+    "whether or not": "whether", "with regards to": "about",
+    "in relation to": "about", "on the other hand": "alternatively",
+    "for the most part": "mostly", "by means of": "via",
+    "in spite of the fact that": "although", "regardless of the fact that": "although",
+    "at the same time": "simultaneously", "prior to": "before",
+    "subsequent to": "after", "in the absence of": "without",
+    "in the case of": "for", "in the context of": "for",
+    "with the aim of": "to", "with the intention of": "to",
+    "for the reason that": "because", "in light of the fact that": "because",
+    "owing to the fact that": "because", "on the basis of": "based on",
+    "on account of": "because", "as a consequence of": "due to",
+    "as a result of": "due to", "in the same way": "similarly",
+    "in a similar fashion": "similarly", "in a similar manner": "similarly",
+    "at all times": "always", "on a regular basis": "regularly",
+    "in a timely manner": "promptly", "in a number of": "in some",
+    "a number of": "some", "the majority of": "most",
+    "the remainder of": "rest of", "a wide range of": "many",
+    "a wide variety of": "many", "with respect to": "about",
+    "with reference to": "about", "as opposed to": "vs",
+    "as compared to": "vs", "compared to": "vs", "in contrast to": "vs",
+    "instead of": "prefer", "rather than": "prefer",
+    "the goal is to": "goal:", "the objective is to": "goal:",
+    "the purpose is to": "goal:", "the task is to": "task:",
+    "your task is to": "task:", "your goal is to": "goal:",
+    "the desired output is": "output:", "the expected output is": "output:",
+    "the output should be": "output:", "the result should be": "output:",
+    "the format should be": "format:", "output should be formatted as": "format:",
+    "do you have any suggestions for": "suggest",
+    "do you have any ideas for": "suggest", "any suggestions for": "suggest",
+    "any ideas for": "suggest", "what would you recommend for": "recommend for",
+    "what do you recommend for": "recommend for",
+    "what is the best way to": "best way to",
+    "what are the pros and cons of": "pros/cons",
+    "pros and cons of": "pros/cons", "advantages and disadvantages of": "pros/cons",
+    "what is the difference between": "diff:", "what are the differences between": "diff:",
+    "make sure to": "ensure", "make sure that": "ensure",
+    "it is required that": "must", "step by step": "step-by-step",
+    "bear in mind": "note", "keep in mind": "note", "without using": "no",
+    "do not use": "no", "give me an example of": "example:",
+    "provide an example of": "example:", "write a script that": "script:",
+    "write a program that": "program:", "write code that": "code:",
+    "the following is": "", "the following are": "", "here is": "", "here are": "",
+    "as follows": "", "listed below": "", "described below": "",
+    "mentioned above": "above", "mentioned below": "below",
+    "do not include": "exclude", "you should not": "don't",
+    "you must not": "never", "you should always": "always",
+    "you must always": "always", "feel free to": "", "don't hesitate to": "",
+    "if applicable": "if relevant", "where applicable": "if relevant",
+    "if necessary": "if needed", "where necessary": "if needed",
+    "as needed": "if needed", "but not limited to": "+",
+    "including but not limited to": "e.g.", "such as but not limited to": "e.g.",
+    "for example": "e.g.", "for instance": "e.g.", "that is to say": "i.e.",
+    "in other words": "i.e.", "to put it another way": "i.e.",
+    "to be more specific": "specifically", "to be precise": "precisely",
+    "it is important to note that": "note:", "it is worth noting that": "note:",
+    "please note that": "note:", "note that": "note:", "be aware that": "note:",
+    "importantly": "note:", "it should be noted that": "note:",
+    "in summary": "summary:", "to summarize": "summary:",
+    "in conclusion": "conclusion:", "to conclude": "conclusion:",
+    "in short": "tldr:", "to put it simply": "simply:", "put simply": "simply:",
+    // multi-word tech terms (moved from synonyms — tokenizer can't catch these)
+    "linked list": "ll", "binary tree": "bt", "hash map": "hmap", "hash set": "hset",
+    "unit test": "utest", "integration test": "itest", "end to end test": "e2e",
+    "regression test": "rtest", "floating point": "float", "double precision": "double",
+    "command line": "cli", "virtual machine": "vm", "virtual machines": "vms",
+    "message queue": "mq", "content delivery network": "cdn",
+    "single sign on": "sso", "multi factor authentication": "mfa",
+    "two factor authentication": "2fa", "role based access control": "rbac",
+    "event driven architecture": "eda", "service oriented architecture": "soa",
+    "load balancer": "lb", "regular expression": "regex",
+    // structural boilerplate (Phase 3)
+    "here is the task:": "", "here is the context:": "", "here are the instructions:": "",
+    "your instructions are as follows:": "", "please follow these instructions:": "",
+    "the following instructions": "instructions", "additional context:": "context:",
+    "background context:": "context:", "important note:": "note:",
+    "important:": "note:", "warning:": "note:", "reminder:": "note:"
+  } as Record<string,string>,
+  logic: {
+    "strictly equals": "===", "strict equals": "===", "is equal to": "==",
+    "equals": "==", "does not equal": "!=", "not equal to": "!=",
+    "is not equal to": "!=", "greater than or equal to": ">=",
+    "less than or equal to": "<=", "greater than": ">", "less than": "<",
+    "divided by": "/", "multiplied by": "*", "plus": "+", "minus": "-",
+    "logical and": "&&", "logical or": "||", "not": "!", "modulo": "%",
+    "mod": "%", "therefore": "->", "results in": "->", "leads to": "->",
+    "to the power of": "^", "square root of": "sqrt", "absolute value of": "abs",
+    "if and only if": "<->", "implies": "->", "is equivalent to": "<->",
+    "is not equivalent to": "!<->", "for all": "∀", "there exists": "∃",
+    "such that": "s.t.", "is a member of": "∈", "is not a member of": "∉",
+    "is a subset of": "⊆", "is a superset of": "⊇", "union of": "∪",
+    "intersection of": "∩", "is defined as": ":=", "is assigned": "=",
+    "increment by": "+=", "decrement by": "-=", "multiply by": "*=",
+    "divide by": "/=", "bitwise and": "&", "bitwise or": "|", "bitwise xor": "^",
+    "left shift": "<<", "right shift": ">>", "is null": "== null",
+    "is not null": "!= null", "is undefined": "== undefined",
+    "is true": "== true", "is false": "== false", "floor of": "floor",
+    "ceiling of": "ceil", "rounded to": "round", "logarithm of": "log",
+    "natural log of": "ln", "infinity": "∞", "maps to": "=>",
+    "is proportional to": "∝", "is approximately": "≈",
+    "is not approximately": "≉", "plus or minus": "±", "sum of": "Σ",
+    "product of": "Π", "integral of": "∫", "partial derivative of": "∂"
+  } as Record<string,string>,
+  synonyms: {
+    "application": "app", "applications": "apps", "repository": "repo",
+    "repositories": "repos", "directory": "dir", "directories": "dirs",
+    "environment": "env", "environments": "envs", "configuration": "config",
+    "configurations": "configs", "database": "db", "databases": "dbs",
+    "architecture": "arch", "infrastructure": "infra", "kubernetes": "k8s",
+    "administrator": "admin", "administrators": "admins", "certificate": "cert",
+    "certificates": "certs", "volume": "vol", "volumes": "vols", "memory": "mem",
+    "network": "net", "networks": "nets", "system": "sys", "systems": "sys",
+    "machine": "mach", "machines": "machs", "instance": "instc",
+    "instances": "instcs", "server": "svr", "servers": "svrs",
+    "container": "cont", "containers": "conts", "orchestration": "orch",
+    "microservice": "svc", "microservices": "svcs", "service": "svc",
+    "services": "svcs", "endpoint": "ep", "endpoints": "eps",
+    "middleware": "mw", "gateway": "gw", "gateways": "gws",
+    "loadbalancer": "lb", "namespace": "ns",
+    "namespaces": "nss", "cluster": "clstr", "clusters": "clstrs",
+    "deployment": "deploy", "deployments": "deploys", "registry": "reg",
+    "registries": "regs", "pipeline": "pipe", "pipelines": "pipes",
+    "webhook": "hook", "webhooks": "hooks", "socket": "sock", "sockets": "socks",
+    "protocol": "proto", "protocols": "protos", "permission": "perm",
+    "permissions": "perms", "credential": "cred", "credentials": "creds",
+    "token": "tok", "tokens": "toks", "secret": "sec", "secrets": "secs",
+    "proxy": "prx", "proxies": "prxs", "replica": "repl", "replicas": "repls",
+    "scheduler": "sched", "processor": "proc", "processors": "procs",
+    "interrupt": "irq", "interrupts": "irqs", "message": "msg",
+    "messages": "msgs", "request": "req", "requests": "reqs",
+    "response": "resp", "responses": "resps", "result": "res", "results": "res",
+    "error": "err", "errors": "errs", "password": "pwd", "passwords": "pwds",
+    "authentication": "auth", "authorization": "authz", "connection": "conn",
+    "connections": "conns", "context": "ctx", "contexts": "ctxs",
+    "object": "obj", "objects": "objs", "dictionary": "dict",
+    "dictionaries": "dicts", "array": "arr", "arrays": "arrs",
+    "buffer": "buf", "buffers": "bufs", "pointer": "ptr", "pointers": "ptrs",
+    "dependency": "dep", "dependencies": "deps", "transaction": "txn",
+    "transactions": "txns", "query": "qry", "queries": "qrys",
+    "record": "rec", "records": "recs", "column": "col", "columns": "cols",
+    "migration": "mig", "migrations": "migs", "collection": "coll",
+    "collections": "colls", "subscription": "sub", "subscriptions": "subs",
+    "publication": "pub", "publications": "pubs", "payload": "body",
+    "header": "hdr", "headers": "hdrs", "metadata": "meta",
+    "schema": "sch", "schemas": "schs", "validation": "vldn",
+    "validations": "vldns", "transformation": "xform", "transformations": "xforms",
+    "checkpoint": "ckpt", "checkpoints": "ckpts", "semaphore": "sem",
+    "semaphores": "sems", "mutex": "mtx", "mutexes": "mtxs",
+    "timestamp": "ts", "timestamps": "tss", "identifier": "id",
+    "identifiers": "ids", "index": "idx", "indexes": "idxs",
+    "constraint": "cstr", "constraints": "cstrs", "relationship": "rel",
+    "relationships": "rels", "association": "assoc", "associations": "assocs",
+    "component": "comp", "components": "comps", "button": "btn",
+    "buttons": "btns", "image": "img", "images": "imgs", "source": "src",
+    "background": "bg", "foreground": "fg", "navigation": "nav",
+    "window": "win", "windows": "wins", "document": "doc", "documents": "docs",
+    "element": "el", "elements": "els", "attribute": "attr",
+    "attributes": "attrs", "template": "tmpl", "templates": "tmpls",
+    "viewport": "vp", "wrapper": "wrap", "wrappers": "wraps",
+    "section": "sect", "sections": "sects", "sidebar": "sb",
+    "dropdown": "dd", "dropdowns": "dds", "checkbox": "cb",
+    "checkboxes": "cbs", "tooltip": "tip", "tooltips": "tips",
+    "modal": "dlg", "modals": "dlgs", "dialog": "dlg", "dialogs": "dlgs",
+    "notification": "notif", "notifications": "notifs", "animation": "anim",
+    "animations": "anims", "transition": "trans", "transitions": "transs",
+    "renderer": "rdr", "renderers": "rdrs", "selector": "sel",
+    "selectors": "sels", "breakpoint": "bp", "breakpoints": "bps",
+    "icon": "ico", "icons": "icos", "placeholder": "ph", "typography": "typo",
+    "function": "fn", "functions": "fns", "parameter": "param",
+    "parameters": "params", "argument": "arg", "arguments": "args",
+    "reference": "ref", "references": "refs", "property": "prop",
+    "properties": "props", "boolean": "bool", "booleans": "bools",
+    "string": "str", "strings": "strs", "integer": "int", "integers": "ints",
+    "character": "char", "characters": "chars", "expression": "expr",
+    "expressions": "exprs",
+    "algorithm": "algo", "algorithms": "algos", "library": "lib",
+    "libraries": "libs", "package": "pkg", "packages": "pkgs",
+    "module": "mod", "modules": "mods", "version": "ver", "versions": "vers",
+    "specification": "spec", "specifications": "specs", "asynchronous": "async",
+    "synchronous": "sync", "anonymous": "anon", "standard": "std",
+    "implementation": "impl", "implementations": "impls", "interface": "iface",
+    "interfaces": "ifaces", "constructor": "ctor", "constructors": "ctors",
+    "destructor": "dtor", "destructors": "dtors", "declaration": "decl",
+    "declarations": "decls", "definition": "def", "definitions": "defs",
+    "iteration": "iter", "iterations": "iters", "iterator": "iter",
+    "iterators": "iters", "generator": "gen", "generators": "gens",
+    "decorator": "dec", "decorators": "decs", "callback": "cb",
+    "callbacks": "cbs", "promise": "prom", "promises": "proms",
+    "observable": "obs", "observables": "obss", "subscriber": "subr",
+    "subscribers": "subrs", "emitter": "emtr", "emitters": "emtrs",
+    "dispatcher": "disp", "handler": "hndlr", "handlers": "hndlrs",
+    "listener": "lstnr", "listeners": "lstnrs", "interceptor": "icpt",
+    "interceptors": "icpts", "compiler": "cplr", "interpreter": "interp",
+    "debugger": "dbg", "profiler": "prof", "linter": "lint",
+    "formatter": "fmt", "enumeration": "enum", "enumerations": "enums",
+    "structure": "struct", "structures": "structs", "constant": "const",
+    "constants": "consts", "operator": "op", "operators": "ops",
+    "stack": "stk", "queue": "q", "exception": "exc",
+    "exceptions": "excs", "assertion": "assert", "assertions": "asserts",
+    "annotation": "ann", "annotations": "anns", "information": "info", "utilize": "use",
+    "maximum": "max", "minimum": "min", "average": "avg",
+    "initialize": "init", "implement": "impl", "calculate": "calc",
+    "statistics": "stats", "temporary": "tmp", "previous": "prev",
+    "development": "dev", "production": "prod", "concatenate": "concat",
+    "execute": "exec", "allocate": "alloc", "generate": "gen",
+    "delete": "del", "remove": "rm", "install": "inst", "format": "fmt",
+    "evaluate": "eval", "approximately": "approx", "miscellaneous": "misc",
+    "automatic": "auto", "independent": "indep", "current": "cur",
+    "default": "dflt", "optional": "opt", "required": "req",
+    "deprecated": "depr", "experimental": "exp", "serialize": "serial",
+    "deserialize": "deserial", "authenticate": "auth", "authorize": "authz",
+    "validate": "vldn", "transform": "xform", "aggregate": "agg",
+    "paginate": "page", "migrate": "mig", "refactor": "refac",
+    "optimize": "optim", "invalidate": "inval", "propagate": "prop",
+    "replicate": "repl", "synchronize": "sync", "terminate": "term",
+    "override": "ovrd", "overload": "ovld", "encapsulate": "encap",
+    "benchmark": "bench", "normalize": "norm", "denormalize": "denorm",
+    "flatten": "flat", "truncate": "trunc", "deprecate": "depr",
+    "publish": "pub", "subscribe": "sub", "dispatch": "disp",
+    "broadcast": "bcast", "receive": "recv", "transmit": "tx",
+    "acknowledge": "ack", "timeout": "tmo", "fallback": "fb",
+    "rollback": "rb", "snapshot": "snap", "backup": "bkup",
+    "restore": "rst", "inject": "inj", "extract": "extr",
+    "lookup": "lkup", "traverse": "trav", "interpolate": "interp",
+    "accumulate": "accum", "deduplicate": "dedup", "sanitize": "san",
+    "tokenize": "tok", "encode": "enc", "decode": "dec",
+    "encrypt": "encr", "decrypt": "decr", "compress": "zip",
+    "decompress": "unzip", "deallocate": "free", "register": "reg",
+    "deregister": "dereg", "enable": "enbl", "disable": "dsbl",
+    "activate": "actv", "deactivate": "dactv",
+    "millisecond": "ms", "milliseconds": "ms",
+    "kilobyte": "kb", "kilobytes": "kb", "megabyte": "mb", "megabytes": "mb",
+    "gigabyte": "gb", "gigabytes": "gb", "terabyte": "tb", "terabytes": "tb",
+  } as Record<string,string>,
+  blacklist: [
+    "a", "an", "the",
+    "am", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did",
+    "shall", "will", "should", "would", "may", "might", "can", "could",
+    "i", "me", "my", "mine", "we", "our", "ours", "us",
+    "they", "them", "their", "theirs", "he", "him", "his", "she", "her", "hers",
+    "very", "really", "extremely", "highly", "completely", "totally",
+    "absolutely", "quite", "somewhat", "basically", "literally",
+    "actually", "honestly", "truly", "simply", "obviously", "clearly",
+    "entirely", "utterly", "incredibly", "deeply", "profoundly",
+    "apparently", "arguably", "largely", "mostly", "primarily", "supposedly",
+    "fairly", "rather", "pretty", "relatively", "comparatively",
+    "significantly", "substantially", "considerably", "remarkably",
+    "surprisingly", "undeniably", "unquestionably", "undoubtedly",
+    "effectively", "essentially", "fundamentally", "generally", "typically",
+    "usually", "normally", "often", "sometimes", "occasionally", "rarely",
+    "frequently", "commonly", "broadly", "widely",
+    "just", "well", "so", "then", "there", "here",
+    "please", "kindly", "hello", "hi", "hey", "thanks", "thank", "you",
+    "greetings", "welcome", "ah", "um", "oh", "wow", "gosh",
+    "great", "excellent", "fantastic", "wonderful", "amazing", "awesome",
+    "cool", "nice", "good", "fine", "okay", "ok", "alright", "sure",
+    "right", "exactly", "correct", "indeed", "agreed",
+    "interesting", "helpful", "useful", "important", "relevant",
+    "certainly", "definitely", "maybe", "perhaps", "anyway",
+    "furthermore", "moreover", "accordingly", "nevertheless", "alas",
+    "meanwhile", "anyhow", "additionally", "subsequently", "consequently",
+    "thus", "hence", "still", "yet",
+    "henceforth", "heretofore", "aforementioned", "abovementioned",
+    "of course", "naturally", "needless to say",
+    "it goes without saying", "as you know",
+    "as mentioned", "as stated", "as noted", "as discussed",
+    "as previously", "as already"
+  ] as string[]
+};
+
+// ─── DEFLUFFER ───────────────────────────────────────────────────────────────
+class Defluffer {
+  private compiledPhrases: Array<[RegExp, string]>;
+  private synonyms: Record<string,string>;
+  private blacklist: Set<string>;
+  private multiBlacklist: Array<RegExp>;
+
+  constructor(dicts: typeof coreDictionaries, extraPhrases: Record<string,string> = {}) {
+    const merged = { ...dicts.phrases, ...dicts.logic, ...extraPhrases };
+    this.synonyms = dicts.synonyms;
+    this.blacklist = new Set(dicts.blacklist);
+
+    // Phase 2a+2b: pre-compile regexes, sorted longest-key-first to prevent
+    // shorter phrases stealing prefix matches (e.g. "in order to" vs "in order to prevent")
+    this.compiledPhrases = Object.entries(merged)
+      .filter(([k]) => k.length > 0)
+      .sort((a, b) => b[0].length - a[0].length)
+      .map(([phrase, replacement]) => {
+        const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return [new RegExp(`\\b${escaped}\\b`, 'gi'), replacement];
+      });
+
+    // Phase 1a: multi-word blacklist entries pre-compiled, applied AFTER phrase collapse
+    this.multiBlacklist = dicts.blacklist
+      .filter(e => e.includes(' '))
+      .map(e => new RegExp(`\\b${e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'));
+  }
+
+  // Phase 3: strip structural boilerplate before the main compression passes
+  private structuralPass(text: string): string {
+    return text
+      // collapse 3+ blank lines → 2
+      .replace(/\n{3,}/g, '\n\n')
+      // strip XML wrapper tags only when they appear on their own line (boilerplate wrappers, not inline HTML)
+      .replace(/^[ \t]*<(task|context|instructions?|system|prompt|input|output)>[ \t]*\n([\s\S]*?)\n[ \t]*<\/\1>[ \t]*$/gim, '$2')
+      // remove freestanding label-only lines that add no content
+      .replace(/^[ \t]*(here (is|are) (the )?(task|context|instructions?|prompt):?|your instructions are:?|please follow these instructions:?|additional context:?)\s*$/gim, '')
+      // deduplicate adjacent identical sentences (case-sensitive — intentional emphasis like "Use SQL. Use sql." must survive)
+      .replace(/([^.!?]+[.!?])\s+\1/g, '$1')
+      // collapse resulting blank lines from removals
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  compress(prompt: string): string {
+    // Phase 3: structural cleanup first
+    let text = this.structuralPass(prompt);
+
+    const protectedItems: string[] = [];
+
+    // 1. Extract and protect code blocks
+    text = text.replace(/(```[\s\S]*?```|`[^`]+`)/g, (match) => {
+      protectedItems.push(match);
+      return `PROT${protectedItems.length - 1}PROT`;
+    });
+
+    // 2. Phrase + logic collapsing (pre-compiled, longest first — Phase 2a/2b)
+    for (const [regex, replacement] of this.compiledPhrases) {
+      text = text.replace(regex, () => {
+        if (!replacement || replacement.trim() === '') return ' ';
+        protectedItems.push(replacement);
+        return `PROT${protectedItems.length - 1}PROT`;
+      });
+    }
+
+    // 3. Multi-word blacklist removal — AFTER phrase collapse (Phase 1a fix)
+    for (const re of this.multiBlacklist) {
+      text = text.replace(re, '');
+    }
+
+    // 4. Tokenize
+    let tokens = text.split(/(\b[a-zA-Z0-9_'-]+\b)/);
+
+    // 5. Per-token: single-word blacklist + synonyms
+    tokens = tokens.map(token => {
+      if (!/^[a-zA-Z0-9_'-]+$/.test(token)) return token;
+      if (/^PROT\d+PROT$/.test(token)) return token;
+      const lower = token.toLowerCase();
+      if (this.blacklist.has(lower)) return '';
+      if (this.synonyms[lower]) return this.synonyms[lower];
+      return token;
+    });
+
+    text = tokens.join('')
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([.,?!;:])/g, '$1')
+      .trim();
+
+    // 6. Restore protected items — Phase 1b fix: use arrow fn to prevent $-interpolation
+    protectedItems.forEach((item, index) => {
+      text = text.replaceAll(`PROT${index}PROT`, () => item);
+    });
+
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([.,?!;:])/g, '$1')
+      .trim();
+  }
+}
+
+// ─── DOMAIN PACKS ────────────────────────────────────────────────────────────
+const domainPacks: Record<string, Record<string,string>> = {
+  'pack-sql': {
+    "select all from": "SELECT * FROM", "where clause": "WHERE",
+    "join operation": "JOIN", "inner join": "INNER JOIN", "left join": "LEFT JOIN",
+    "right join": "RIGHT JOIN", "group by": "GROUP BY", "order by": "ORDER BY",
+    "having clause": "HAVING", "primary key": "PK", "foreign key": "FK",
+    "stored procedure": "proc", "stored procedures": "procs",
+    "database schema": "db sch", "database table": "db table",
+    "database index": "db idx", "create table": "CREATE TABLE",
+    "alter table": "ALTER TABLE", "drop table": "DROP TABLE",
+    "insert into": "INSERT INTO", "update set": "UPDATE SET",
+    "null value": "NULL", "not null": "NOT NULL",
+    "auto increment": "AUTO_INCREMENT", "cascade delete": "CASCADE",
+  },
+  'pack-react': {
+    "use state hook": "useState", "use effect hook": "useEffect",
+    "use context hook": "useContext", "use reducer hook": "useReducer",
+    "use callback hook": "useCallback", "use memo hook": "useMemo",
+    "use ref hook": "useRef", "functional component": "FC",
+    "class component": "CC", "higher order component": "HOC",
+    "higher-order component": "HOC", "react component": "component",
+    "react hook": "hook", "react context": "context",
+    "virtual dom": "vdom", "jsx element": "JSX", "props drilling": "prop drilling",
+    "state management": "state mgmt", "side effect": "side-effect",
+    "component lifecycle": "lifecycle", "react router": "Router",
+    "react query": "RQ", "custom hook": "hook",
+  },
+  'pack-devops': {
+    "continuous integration and deployment": "CI/CD",
+    "infrastructure as code": "IaC", "configuration management": "config mgmt",
+    "docker container": "container", "docker image": "image",
+    "kubernetes cluster": "k8s cluster", "kubernetes pod": "pod",
+    "kubernetes deployment": "deploy", "kubernetes service": "svc",
+    "kubernetes namespace": "ns", "helm chart": "chart",
+    "terraform module": "tf module", "ansible playbook": "playbook",
+    "github actions": "GHA", "jenkins pipeline": "pipeline",
+    "blue green deployment": "blue/green", "canary deployment": "canary",
+    "rolling update": "rolling", "horizontal pod autoscaler": "HPA",
+    "vertical pod autoscaler": "VPA", "persistent volume": "PV",
+    "persistent volume claim": "PVC", "config map": "ConfigMap",
+    "ingress controller": "ingress", "service mesh": "mesh",
+    "observability platform": "observability",
+  },
+  'pack-data': {
+    "machine learning": "ML", "deep learning": "DL",
+    "neural network": "NN", "natural language processing": "NLP",
+    "large language model": "LLM", "large language models": "LLMs",
+    "training data": "train data", "test data": "test set",
+    "validation data": "val set", "training set": "train set",
+    "data preprocessing": "preprocessing", "feature engineering": "feat eng",
+    "hyperparameter tuning": "HPO", "gradient descent": "GD",
+    "stochastic gradient descent": "SGD", "backpropagation": "backprop",
+    "convolutional neural network": "CNN", "recurrent neural network": "RNN",
+    "long short term memory": "LSTM", "transformer model": "transformer",
+    "attention mechanism": "attention", "embedding vector": "embedding",
+    "loss function": "loss fn", "activation function": "activation fn",
+    "batch normalization": "batch norm", "dropout layer": "dropout",
+    "confusion matrix": "confusion mx", "precision recall": "P/R",
+    "area under the curve": "AUC", "receiver operating characteristic": "ROC",
+    "mean squared error": "MSE", "mean absolute error": "MAE",
+    "cross entropy": "XE", "regularization term": "reg term",
+    "data augmentation": "augmentation", "transfer learning": "transfer",
+    "fine tuning": "fine-tune", "zero shot": "0-shot", "few shot": "few-shot",
+    "chain of thought": "CoT", "retrieval augmented generation": "RAG",
+  },
+  'pack-ui': {
+    "user interface": "UI", "user interfaces": "UIs",
+    "design system": "design sys", "design token": "token", "design tokens": "tokens",
+    "color palette": "palette", "color scheme": "scheme", "color variable": "color var",
+    "typography scale": "type scale", "font size": "font-size", "font weight": "font-weight",
+    "line height": "line-height", "letter spacing": "letter-spacing",
+    "white space": "whitespace", "negative space": "whitespace",
+    "visual hierarchy": "hierarchy", "grid system": "grid",
+    "breakpoint": "bp", "responsive design": "responsive",
+    "mobile first": "mobile-first", "desktop first": "desktop-first",
+    "border radius": "radius", "box shadow": "shadow", "drop shadow": "shadow",
+    "z index": "z-index", "aspect ratio": "aspect-ratio",
+    "flex container": "flex", "grid container": "grid",
+    "icon set": "icons", "icon library": "icon lib",
+    "dark mode": "dark", "light mode": "light", "color mode": "theme",
+    "accessibility": "a11y", "accessible": "a11y", "screen reader": "SR",
+    "contrast ratio": "contrast", "focus state": "focus", "focus ring": "focus ring",
+    "hover state": "hover", "active state": "active", "disabled state": "disabled",
+    "micro interaction": "micro-anim", "loading state": "loading", "skeleton screen": "skeleton",
+    "empty state": "empty state", "error state": "error",
+    "primary button": "primary btn", "secondary button": "secondary btn",
+    "call to action": "CTA", "above the fold": "ATF",
+    "information architecture": "IA", "style guide": "style guide",
+    "component library": "comp lib", "pattern library": "pattern lib",
+    "design handoff": "handoff", "design spec": "spec",
+    "pixel perfect": "px-perfect", "redline": "spec",
+  },
+  'pack-ux': {
+    "user experience": "UX", "user research": "UX research",
+    "user testing": "user test", "usability testing": "usability test",
+    "usability study": "usability test", "think aloud protocol": "think-aloud",
+    "cognitive walkthrough": "cog walkthrough",
+    "heuristic evaluation": "heuristic eval",
+    "journey map": "journey map", "user journey": "journey",
+    "customer journey": "journey", "experience map": "exp map",
+    "empathy map": "empathy map", "affinity diagram": "affinity map",
+    "affinity mapping": "affinity map", "card sorting": "card sort",
+    "tree testing": "tree test", "first click test": "1st-click test",
+    "a b testing": "A/B test", "a/b testing": "A/B test",
+    "multivariate testing": "MVT", "conversion rate": "CVR",
+    "conversion rate optimisation": "CRO", "conversion rate optimization": "CRO",
+    "net promoter score": "NPS", "system usability scale": "SUS",
+    "task success rate": "task success", "task completion rate": "completion rate",
+    "time on task": "ToT", "error rate": "err rate",
+    "pain point": "pain point", "friction point": "friction",
+    "job to be done": "JTBD", "jobs to be done": "JTBD",
+    "how might we": "HMW", "point of view": "POV",
+    "persona": "persona", "proto persona": "proto-persona",
+    "mental model": "mental model", "conceptual model": "concept model",
+    "interaction design": "IxD", "information architecture": "IA",
+    "wireframe": "wireframe", "low fidelity": "lo-fi", "high fidelity": "hi-fi",
+    "low fidelity prototype": "lo-fi proto", "high fidelity prototype": "hi-fi proto",
+    "clickable prototype": "prototype", "interactive prototype": "prototype",
+    "design thinking": "design thinking", "double diamond": "double diamond",
+    "discovery phase": "discovery", "define phase": "define",
+    "ideation phase": "ideation", "prototype phase": "prototyping",
+    "research synthesis": "synthesis", "research insight": "insight",
+    "research finding": "finding", "qualitative research": "qual research",
+    "quantitative research": "quant research", "mixed methods": "mixed methods",
+    "contextual inquiry": "contextual inquiry", "stakeholder interview": "stakeholder interview",
+    "user interview": "user interview", "focus group": "focus group",
+    "survey question": "survey q", "screener criteria": "screener",
+    "participant recruitment": "recruitment", "research participant": "participant",
+    "design critique": "crit", "design review": "design review",
+    "stakeholder presentation": "stakeholder pres",
+  },
+};
+
+// ─── TEST SUITE ──────────────────────────────────────────────────────────────
+const tests = [
+  "Could you please act as a senior developer and write a python script that connects to the database and retrieves all records where the timestamp is greater than or equal to the last checkpoint?",
+  "I would really appreciate it if you could give me a step by step guide to setting up a kubernetes cluster with role based access control and multi factor authentication enabled.",
+  "I need you to implement an asynchronous function that calculates the maximum and minimum values from the array of transactions and returns the result as a json object.",
+  "If you don't mind, could you walk me through how to concatenate these strings and return the result without using any external dependencies?",
+  "I am trying to figure out how to initialize a temporary dictionary in the context of this React component so that it does not cause unnecessary re-renders.",
+  "What is the best architecture for a system that requires a large number of transactions and has to remain synchronous due to the fact that the database does not support asynchronous connections?",
+  "I want you to act as an expert DevOps engineer and show me the best way to update the certificates on the server prior to the deployment pipeline running.",
+  "Assume the role of a database administrator. I want you to create a query that deletes records where the retry count is greater than or equal to 5 and the timestamp is less than or equal to 30 days ago.",
+  "I need you to be a security expert and analyze these authentication and authorization errors in the application logs due to the fact that we are seeing a large number of failed login attempts.",
+  "What is the difference between a load balancer and a gateway in the context of a microservice architecture that has to handle a large number of requests?",
+  "Can you please check if this string is equal to 'admin' or not equal to 'guest' and return a boolean that is strictly equals to true if either condition is met?",
+  "Is it possible to evaluate this expression and make sure to return a boolean if the value is strictly equals to true and the pointer is not null?",
+  "Write code that allocates memory for an array of integers, and bear in mind that the variables should be independent and the maximum size should not be greater than 1024.",
+  "Make sure to utilize the environment configurations due to the fact that the application is in production and the configuration should not equal the development environment defaults.",
+  "Please provide a regular expression that validates email addresses, and make sure that it does not use any external dependencies and returns a boolean that is strictly equals to true on a match.",
+  "Hello! Could you please help me with setting up a webhook that listens for a message from the queue and authenticates the payload prior to inserting the record into the database?",
+  "I would like you to generate a step by step guide on how to install the packages and modules for this project and make sure that the environment variables are configured correctly.",
+  "Take into consideration that the background image should be located in the assets directory and make sure to utilize the configuration file due to the fact that the path is environment dependent.",
+  "Let's create a temporary variable for the purpose of storing the previous response from the network request so that we can concatenate it with the current result.",
+  "Can you explain whether or not the synchronous function is better than the asynchronous function in this specific context, taking into consideration that the database connection has a maximum of 10 concurrent connections?",
+  "I need you to implement a step by step migration script that takes into consideration the previous schema, validates whether or not each record is equal to the expected format, and generates a log of all errors.",
+  "Could you please act as a devops engineer and write a pipeline configuration that allocates a temporary environment, installs the required packages and modules, executes the integration tests, and removes the environment if the result is strictly equals to a passing state?",
+  "Make sure to utilize the authentication middleware in the context of this express application due to the fact that every endpoint is required to validate the authorization token prior to executing the request handler.",
+  "I would really appreciate it if you could give me a regular expression for validating whether or not a password string is greater than or equal to 12 characters, contains a maximum of 3 repeated characters, and is not equal to any of the values in the previous passwords array.",
+  "Just give me an example of how to remove an element from the DOM using standard JavaScript without using any external libraries.",
+  "Can you please show me how to set up a proxy in the context of a webpack configuration due to the fact that the development environment is not equal to the production environment?",
+  "I want you to be a systems architect. What is the best way to structure a message queue so that a large number of subscribers can consume from it without causing a bottleneck at the gateway?",
+  "Take into consideration that the temporary buffer should be allocated prior to the asynchronous function executing and deallocated once the result is greater than or equal to the expected threshold.",
+  "Could you walk me through how to implement a singleton pattern in typescript and make sure that the instance is strictly equals to null prior to initialization?"
+];
+
+// ─── DEFLUFFER INSTANCE (re-built when packs change) ─────────────────────────
+function getActivePacks(): Record<string,string> {
+  return Object.keys(domainPacks)
+    .filter(id => (document.getElementById(id) as HTMLInputElement | null)?.checked)
+    .reduce((acc, id) => ({ ...acc, ...domainPacks[id] }), {} as Record<string,string>);
+}
+
+let defluffer = new Defluffer(coreDictionaries, getActivePacks());
+
+// ─── BENCHMARK (runs on base dict only — packs don't affect benchmark stats) ─
+const benchDefluffer = new Defluffer(coreDictionaries);
+
+const testResults = tests.map((original) => {
+  const compressed = benchDefluffer.compress(original);
+  const savings = parseFloat(((1 - compressed.length / original.length) * 100).toFixed(1));
+  return { original, compressed, savings, origLen: original.length, compLen: compressed.length };
+});
+
+// ─── SUMMARY STATS ───────────────────────────────────────────────────────────
+const avgSaving  = (testResults.reduce((a, r) => a + r.savings, 0) / testResults.length).toFixed(1);
+const bestSaving = Math.max(...testResults.map(r => r.savings)).toFixed(1);
+const totalOrig  = testResults.reduce((a, r) => a + r.origLen, 0);
+const totalComp  = testResults.reduce((a, r) => a + r.compLen, 0);
+const totalStripped = totalOrig - totalComp;
+const tokensStripped = Math.round(totalStripped / 3.5);
+const mwhStripped = (tokensStripped * 0.001 / 1000).toFixed(4);
+
+(document.getElementById('sumAvgSaving') as HTMLElement).textContent  = avgSaving + '%';
+(document.getElementById('sumBestSaving') as HTMLElement).textContent = bestSaving + '%';
+(document.getElementById('sumTotalChars') as HTMLElement).textContent = totalStripped.toLocaleString();
+(document.getElementById('sumLeaves') as HTMLElement).textContent     = mwhStripped;
+
+// ─── RESULTS TABLE ───────────────────────────────────────────────────────────
+function escHtml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const resultsBody = document.getElementById('resultsBody') as HTMLElement;
+testResults.forEach((r) => {
+  const pct = r.savings;
+  const cls = pct >= 40 ? 'high' : pct >= 20 ? 'mid' : 'low';
+  const preview = r.original.length > 72 ? r.original.slice(0, 72) + '…' : r.original;
+
+  const item = document.createElement('div');
+  item.className = 'bench-item rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 cursor-pointer hover:border-purple-200 hover:bg-purple-50/30 transition-colors';
+  item.innerHTML = `
+    <div class="flex items-center justify-between gap-3">
+      <span class="bench-preview text-xs text-slate-500 truncate">${escHtml(preview)}</span>
+      <div class="flex shrink-0 items-center gap-2">
+        <span class="text-xs text-slate-400">${r.origLen}→${r.compLen}</span>
+        <span class="savings-pct ${cls}">${pct}%</span>
+        <span class="bench-chevron text-slate-300 text-xs">›</span>
+      </div>
+    </div>
+    <div class="bench-detail hidden mt-3 space-y-2">
+      <div>
+        <p class="mb-1 text-xs font-medium text-slate-400">Original</p>
+        <p class="text-xs text-slate-600 leading-relaxed">${escHtml(r.original)}</p>
+      </div>
+      <div class="border-t border-slate-100 pt-2">
+        <p class="mb-1 text-xs font-medium text-purple-500">Compressed</p>
+        <p class="text-xs text-slate-700 leading-relaxed font-mono">${escHtml(r.compressed)}</p>
+      </div>
+    </div>
+  `;
+  item.addEventListener('click', () => {
+    const detail = item.querySelector('.bench-detail') as HTMLElement;
+    const chevron = item.querySelector('.bench-chevron') as HTMLElement;
+    const isOpen = !detail.classList.contains('hidden');
+    detail.classList.toggle('hidden', isOpen);
+    chevron.textContent = isOpen ? '›' : '⌄';
+    item.classList.toggle('border-purple-200', !isOpen);
+  });
+  resultsBody.appendChild(item);
+});
+
+// ─── IMPACT CALCULATOR ───────────────────────────────────────────────────────
+const CHARS_PER_TOKEN   = 3.5;
+const MWH_PER_1K_TOKENS = 0.001;
+const KG_CO2_PER_KWH    = 0.021;
+const TREE_KG_PER_YEAR  = 21;
+const PHONE_MWH         = 0.01;
+const avgSavingFrac     = parseFloat(avgSaving) / 100;
+
+function updateImpact() {
+  const msgs = parseInt((document.getElementById('sliderMsgs') as HTMLInputElement).value);
+  const len  = parseInt((document.getElementById('sliderLen')  as HTMLInputElement).value);
+  const days = parseInt((document.getElementById('sliderDays') as HTMLInputElement).value);
+
+  (document.getElementById('valMsgs') as HTMLElement).textContent = msgs.toString();
+  (document.getElementById('valLen')  as HTMLElement).textContent = len.toString();
+  (document.getElementById('valDays') as HTMLElement).textContent = days.toString();
+
+  const charsPerYear = msgs * len * days;
+  const charsSaved   = charsPerYear * avgSavingFrac;
+  const tokensSaved  = Math.round(charsSaved / CHARS_PER_TOKEN);
+  const mwhSaved     = tokensSaved * MWH_PER_1K_TOKENS / 1000;
+  const kwhSaved     = mwhSaved * 1000;
+  const kgCO2Saved   = kwhSaved * KG_CO2_PER_KWH;
+  const treeDays     = ((kgCO2Saved / TREE_KG_PER_YEAR) * 365).toFixed(1);
+  const phoneCharges = Math.round(mwhSaved / PHONE_MWH);
+
+  (document.getElementById('impTokens') as HTMLElement).textContent = tokensSaved.toLocaleString();
+  (document.getElementById('impEnergy') as HTMLElement).textContent = mwhSaved < 1
+    ? mwhSaved.toFixed(4)
+    : mwhSaved.toFixed(2);
+  (document.getElementById('impTrees')  as HTMLElement).textContent = treeDays;
+  (document.getElementById('impPhones') as HTMLElement).textContent = phoneCharges.toLocaleString();
+}
+
+['sliderMsgs','sliderLen','sliderDays'].forEach(id => {
+  document.getElementById(id)!.addEventListener('input', updateImpact);
+});
+updateImpact();
+
+
+// ─── DOMAIN PACK TOGGLES ─────────────────────────────────────────────────────
+const PACK_STORAGE_KEY = 'ts-active-packs';
+
+// Restore saved pack state
+try {
+  const saved = JSON.parse(localStorage.getItem(PACK_STORAGE_KEY) || '[]') as string[];
+  saved.forEach(id => {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.checked = true;
+  });
+  defluffer = new Defluffer(coreDictionaries, getActivePacks());
+} catch {}
+
+document.getElementById('packToggles')!.addEventListener('change', () => {
+  defluffer = new Defluffer(coreDictionaries, getActivePacks());
+  const active = Object.keys(domainPacks).filter(id => (document.getElementById(id) as HTMLInputElement | null)?.checked);
+  try { localStorage.setItem(PACK_STORAGE_KEY, JSON.stringify(active)); } catch {}
+});
+
+// ─── PLAYGROUND ──────────────────────────────────────────────────────────────
+const inputEl   = document.getElementById('inputPrompt')   as HTMLTextAreaElement;
+const outputEl  = document.getElementById('outputText')    as HTMLElement;
+const inputCnt  = document.getElementById('inputCount')    as HTMLElement;
+const outputCnt = document.getElementById('outputCount')   as HTMLElement;
+const badge     = document.getElementById('savingsBadge')  as HTMLElement;
+const savingsPctEl = document.getElementById('savingsPct') as HTMLElement;
+
+inputEl.addEventListener('input', () => {
+  inputCnt.textContent = inputEl.value.length + ' chars';
+});
+
+document.getElementById('btnCompress')!.addEventListener('click', () => {
+  const raw = inputEl.value.trim();
+  if (!raw) return;
+  const result = defluffer.compress(raw);
+  const pct = ((1 - result.length / raw.length) * 100).toFixed(1);
+  outputEl.textContent = result;
+  outputCnt.textContent = result.length + ' chars';
+  savingsPctEl.textContent = pct + '%';
+  badge.style.display = 'flex';
+});
+
+document.getElementById('btnClear')!.addEventListener('click', () => {
+  inputEl.value = '';
+  outputEl.innerHTML = '<span class="text-slate-400">Your compressed prompt will appear here…</span>';
+  inputCnt.textContent  = '0 chars';
+  outputCnt.textContent = '0 chars';
+  badge.style.display = 'none';
+});
+
+document.getElementById('btnCopy')!.addEventListener('click', function(this: HTMLElement) {
+  const txt = outputEl.textContent ?? '';
+  if (!txt || txt === 'Your compressed prompt will appear here…') return;
+  navigator.clipboard.writeText(txt).then(() => {
+    const orig = this.textContent!;
+    this.textContent = '✓ copied';
+    this.classList.add('text-emerald-600');
+    setTimeout(() => { this.textContent = orig; this.classList.remove('text-emerald-600'); }, 1500);
+  }).catch(() => {
+    const orig = this.textContent!;
+    this.textContent = 'failed';
+    this.classList.add('text-rose-500');
+    setTimeout(() => { this.textContent = orig; this.classList.remove('text-rose-500'); }, 1500);
+  });
+});
+</script>
