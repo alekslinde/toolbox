@@ -12,7 +12,7 @@ if echo "$prompt" | grep -qiE '^[[:space:]]*(rename|rename (current|this) branch
   # Slug from the remainder of the prompt after "rename [current|this] branch [to]"
   new_slug=$(echo "$prompt" \
     | sed 's/^[[:space:]]*rename[[:space:]]*//' \
-    | sed 's/^(current|this)[[:space:]]*branch[[:space:]]*//' \
+    | sed -E 's/^(current|this)[[:space:]]*branch[[:space:]]*//' \
     | sed 's/^to[[:space:]]*//' \
     | tr '[:upper:]' '[:lower:]' \
     | sed 's/[^a-z0-9 ]//g' \
