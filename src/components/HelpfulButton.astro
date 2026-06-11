@@ -1,5 +1,13 @@
+---
+interface Props {
+  toolKey: string;
+}
+const { toolKey } = Astro.props;
+---
+
 <button
   id="helpfulBtn"
+  data-tool-key={toolKey}
   class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
 >
   <span>👍</span><span>This helped me</span>
@@ -9,15 +17,47 @@
 <script>
   function setupHelpfulBtn() {
     const btn = document.getElementById('helpfulBtn') as HTMLButtonElement | null;
-    const count = document.getElementById('helpfulCount');
-    if (!btn || !count || btn.dataset.initialized) return;
+    const countEl = document.getElementById('helpfulCount');
+    if (!btn || !countEl || btn.dataset.initialized) return;
     btn.dataset.initialized = 'true';
+
+    const key = btn.dataset.toolKey!;
+    const storageKey = `helpful-voted:${key}`;
+    const counterKey = `h-${key}`;
+
+    // Seed count from server-injected window.__C__
+    const counts = (window as any).__C__ ?? {};
+    let count: number = counts[counterKey] ?? 0;
+
+    function render() {
+      if (count > 0) {
+        countEl!.textContent = String(count);
+        countEl!.classList.remove('hidden');
+      }
+    }
+
+    function markVoted() {
+      btn!.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
+      btn!.disabled = true;
+      btn!.style.cursor = 'default';
+    }
+
+    // Restore voted state across page loads
+    if (localStorage.getItem(storageKey)) {
+      markVoted();
+    }
+
+    render();
+
     btn.addEventListener('click', () => {
-      const n = parseInt(count.textContent || '0') + 1;
-      btn.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
-      count.textContent = String(n);
-      count.classList.remove('hidden');
+      if (localStorage.getItem(storageKey)) return;
+      count += 1;
+      render();
+      markVoted();
+      localStorage.setItem(storageKey, '1');
+      fetch(`/u?k=${counterKey}`, { method: 'POST' }).catch(() => {});
     });
   }
+
   document.addEventListener('astro:page-load', setupHelpfulBtn);
 </script>

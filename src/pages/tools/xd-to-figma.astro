@@ -3,6 +3,7 @@ import MainLayout from '@/layouts/MainLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import QuickTips from '@/components/QuickTips.astro';
 import FAQAccordion from '@/components/FAQAccordion.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
 
 const tips = [
   { heading: 'Export from XD',  body: 'File → Export → All Artboards → SVG format. Each artboard becomes one .svg file.' },
@@ -32,12 +33,7 @@ const faq = [
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">XD → Figma Packager</h1>
         <p class="mt-1 text-sm text-slate-500">Number and ZIP your XD SVG exports for ordered import into Figma.</p>
       </div>
-      <button id="helpfulBtn"
-        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
-      >
-        <span>👍</span><span>This helped me</span>
-        <span id="helpfulCount" class="hidden font-semibold text-purple-600"></span>
-      </button>
+      <HelpfulButton toolKey="xd-to-figma" />
     </div>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
@@ -123,7 +119,6 @@ const faq = [
 
   let xdFiles: XdFile[] = [];
   let xdDragSrc: number | null = null;
-  let helpfulCount = 0;
 
   function baseName(name: string): string { return name.replace(/\.[^.]+$/, ''); }
 
@@ -323,13 +318,4 @@ const faq = [
     btn.disabled = false;
   });
 
-  /* ── Helpful ── */
-  document.getElementById('helpfulBtn')!.addEventListener('click', () => {
-    helpfulCount++;
-    const btn = document.getElementById('helpfulBtn')!;
-    btn.classList.add('border-purple-300', 'bg-purple-50', 'text-purple-600');
-    const countEl = document.getElementById('helpfulCount')!;
-    countEl.textContent = String(helpfulCount);
-    countEl.classList.remove('hidden');
-  });
 </script>
