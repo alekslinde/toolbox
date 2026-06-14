@@ -63,6 +63,20 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
       <div id="result-image" class="rounded-xl border border-slate-200 bg-white p-4"></div>
     </section>
 
+    <!-- ── Section: PDF Tools ────────────────────────────────────────────────── -->
+    <section class="mb-10" id="section-pdf">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800">PDF Tools</h2>
+        <button class="run-section-btn rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-purple-300"
+          data-section="pdf">Run</button>
+      </div>
+      <p class="mb-3 text-xs text-slate-500">
+        pdf-lib · PDFDocument.load (parse) · PDFDocument.save (serialise) · full compress pipeline
+        (JPEG re-encode via Canvas at ebook quality). Test PDF is generated in-browser.
+      </p>
+      <div id="result-pdf" class="rounded-xl border border-slate-200 bg-white p-4"></div>
+    </section>
+
     <!-- ── Section: Font Tools ─────────────────────────────────────────────── -->
     <section class="mb-10" id="section-font">
       <div class="mb-3 flex items-center justify-between">
@@ -527,11 +541,200 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
     setResult('font', renderTable(results));
   }
 
+  // ── PDF bench ─────────────────────────────────────────────────────────────
+
+  async function runPdfBench(): Promise<void> {
+    setLoading('pdf');
+    const results: BenchResult[] = [];
+
+    let PDFDocument: any, PDFName: any, PDFDict: any, PDFRawStream: any, PDFRef: any;
+    try {
+      ({ PDFDocument, PDFName, PDFDict, PDFRawStream, PDFRef } = await import('pdf-lib'));
+    } catch (e: any) {
+      setResult('pdf', `<p class="text-sm text-rose-500">Failed to load pdf-lib: ${e.message}</p>`);
+      return;
+    }
+
+    // Build a synthetic test PDF with 3 embedded JPEG images of different sizes.
+    // We generate canvas images and embed them via pdf-lib's embedJpg().
+    async function makeTestPDF(pages: { w: number; h: number; quality: number }[]): Promise<Uint8Array> {
+      const doc = await PDFDocument.create();
+      for (const { w, h, quality } of pages) {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d')!;
+        const grd = ctx.createLinearGradient(0, 0, w, h);
+        grd.addColorStop(0, '#6366f1'); grd.addColorStop(0.5, '#a855f7'); grd.addColorStop(1, '#22d3ee');
+        ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+        // Add some shape variety
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.arc(Math.random() * w, Math.random() * h, 8 + Math.random() * 40, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.2})`; ctx.fill();
+        }
+        const blob: Blob = await new Promise((res, rej) =>
+          c.toBlob(b => b ? res(b) : rej(new Error('toBlob null')), 'image/jpeg', quality)
+        );
+        const jpegBytes = new Uint8Array(await blob.arrayBuffer());
+        const img = await doc.embedJpg(jpegBytes);
+        const page = doc.addPage([img.width, img.height]);
+        page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+      }
+      return doc.save();
+    }
+
+    // Helper: inflate Deflate-encoded bytes (used for Flate image streams)
+    async function inflateBytes(bytes: Uint8Array): Promise<Uint8Array> {
+      const ds = new (DecompressionStream as any)('deflate');
+      const wr = ds.writable.getWriter(), rd = ds.readable.getReader();
+      wr.write(bytes); wr.close();
+      const chunks: Uint8Array[] = [];
+      for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); }
+      const out = new Uint8Array(chunks.reduce((n: number, c: Uint8Array) => n + c.length, 0));
+      let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
+      return out;
+    }
+
+    // Helper: collect image refs from a page's Resources/XObject dict
+    function collectImgRefs(pdfDoc: any, node: any, visited: Set<string>, depth: number): any[] {
+      if (depth > 4) return [];
+      const refs: any[] = [];
+      try {
+        const resources = pdfDoc.context.lookup(node.get(PDFName.of('Resources')), PDFDict);
+        if (!resources) return refs;
+        const xobj = pdfDoc.context.lookup(resources.get(PDFName.of('XObject')), PDFDict);
+        if (!xobj) return refs;
+        xobj.entries().forEach(([, val]: [any, any]) => {
+          if (!(val instanceof PDFRef)) return;
+          const obj = pdfDoc.context.lookup(val);
+          if (!(obj instanceof PDFRawStream)) return;
+          const sub = obj.dict.get(PDFName.of('Subtype'))?.toString();
+          if (sub === '/Image') refs.push(val);
+          else if (sub === '/Form' && !visited.has(val.toString())) {
+            visited.add(val.toString()); refs.push(...collectImgRefs(pdfDoc, obj.dict, visited, depth + 1));
+          }
+        });
+      } catch {}
+      return refs;
+    }
+
+    // Re-encode a JPEG image ref at lower quality; return true if replaced.
+    async function reencodeJpegRef(pdfDoc: any, ref: any, quality: number, maxPx: number): Promise<boolean> {
+      const stream = pdfDoc.context.lookup(ref);
+      if (!(stream instanceof PDFRawStream)) return false;
+      const filter = stream.dict.get(PDFName.of('Filter'))?.toString();
+      if (filter !== '/DCTDecode') return false;
+      const origW = parseInt(stream.dict.get(PDFName.of('Width'))?.toString()  ?? '0', 10);
+      const origH = parseInt(stream.dict.get(PDFName.of('Height'))?.toString() ?? '0', 10);
+      if (!origW || !origH) return false;
+
+      const jpegBytes = stream.contents as Uint8Array;
+      let binary = '';
+      for (let i = 0; i < jpegBytes.length; i += 0x8000)
+        binary += String.fromCharCode(...Array.from(jpegBytes.subarray(i, i + 0x8000)));
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const el = new Image();
+        el.onload = () => res(el); el.onerror = rej;
+        el.src = 'data:image/jpeg;base64,' + btoa(binary);
+      });
+
+      let w = img.naturalWidth || origW, h = img.naturalHeight || origH;
+      if (Math.max(w, h) > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const outBlob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob null')), 'image/jpeg', quality)
+      );
+      const outBytes = new Uint8Array(await outBlob.arrayBuffer());
+
+      // Replace stream contents
+      stream.contents = outBytes;
+      stream.dict.set(PDFName.of('Length'), pdfDoc.context.obj(outBytes.length));
+      stream.dict.set(PDFName.of('Width'),  pdfDoc.context.obj(w));
+      stream.dict.set(PDFName.of('Height'), pdfDoc.context.obj(h));
+      return true;
+    }
+
+    // Full compress pipeline at ebook quality (mirrors pdf-compress.astro)
+    async function compressPDF(pdfBytes: Uint8Array, quality: number, maxPx: number): Promise<Uint8Array> {
+      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+      const pages = pdfDoc.getPages();
+      const visited = new Set<string>();
+      const refs: any[] = [];
+      for (const page of pages) refs.push(...collectImgRefs(pdfDoc, page.node, visited, 0));
+      const unique = [...new Set(refs.map((r: any) => r.toString()))].map((s: any) =>
+        refs.find((r: any) => r.toString() === s)
+      );
+      for (const ref of unique) await reencodeJpegRef(pdfDoc, ref, quality, maxPx);
+      return pdfDoc.save({ useObjectStreams: true });
+    }
+
+    // Generate test PDFs: small (1 image at 640×480) and medium (3 images at 1280×720)
+    let smallPdf: Uint8Array, mediumPdf: Uint8Array;
+    try {
+      setStatus('PDF bench: generating test PDFs…');
+      [smallPdf, mediumPdf] = await Promise.all([
+        makeTestPDF([{ w: 640,  h: 480,  quality: 0.92 }]),
+        makeTestPDF([
+          { w: 1280, h: 720, quality: 0.92 },
+          { w: 800,  h: 600, quality: 0.92 },
+          { w: 1024, h: 768, quality: 0.92 },
+        ]),
+      ]);
+    } catch (e: any) {
+      setResult('pdf', `<p class="text-sm text-rose-500">Failed to create test PDFs: ${e.message}</p>`);
+      return;
+    }
+
+    // Bench: PDFDocument.load (parse speed)
+    for (const [label, bytes] of [['small (~1 image)', smallPdf], ['medium (~3 images)', mediumPdf]] as [string, Uint8Array][]) {
+      const r = await runBench(`PDFDocument.load  ${label}`, bytes.length, async () => {
+        const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        return String(doc.getPageCount());
+      });
+      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      r.ratio = null;
+      r.sanityOk = doc.getPageCount() > 0;
+      r.sanityNote = r.sanityOk ? '' : 'page count is 0';
+      results.push(r);
+    }
+
+    // Bench: PDFDocument.save (serialise speed)
+    for (const [label, bytes] of [['small', smallPdf], ['medium', mediumPdf]] as [string, Uint8Array][]) {
+      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const r = await runBench(`PDFDocument.save  ${label}`, bytes.length, async () => {
+        return doc.save({ useObjectStreams: true });
+      });
+      const saved = await doc.save({ useObjectStreams: true });
+      r.ratio = saved.length / bytes.length;
+      r.sanityOk = saved[0] === 0x25 && saved[1] === 0x50; // %P
+      r.sanityNote = r.sanityOk ? '' : 'output does not start with %PDF';
+      results.push(r);
+    }
+
+    // Bench: full compress pipeline (ebook: 60% JPEG quality, max 1920 px)
+    for (const [label, bytes] of [['small', smallPdf], ['medium', mediumPdf]] as [string, Uint8Array][]) {
+      const r = await runBench(`compress ebook   ${label}`, bytes.length, async () => {
+        return compressPDF(bytes, 0.60, 1920);
+      }, { warmup: 1, maxSamples: 10 });
+      const out = await compressPDF(bytes, 0.60, 1920);
+      r.ratio = out.length / bytes.length;
+      r.sanityOk = out[0] === 0x25 && out[1] === 0x50;
+      r.sanityNote = r.sanityOk ? '' : 'output does not start with %PDF';
+      results.push(r);
+    }
+
+    setResult('pdf', renderTable(results));
+  }
+
   // ── Wiring ────────────────────────────────────────────────────────────────
 
   const sectionRunners: Record<string, () => Promise<void>> = {
     code:  runCodeBench,
     image: runImageBench,
+    pdf:   runPdfBench,
     font:  runFontBench,
   };
 
