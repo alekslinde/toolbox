@@ -1,0 +1,208 @@
+/* for-sass.css — CSS designed to exercise the CSS → SASS converter (~4 KB) */
+/* Multi-level nesting candidates, various rule types, media queries */
+
+/* Component: Navigation */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 3.5rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.nav .nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 1.125rem;
+}
+
+.nav .nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav .nav-links a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.nav .nav-links a:hover {
+  color: #6d28d9;
+}
+
+.nav .nav-links a.active {
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+/* Component: Hero section */
+.hero {
+  padding: 5rem 1.5rem;
+  text-align: center;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+}
+
+.hero .hero-tag {
+  display: inline-block;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  margin-bottom: 1.5rem;
+}
+
+.hero .hero-title {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #0f172a;
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
+.hero .hero-title span {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero .hero-body {
+  font-size: 1.125rem;
+  color: #475569;
+  max-width: 40rem;
+  margin: 0 auto 2.5rem;
+  line-height: 1.7;
+}
+
+.hero .hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Component: Feature grid */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 4rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.feature-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.75rem;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.feature-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: #c4b5fd;
+}
+
+.feature-card .feature-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #f3e8ff;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  color: #7c3aed;
+}
+
+.feature-card .feature-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.feature-card .feature-desc {
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Component: Stats row */
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 4rem;
+  padding: 3rem 1.5rem;
+  background: #0f172a;
+  color: #ffffff;
+  flex-wrap: wrap;
+}
+
+.stats .stat-item {
+  text-align: center;
+}
+
+.stats .stat-item .stat-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  background: linear-gradient(135deg, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stats .stat-item .stat-label {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+}
+
+/* Responsive overrides */
+@media (max-width: 768px) {
+  .hero .hero-title {
+    font-size: 2rem;
+  }
+  .nav .nav-links {
+    display: none;
+  }
+  .stats {
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 3rem 1rem;
+  }
+  .hero .hero-body {
+    font-size: 1rem;
+  }
+  .feature-card {
+    padding: 1.25rem;
+  }
+}

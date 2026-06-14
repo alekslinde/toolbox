@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Toolbox — free browser-based developer tools for images, code, fonts, and colour. No uploads, no accounts." />
+    <meta property="og:title" content="Toolbox — Free Developer Tools" />
+    <meta property="og:description" content="19 free browser-based tools: image compression, code formatting, font conversion, colour utilities, and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lindetoolbox.com" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Toolbox — Free Developer Tools" />
+    <title>Toolbox — Free Browser-Based Developer Tools</title>
+    <!-- Styles -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="/styles/main.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://lindetoolbox.com/" />
+  </head>
+  <body>
+
+    <!-- ── Skip navigation ───────────────────────────────────────────────────── -->
+    <a href="#main" class="sr-only focus:not-sr-only">Skip to content</a>
+
+    <!-- ── Header ───────────────────────────────────────────────────────────── -->
+    <header class="navbar">
+      <div class="container flex-between" style="height: 100%;">
+        <a href="/" class="navbar-brand" aria-label="Toolbox home">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <rect width="28" height="28" rx="7" fill="url(#logo-grad)" />
+            <path d="M9 14h10M14 9v10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28">
+                <stop offset="0%" stop-color="#6366f1" />
+                <stop offset="100%" stop-color="#a855f7" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>Toolbox</span>
+        </a>
+
+        <nav class="navbar-nav" aria-label="Main navigation">
+          <li><a href="/#images">Images</a></li>
+          <li><a href="/#code">Code</a></li>
+          <li><a href="/#colour">Colour</a></li>
+          <li><a href="/#fonts">Fonts</a></li>
+          <li><a href="/#documents">Documents</a></li>
+        </nav>
+
+        <button class="btn btn-ghost btn-icon md:hidden" aria-label="Open menu" aria-expanded="false" id="menuToggle">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3 5h14M3 10h14M3 15h14" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Mobile menu ───────────────────────────────────────────────────────── -->
+    <div id="mobileMenu" class="hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+      <div class="mobile-overlay"></div>
+      <nav class="mobile-nav">
+        <div class="mobile-nav-header">
+          <span class="navbar-brand">Toolbox</span>
+          <button class="btn btn-ghost btn-icon" aria-label="Close menu" id="menuClose">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
+        </div>
+        <ul class="mobile-nav-links">
+          <li><a href="/#images">Images</a></li>
+          <li><a href="/#code">Code</a></li>
+          <li><a href="/#colour">Colour</a></li>
+          <li><a href="/#fonts">Fonts</a></li>
+          <li><a href="/#documents">Documents</a></li>
+        </ul>
+      </nav>
+    </div>
+
+    <!-- ── Main content ──────────────────────────────────────────────────────── -->
+    <main id="main">
+
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="container">
+          <div class="hero-inner">
+            <span class="badge badge-purple" aria-label="Tools available">19 tools</span>
+            <h1 id="hero-heading" class="hero-title">
+              Free tools for<br />
+              <span class="gradient-text">developers &amp; designers</span>
+            </h1>
+            <p class="hero-body">
+              Compress images, format code, convert fonts, check contrast, and more —
+              all in your browser. No uploads. No accounts. Just tools.
+            </p>
+            <div class="hero-actions">
+              <a href="#tools" class="btn btn-primary btn-lg">Browse tools</a>
+              <a href="https://github.com/alekslinde/toolbox" class="btn btn-outline btn-lg" target="_blank" rel="noopener noreferrer">
+                View on GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats bar -->
+      <section class="stats-bar" aria-label="Platform highlights">
+        <div class="container">
+          <dl class="stats-list">
+            <div class="stat">
+              <dt class="stat-label">Tools</dt>
+              <dd class="stat-value">19</dd>
+            </div>
+            <div class="stat">
+              <dt class="stat-label">Uploads required</dt>
+              <dd class="stat-value">Zero</dd>
+            </div>
+            <div class="stat">
+              <dt class="stat-label">Account needed</dt>
+              <dd class="stat-value">None</dd>
+            </div>
+            <div class="stat">
+              <dt class="stat-label">Cost</dt>
+              <dd class="stat-value">Free</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ── Tool directory ─────────────────────────────────────────────────── -->
+      <div id="tools" class="tool-directory">
+        <div class="container">
+
+          <!-- Images category -->
+          <section class="category" id="images" aria-labelledby="cat-images">
+            <header class="category-header">
+              <div class="category-icon" aria-hidden="true">🖼</div>
+              <h2 id="cat-images" class="category-title">Images</h2>
+            </header>
+            <div class="tool-grid">
+
+              <article class="tool-card">
+                <a href="/tools/image-compress" class="tool-card-link">
+                  <div class="tool-card-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                    </svg>
+                  </div>
+                  <h3 class="tool-card-title">Image Compressor</h3>
+                  <p class="tool-card-desc">Reduce JPEG, PNG, WebP and SVG file sizes with adjustable quality settings.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/image-resize" class="tool-card-link">
+                  <div class="tool-card-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                  </div>
+                  <h3 class="tool-card-title">Image Resizer</h3>
+                  <p class="tool-card-desc">Resize images with crop, letterbox, stretch or pad — with aspect-ratio locking.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/image-convert" class="tool-card-link">
+                  <div class="tool-card-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <h3 class="tool-card-title">Image Converter</h3>
+                  <p class="tool-card-desc">Convert between JPEG, PNG, WebP, AVIF, BMP, ICO and HEIC formats.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/ico-generator" class="tool-card-link">
+                  <div class="tool-card-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <path d="M9 12h6M12 9v6" />
+                    </svg>
+                  </div>
+                  <h3 class="tool-card-title">ICO Favicon Generator</h3>
+                  <p class="tool-card-desc">Generate multi-size ICO favicons plus SVG, Apple Touch Icon and PWA icons from any image.</p>
+                </a>
+              </article>
+
+            </div>
+          </section>
+
+          <!-- Code category -->
+          <section class="category" id="code" aria-labelledby="cat-code">
+            <header class="category-header">
+              <div class="category-icon" aria-hidden="true">💻</div>
+              <h2 id="cat-code" class="category-title">Code &amp; Web</h2>
+            </header>
+            <div class="tool-grid">
+
+              <article class="tool-card">
+                <a href="/tools/code-formatter" class="tool-card-link">
+                  <h3 class="tool-card-title">Code Formatter</h3>
+                  <p class="tool-card-desc">Beautify JavaScript, CSS and HTML with configurable indentation.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/code-minifier" class="tool-card-link">
+                  <h3 class="tool-card-title">Code Minifier</h3>
+                  <p class="tool-card-desc">Strip whitespace and comments from JS, CSS and HTML — pure in-browser, no CDN.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/scss-compiler" class="tool-card-link">
+                  <h3 class="tool-card-title">SCSS Compiler</h3>
+                  <p class="tool-card-desc">Compile SCSS or SASS to CSS, or convert CSS to SASS indented syntax.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/semantic-html" class="tool-card-link">
+                  <h3 class="tool-card-title">Semantic HTML Converter</h3>
+                  <p class="tool-card-desc">Replace div soup with meaningful HTML5 semantic elements.</p>
+                </a>
+              </article>
+
+            </div>
+          </section>
+
+          <!-- Colour category -->
+          <section class="category" id="colour" aria-labelledby="cat-colour">
+            <header class="category-header">
+              <div class="category-icon" aria-hidden="true">🎨</div>
+              <h2 id="cat-colour" class="category-title">Colour</h2>
+            </header>
+            <div class="tool-grid">
+
+              <article class="tool-card">
+                <a href="/tools/wcag-contrast" class="tool-card-link">
+                  <h3 class="tool-card-title">WCAG Contrast Checker</h3>
+                  <p class="tool-card-desc">Check colour contrast ratios against WCAG 2.1 AA and AAA requirements.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/color-palette" class="tool-card-link">
+                  <h3 class="tool-card-title">Colour Palette Generator</h3>
+                  <p class="tool-card-desc">Generate harmonious colour palettes from a base colour.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/color-gradient" class="tool-card-link">
+                  <h3 class="tool-card-title">CSS Gradient Builder</h3>
+                  <p class="tool-card-desc">Build linear and radial CSS gradients with a live preview.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/tints-shades" class="tool-card-link">
+                  <h3 class="tool-card-title">Tints &amp; Shades</h3>
+                  <p class="tool-card-desc">Generate a full tint-to-shade scale from any hex colour.</p>
+                </a>
+              </article>
+
+            </div>
+          </section>
+
+          <!-- Fonts category -->
+          <section class="category" id="fonts" aria-labelledby="cat-fonts">
+            <header class="category-header">
+              <div class="category-icon" aria-hidden="true">🔤</div>
+              <h2 id="cat-fonts" class="category-title">Fonts</h2>
+            </header>
+            <div class="tool-grid">
+
+              <article class="tool-card">
+                <a href="/tools/font-converter" class="tool-card-link">
+                  <h3 class="tool-card-title">Font Format Converter</h3>
+                  <p class="tool-card-desc">Convert TTF, OTF, WOFF, WOFF2 and EOT font files between all five formats.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/font-pairs" class="tool-card-link">
+                  <h3 class="tool-card-title">Font Pairs</h3>
+                  <p class="tool-card-desc">AI-powered Google Font pairing suggestions for headings and body text.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/font-inspector" class="tool-card-link">
+                  <h3 class="tool-card-title">Font Inspector</h3>
+                  <p class="tool-card-desc">Inspect font metadata, tables, glyphs and OpenType features.</p>
+                </a>
+              </article>
+
+            </div>
+          </section>
+
+          <!-- Documents category -->
+          <section class="category" id="documents" aria-labelledby="cat-docs">
+            <header class="category-header">
+              <div class="category-icon" aria-hidden="true">📄</div>
+              <h2 id="cat-docs" class="category-title">Documents</h2>
+            </header>
+            <div class="tool-grid">
+
+              <article class="tool-card">
+                <a href="/tools/pdf-compress" class="tool-card-link">
+                  <h3 class="tool-card-title">PDF Compressor</h3>
+                  <p class="tool-card-desc">Reduce PDF file sizes by re-encoding embedded images at lower quality.</p>
+                </a>
+              </article>
+
+              <article class="tool-card">
+                <a href="/tools/file-diff" class="tool-card-link">
+                  <h3 class="tool-card-title">File Diff</h3>
+                  <p class="tool-card-desc">Compare two text files and see a line-by-line diff.</p>
+                </a>
+              </article>
+
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <section class="faq-section" aria-labelledby="faq-heading">
+        <div class="container">
+          <h2 id="faq-heading" class="section-title">Frequently asked questions</h2>
+          <dl class="faq-list">
+            <div class="faq-item">
+              <dt>
+                <button class="faq-trigger" aria-expanded="false" aria-controls="faq-1">
+                  Are my files uploaded to a server?
+                  <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M5 8l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </dt>
+              <dd id="faq-1" class="faq-body" hidden>
+                <p>No. Every tool in this collection runs entirely in your browser using JavaScript and WebAssembly. Your files never leave your device, and nothing is sent to any server.</p>
+              </dd>
+            </div>
+            <div class="faq-item">
+              <dt>
+                <button class="faq-trigger" aria-expanded="false" aria-controls="faq-2">
+                  Do I need to create an account?
+                  <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M5 8l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </dt>
+              <dd id="faq-2" class="faq-body" hidden>
+                <p>No account, no sign-up, no cookies for tracking. Just open a tool and use it.</p>
+              </dd>
+            </div>
+            <div class="faq-item">
+              <dt>
+                <button class="faq-trigger" aria-expanded="false" aria-controls="faq-3">
+                  Is Toolbox free?
+                  <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M5 8l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </dt>
+              <dd id="faq-3" class="faq-body" hidden>
+                <p>Yes, completely free. The source code is available on GitHub. The Font Pairs tool uses a small AI API call which is covered by the project.</p>
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ── Footer ────────────────────────────────────────────────────────────── -->
+    <footer class="site-footer" aria-label="Site footer">
+      <div class="container">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <a href="/" class="navbar-brand" aria-label="Toolbox home">
+              <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <rect width="28" height="28" rx="7" fill="url(#footer-logo-grad)" />
+                <path d="M9 14h10M14 9v10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
+                <defs>
+                  <linearGradient id="footer-logo-grad" x1="0" y1="0" x2="28" y2="28">
+                    <stop offset="0%" stop-color="#6366f1" />
+                    <stop offset="100%" stop-color="#a855f7" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              Toolbox
+            </a>
+            <p class="footer-tagline">Free browser-based developer tools. No uploads. No accounts.</p>
+          </div>
+          <nav class="footer-nav" aria-label="Footer navigation">
+            <ul>
+              <li><a href="/#images">Images</a></li>
+              <li><a href="/#code">Code</a></li>
+              <li><a href="/#colour">Colour</a></li>
+              <li><a href="/#fonts">Fonts</a></li>
+              <li><a href="/#documents">Documents</a></li>
+            </ul>
+            <ul>
+              <li><a href="https://github.com/alekslinde/toolbox" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="/privacy">Privacy</a></li>
+            </ul>
+          </nav>
+        </div>
+        <p class="footer-copy">&copy; 2026 Alex Linde. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="/scripts/main.js" defer></script>
+    <script src="/scripts/accordion.js" defer></script>
+  </body>
+</html>

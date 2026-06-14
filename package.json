@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "cp node_modules/heic2any/dist/heic2any.min.js public/heic2any.min.js",
     "test": "vitest run",
+    "bench:node": "vitest bench --config vitest.bench.config.ts --reporter=verbose",
     "dev": "astro dev",
     "build": "astro build",
     "build:minor": "node bump.js --minor && astro build",

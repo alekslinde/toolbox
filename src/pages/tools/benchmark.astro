@@ -1,0 +1,577 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+---
+
+<MainLayout
+  title="Benchmark — Toolbox"
+  description="Internal performance benchmark for Toolbox processing tools."
+  alpine={false}
+>
+  <meta slot="head" name="robots" content="noindex,nofollow" />
+
+  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+
+    <div class="mb-8">
+      <Breadcrumbs tool="Benchmark" category="Dev" />
+      <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Benchmark</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        Browser performance measurements for processing tools.
+        Results reflect this device and browser — not a server.
+      </p>
+    </div>
+
+    <!-- Run controls -->
+    <div class="mb-8 flex flex-wrap gap-3">
+      <button id="runAllBtn"
+        class="rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
+        Run All
+      </button>
+      <button id="clearBtn"
+        class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:border-purple-300">
+        Clear results
+      </button>
+    </div>
+
+    <!-- Global status -->
+    <p id="globalStatus" class="hidden mb-6 text-sm text-slate-500"></p>
+
+    <!-- ── Section: Code Tools ─────────────────────────────────────────────── -->
+    <section class="mb-10" id="section-code">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800">Code Tools</h2>
+        <button class="run-section-btn rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-purple-300"
+          data-section="code">Run</button>
+      </div>
+      <p class="mb-3 text-xs text-slate-500">
+        Minifier (pure JS) · Formatter (js-beautify CDN) · CSS→SASS converter (pure JS)
+      </p>
+      <div id="result-code" class="rounded-xl border border-slate-200 bg-white p-4"></div>
+    </section>
+
+    <!-- ── Section: Image Tools ────────────────────────────────────────────── -->
+    <section class="mb-10" id="section-image">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800">Image Tools</h2>
+        <button class="run-section-btn rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-purple-300"
+          data-section="image">Run</button>
+      </div>
+      <p class="mb-3 text-xs text-slate-500">
+        Canvas compress (JPEG/WebP/PNG) · SVG minify · ICO encode · format convert.
+        Test images are generated in-browser; no file upload needed.
+      </p>
+      <div id="result-image" class="rounded-xl border border-slate-200 bg-white p-4"></div>
+    </section>
+
+    <!-- ── Section: Font Tools ─────────────────────────────────────────────── -->
+    <section class="mb-10" id="section-font">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800">Font Tools</h2>
+        <button class="run-section-btn rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-purple-300"
+          data-section="font">Run</button>
+      </div>
+      <p class="mb-3 text-xs text-slate-500">
+        opentype.js + wawoff2 · TTF→WOFF, TTF→WOFF2, WOFF2→sfnt.
+        Fetches LiberationSans-Regular.ttf from <code class="text-xs">/bench-fixtures/fonts/</code>.
+      </p>
+      <div id="result-font" class="rounded-xl border border-slate-200 bg-white p-4"></div>
+    </section>
+
+  </div>
+</MainLayout>
+
+<script>
+  import { minifyCSS, minifyHTML, minifyJS } from '@/lib/code-minifier';
+  import { cssToSass } from '@/lib/scss-converter';
+  import { buildWOFF, buildEOT, inspectSfnt, unwrapWOFF } from '@/lib/font-converter';
+  import { runBench, renderTable, fmtBytes } from '../../../bench/browser/runner';
+  import type { BenchResult } from '../../../bench/browser/runner';
+
+  // ── CDN loader ────────────────────────────────────────────────────────────
+
+  function loadScript(src: string): Promise<void> {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+      const s = document.createElement('script');
+      s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('Failed: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // ── Fixture helpers ───────────────────────────────────────────────────────
+
+  async function fetchText(path: string): Promise<string> {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(`${r.status} ${path}`);
+    return r.text();
+  }
+
+  async function fetchBuffer(path: string): Promise<ArrayBuffer> {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(`${r.status} ${path}`);
+    return r.arrayBuffer();
+  }
+
+  // Generate a synthetic canvas image of given dimensions.
+  function makeCanvasImage(w: number, h: number): Promise<{ img: HTMLImageElement; blob: Blob }> {
+    return new Promise((res, rej) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      // Gradient background + circles to make compressor work realistically
+      const grd = ctx.createLinearGradient(0, 0, w, h);
+      grd.addColorStop(0, '#6366f1'); grd.addColorStop(0.5, '#a855f7'); grd.addColorStop(1, '#06b6d4');
+      ctx.fillStyle = grd; ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 30; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 10 + Math.random() * 60, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.15})`;
+        ctx.fill();
+      }
+      canvas.toBlob(blob => {
+        if (!blob) { rej(new Error('toBlob failed')); return; }
+        const img = new Image();
+        img.onload = () => res({ img, blob });
+        img.onerror = rej;
+        img.src = URL.createObjectURL(blob);
+      }, 'image/jpeg', 0.92);
+    });
+  }
+
+  // Compress a canvas image to a target format + quality, return output Blob.
+  async function canvasCompress(img: HTMLImageElement, format: string, quality: number): Promise<Blob> {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    canvas.getContext('2d')!.drawImage(img, 0, 0);
+    return new Promise((res, rej) => {
+      canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob null')), `image/${format}`, quality);
+    });
+  }
+
+  // Encode N canvas sizes as PNG payloads + wrap in ICO container (mirrors ico-generator logic).
+  async function buildIco(img: HTMLImageElement, sizes: number[]): Promise<ArrayBuffer> {
+    const pngs: Uint8Array[] = await Promise.all(sizes.map(sz => new Promise<Uint8Array>((res, rej) => {
+      const c = document.createElement('canvas'); c.width = sz; c.height = sz;
+      c.getContext('2d')!.drawImage(img, 0, 0, sz, sz);
+      c.toBlob(b => {
+        if (!b) { rej(new Error('toBlob null')); return; }
+        b.arrayBuffer().then(ab => res(new Uint8Array(ab))).catch(rej);
+      }, 'image/png');
+    })));
+
+    const n = sizes.length;
+    const headerSz = 6 + n * 16;
+    let dataOff = headerSz;
+    const offsets = pngs.map(p => { const o = dataOff; dataOff += p.length; return o; });
+    const total = dataOff;
+    const buf = new ArrayBuffer(total), dv = new DataView(buf), u8 = new Uint8Array(buf);
+
+    dv.setUint16(0, 0, true); dv.setUint16(2, 1, true); dv.setUint16(4, n, true);
+    pngs.forEach((png, i) => {
+      const o = 6 + i * 16;
+      dv.setUint8(o, sizes[i] >= 256 ? 0 : sizes[i]);
+      dv.setUint8(o + 1, sizes[i] >= 256 ? 0 : sizes[i]);
+      dv.setUint8(o + 2, 0); dv.setUint8(o + 3, 0);
+      dv.setUint16(o + 4, 1, true); dv.setUint16(o + 6, 32, true);
+      dv.setUint32(o + 8, png.length, true);
+      dv.setUint32(o + 12, offsets[i], true);
+      u8.set(png, offsets[i]);
+    });
+    return buf;
+  }
+
+  // ── Sanity checks ─────────────────────────────────────────────────────────
+
+  function sanityBlob(blob: Blob, magic: number[], label: string): Partial<BenchResult> {
+    return {
+      sanityOk: blob.size > 0,
+      sanityNote: blob.size > 0 ? '' : `${label}: output is empty`,
+    };
+  }
+
+  function sanityAB(ab: ArrayBuffer, magic: number[], label: string): Partial<BenchResult> {
+    const u8 = new Uint8Array(ab);
+    const ok = magic.every((b, i) => u8[i] === b);
+    return {
+      sanityOk: ok,
+      sanityNote: ok ? '' : `${label}: bad magic bytes`,
+    };
+  }
+
+  // ── Status helpers ────────────────────────────────────────────────────────
+
+  function setStatus(msg: string) {
+    const el = document.getElementById('globalStatus')!;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function setResult(section: string, html: string) {
+    document.getElementById(`result-${section}`)!.innerHTML = html;
+  }
+
+  function setLoading(section: string) {
+    setResult(section, '<p class="text-sm text-slate-400 italic">Running…</p>');
+  }
+
+  // ── Code bench ───────────────────────────────────────────────────────────
+
+  async function runCodeBench(): Promise<void> {
+    setLoading('code');
+    const results: BenchResult[] = [];
+
+    // Load fixture text
+    let jsSmall = '', jsMedium = '', cssSmall = '', cssMedium = '', htmlSmall = '', htmlMedium = '', cssForSass = '';
+    try {
+      [jsSmall, jsMedium, cssSmall, cssMedium, htmlSmall, htmlMedium, cssForSass] = await Promise.all([
+        fetchText('/bench-fixtures/js/small.js'),
+        fetchText('/bench-fixtures/js/medium.js'),
+        fetchText('/bench-fixtures/css/small.css'),
+        fetchText('/bench-fixtures/css/medium.css'),
+        fetchText('/bench-fixtures/html/small.html'),
+        fetchText('/bench-fixtures/html/medium.html'),
+        fetchText('/bench-fixtures/css/for-sass.css'),
+      ]);
+    } catch (e: any) {
+      setResult('code', `<p class="text-sm text-rose-500">Failed to load fixtures: ${e.message}. Make sure the dev server is running.</p>`);
+      return;
+    }
+
+    const encLen = (s: string) => new TextEncoder().encode(s).byteLength;
+
+    // minifyJS
+    for (const [label, src] of [['small (~4 KB)', jsSmall], ['medium (~16 KB)', jsMedium]] as [string, string][]) {
+      const r = await runBench(`minifyJS ${label}`, encLen(src), async () => minifyJS(src), { innerLoops: 10 });
+      r.ratio = encLen(minifyJS(src)) / encLen(src);
+      r.sanityOk = r.outputBytes > 0 && r.ratio < 1;
+      r.sanityNote = r.sanityOk ? '' : 'output not smaller than input';
+      results.push(r);
+    }
+
+    // minifyCSS
+    for (const [label, src] of [['small (~3 KB)', cssSmall], ['medium (~14 KB)', cssMedium]] as [string, string][]) {
+      const r = await runBench(`minifyCSS ${label}`, encLen(src), async () => minifyCSS(src), { innerLoops: 10 });
+      r.ratio = encLen(minifyCSS(src)) / encLen(src);
+      r.sanityOk = r.outputBytes > 0 && r.ratio < 1;
+      r.sanityNote = r.sanityOk ? '' : 'output not smaller than input';
+      results.push(r);
+    }
+
+    // minifyHTML
+    for (const [label, src] of [['small (~4 KB)', htmlSmall], ['medium (~18 KB)', htmlMedium]] as [string, string][]) {
+      const r = await runBench(`minifyHTML ${label}`, encLen(src), async () => minifyHTML(src), { innerLoops: 10 });
+      r.ratio = encLen(minifyHTML(src)) / encLen(src);
+      r.sanityOk = r.outputBytes > 0 && r.ratio < 1;
+      r.sanityNote = r.sanityOk ? '' : 'output not smaller than input';
+      results.push(r);
+    }
+
+    // cssToSass (pure JS)
+    for (const [label, src] of [['small', cssSmall], ['medium', cssMedium], ['for-sass', cssForSass]] as [string, string][]) {
+      const r = await runBench(`cssToSass ${label}`, encLen(src), async () => cssToSass(src), { innerLoops: 20 });
+      const out = cssToSass(src);
+      r.ratio = null; // not a compression bench
+      r.sanityOk = !out.includes('{') && !out.includes('}');
+      r.sanityNote = r.sanityOk ? '' : 'output contains braces';
+      results.push(r);
+    }
+
+    // js-beautify (CDN)
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.3/beautify.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.3/beautify-css.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.3/beautify-html.min.js');
+
+      const { js_beautify, css_beautify, html_beautify } = window as any;
+
+      for (const [label, src] of [['small', jsSmall], ['medium', jsMedium]] as [string, string][]) {
+        const r = await runBench(`js_beautify ${label}`, encLen(src), async () => js_beautify(src, { indent_size: 2 }), { innerLoops: 5 });
+        r.ratio = null;
+        r.sanityOk = r.outputBytes > 0;
+        r.sanityNote = r.sanityOk ? '' : 'empty output';
+        results.push(r);
+      }
+
+      for (const [label, src] of [['small', cssSmall], ['medium', cssMedium]] as [string, string][]) {
+        const r = await runBench(`css_beautify ${label}`, encLen(src), async () => css_beautify(src, { indent_size: 2 }), { innerLoops: 5 });
+        r.ratio = null;
+        r.sanityOk = r.outputBytes > 0;
+        r.sanityNote = r.sanityOk ? '' : 'empty output';
+        results.push(r);
+      }
+
+      for (const [label, src] of [['small', htmlSmall], ['medium', htmlMedium]] as [string, string][]) {
+        const r = await runBench(`html_beautify ${label}`, encLen(src), async () => html_beautify(src, { indent_size: 2 }), { innerLoops: 5 });
+        r.ratio = null;
+        r.sanityOk = r.outputBytes > 0;
+        r.sanityNote = r.sanityOk ? '' : 'empty output';
+        results.push(r);
+      }
+    } catch (e: any) {
+      results.push({
+        name: 'js-beautify (CDN)',
+        inputBytes: 0, outputBytes: 0, mean: 0, min: 0, max: 0, samples: 0,
+        ratio: null, sanityOk: false, sanityNote: 'CDN load failed: ' + e.message,
+      });
+    }
+
+    setResult('code', renderTable(results));
+  }
+
+  // ── Image bench ───────────────────────────────────────────────────────────
+
+  async function runImageBench(): Promise<void> {
+    setLoading('image');
+    const results: BenchResult[] = [];
+
+    // Generate test images once (640×480 and 1280×720)
+    let sm: { img: HTMLImageElement; blob: Blob };
+    let lg: { img: HTMLImageElement; blob: Blob };
+    try {
+      [sm, lg] = await Promise.all([
+        makeCanvasImage(640, 480),
+        makeCanvasImage(1280, 720),
+      ]);
+    } catch (e: any) {
+      setResult('image', `<p class="text-sm text-rose-500">Failed to create test images: ${e.message}</p>`);
+      return;
+    }
+
+    const smBytes = sm.blob.size;
+    const lgBytes = lg.blob.size;
+
+    // Compress JPEG at 60% quality
+    for (const [label, { img, blob }] of [['640×480', sm], ['1280×720', lg]] as [string, { img: HTMLImageElement; blob: Blob }][]) {
+      const r = await runBench(`compress → JPEG 60% (${label})`, blob.size, async () => canvasCompress(img, 'jpeg', 0.6));
+      const out = await canvasCompress(img, 'jpeg', 0.6);
+      const bytes = await out.arrayBuffer();
+      r.ratio = out.size / blob.size;
+      const magic = new Uint8Array(bytes);
+      r.sanityOk = magic[0] === 0xff && magic[1] === 0xd8;
+      r.sanityNote = r.sanityOk ? '' : 'not a JPEG';
+      results.push(r);
+    }
+
+    // Compress WebP at 70% quality
+    for (const [label, { img, blob }] of [['640×480', sm], ['1280×720', lg]] as [string, { img: HTMLImageElement; blob: Blob }][]) {
+      const r = await runBench(`compress → WebP 70% (${label})`, blob.size, async () => canvasCompress(img, 'webp', 0.7));
+      const out = await canvasCompress(img, 'webp', 0.7);
+      r.ratio = out.size / blob.size;
+      r.sanityOk = out.size > 0;
+      r.sanityNote = r.sanityOk ? '' : 'empty output';
+      results.push(r);
+    }
+
+    // Compress PNG (lossless — ratio will be ~1 or higher)
+    {
+      const r = await runBench('compress → PNG (640×480)', sm.blob.size, async () => canvasCompress(sm.img, 'png', 1.0));
+      const out = await canvasCompress(sm.img, 'png', 1.0);
+      const bytes = new Uint8Array(await out.arrayBuffer());
+      r.ratio = out.size / sm.blob.size;
+      r.sanityOk = bytes[0] === 0x89 && bytes[1] === 0x50;
+      r.sanityNote = r.sanityOk ? '' : 'not a PNG';
+      results.push(r);
+    }
+
+    // ICO generation (16, 32, 48, 64)
+    {
+      const sizes = [16, 32, 48, 64];
+      const r = await runBench('ico-generator (16/32/48/64 px)', sm.blob.size, async () => {
+        const ab = await buildIco(sm.img, sizes);
+        return ab;
+      });
+      const ico = await buildIco(sm.img, sizes);
+      const u8 = new Uint8Array(ico);
+      r.ratio = null;
+      r.sanityOk = u8[0] === 0 && u8[1] === 0 && u8[2] === 1 && u8[3] === 0;
+      r.sanityNote = r.sanityOk ? '' : 'not a valid ICO header';
+      results.push(r);
+    }
+
+    // SVG minify (pure regex — use a generated SVG string)
+    {
+      const svgSrc = `<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated test SVG for benchmark -->
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"></rdf:RDF></metadata>
+  <rect   x="0"  y="0"  width="200" height="200" fill="#6366f1" />
+  <circle cx="100" cy="100" r="80" fill="#a855f7" opacity="0.7" />
+  <text   x="100"  y="110" text-anchor="middle" font-size="24" fill="#ffffff">Toolbox</text>
+  <!-- This comment should be removed by the SVG minifier -->
+  <path   d="M 50 150 Q 100 50 150 150" stroke="#ffffff" stroke-width="3" fill="none" />
+</svg>`;
+      const minifySVG = (src: string) => src
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<\?xml[^>]*>/g, '')
+        .replace(/<metadata>[\s\S]*?<\/metadata>/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/>\s+</g, '><')
+        .trim();
+      const inBytes = new TextEncoder().encode(svgSrc).byteLength;
+      const r = await runBench('minifySVG (inline)', inBytes, async () => minifySVG(svgSrc), { innerLoops: 100 });
+      const out = minifySVG(svgSrc);
+      r.ratio = new TextEncoder().encode(out).byteLength / inBytes;
+      r.sanityOk = out.startsWith('<svg');
+      r.sanityNote = r.sanityOk ? '' : 'output does not start with <svg';
+      results.push(r);
+    }
+
+    setResult('image', renderTable(results));
+  }
+
+  // ── Font bench ────────────────────────────────────────────────────────────
+
+  async function runFontBench(): Promise<void> {
+    setLoading('font');
+    const results: BenchResult[] = [];
+
+    // Dynamic imports — these are already bundled by Vite
+    let opentype: any, compress: any, decompress: any;
+    try {
+      [{ default: opentype }, { default: compress }, { default: decompress }] = await Promise.all([
+        import('opentype.js') as any,
+        import('wawoff2/compress') as any,
+        import('wawoff2/decompress') as any,
+      ]);
+    } catch (e: any) {
+      setResult('font', `<p class="text-sm text-rose-500">Failed to load font libraries: ${e.message}</p>`);
+      return;
+    }
+
+    // Fetch TTF fixture
+    let ttfBuf: ArrayBuffer;
+    try {
+      ttfBuf = await fetchBuffer('/bench-fixtures/fonts/sample.ttf');
+    } catch (e: any) {
+      setResult('font', `<p class="text-sm text-rose-500">
+        Failed to load font fixture: ${e.message}.
+        Copy LiberationSans-Regular.ttf to <code>public/bench-fixtures/fonts/sample.ttf</code> and restart the dev server.
+      </p>`);
+      return;
+    }
+
+    const SFNT_MAGICS = new Set([0x00010000, 0x4F54544F, 0x74727565, 0x74797031]);
+
+    // inspectSfnt
+    {
+      const r = await runBench(`inspectSfnt (~${Math.round(ttfBuf.byteLength / 1024)} KB)`, ttfBuf.byteLength, async () => {
+        const result = inspectSfnt(ttfBuf);
+        return JSON.stringify(result);
+      }, { innerLoops: 20 });
+      const { issues } = inspectSfnt(ttfBuf);
+      r.ratio = null;
+      r.sanityOk = issues.length === 0;
+      r.sanityNote = r.sanityOk ? '' : 'structural issues found';
+      results.push(r);
+    }
+
+    // buildWOFF
+    {
+      const r = await runBench('buildWOFF TTF → WOFF', ttfBuf.byteLength, async () => buildWOFF(ttfBuf));
+      const woff = buildWOFF(ttfBuf);
+      r.ratio = woff.byteLength / ttfBuf.byteLength;
+      r.sanityOk = new DataView(woff).getUint32(0) === 0x774F4646;
+      r.sanityNote = r.sanityOk ? '' : 'bad WOFF magic';
+      results.push(r);
+    }
+
+    // buildEOT
+    {
+      const r = await runBench('buildEOT TTF → EOT', ttfBuf.byteLength, async () => buildEOT(ttfBuf));
+      const eot = buildEOT(ttfBuf);
+      r.ratio = eot.byteLength / ttfBuf.byteLength;
+      r.sanityOk = new DataView(eot).getUint32(0, true) === eot.byteLength;
+      r.sanityNote = r.sanityOk ? '' : 'bad EOT size field';
+      results.push(r);
+    }
+
+    // unwrapWOFF
+    {
+      const woff = buildWOFF(ttfBuf);
+      const r = await runBench('unwrapWOFF WOFF → sfnt', woff.byteLength, async () => unwrapWOFF(woff));
+      const sfnt = await unwrapWOFF(woff);
+      r.ratio = sfnt.byteLength / woff.byteLength;
+      r.sanityOk = SFNT_MAGICS.has(new DataView(sfnt).getUint32(0));
+      r.sanityNote = r.sanityOk ? '' : 'bad sfnt magic after unwrap';
+      results.push(r);
+    }
+
+    // wawoff2 compress (slow — runs once with extended time)
+    {
+      const r = await runBench('wawoff2 compress TTF → WOFF2', ttfBuf.byteLength, async () => {
+        const out = await compress(new Uint8Array(ttfBuf));
+        return out.buffer as ArrayBuffer;
+      }, { warmup: 1, durationMs: 8000, maxSamples: 5 });
+      const w2 = await compress(new Uint8Array(ttfBuf));
+      r.ratio = w2.byteLength / ttfBuf.byteLength;
+      r.sanityOk = w2[0] === 0x77 && w2[1] === 0x4F && w2[2] === 0x46 && w2[3] === 0x32;
+      r.sanityNote = r.sanityOk ? '' : 'bad WOFF2 magic';
+      results.push(r);
+    }
+
+    // wawoff2 decompress
+    {
+      const w2 = await compress(new Uint8Array(ttfBuf));
+      const woff2Buf: ArrayBuffer = w2.buffer.slice(w2.byteOffset, w2.byteOffset + w2.byteLength);
+      const r = await runBench('wawoff2 decompress WOFF2 → sfnt', woff2Buf.byteLength, async () => {
+        const out = await decompress(new Uint8Array(woff2Buf));
+        return out.buffer as ArrayBuffer;
+      }, { warmup: 1, durationMs: 5000, maxSamples: 10 });
+      const out = await decompress(new Uint8Array(woff2Buf));
+      r.ratio = out.byteLength / woff2Buf.byteLength;
+      r.sanityOk = SFNT_MAGICS.has(new DataView(out.buffer).getUint32(out.byteOffset));
+      r.sanityNote = r.sanityOk ? '' : 'bad sfnt magic after decompress';
+      results.push(r);
+    }
+
+    setResult('font', renderTable(results));
+  }
+
+  // ── Wiring ────────────────────────────────────────────────────────────────
+
+  const sectionRunners: Record<string, () => Promise<void>> = {
+    code:  runCodeBench,
+    image: runImageBench,
+    font:  runFontBench,
+  };
+
+  document.querySelectorAll<HTMLButtonElement>('.run-section-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const section = btn.dataset.section!;
+      btn.disabled = true;
+      btn.textContent = 'Running…';
+      try {
+        await sectionRunners[section]();
+      } catch (e: any) {
+        document.getElementById(`result-${section}`)!.innerHTML =
+          `<p class="text-sm text-rose-500">Error: ${e.message}</p>`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Run';
+    });
+  });
+
+  document.getElementById('runAllBtn')!.addEventListener('click', async () => {
+    const btn = document.getElementById('runAllBtn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+    setStatus('Running all benchmarks — this may take 30–60 seconds…');
+    for (const [key, run] of Object.entries(sectionRunners)) {
+      setStatus(`Running: ${key}…`);
+      try { await run(); } catch (e: any) {
+        document.getElementById(`result-${key}`)!.innerHTML =
+          `<p class="text-sm text-rose-500">Error: ${e.message}</p>`;
+      }
+    }
+    setStatus('All benchmarks complete.');
+    btn.disabled = false;
+    btn.textContent = 'Run All';
+  });
+
+  document.getElementById('clearBtn')!.addEventListener('click', () => {
+    ['code', 'image', 'font'].forEach(s => {
+      document.getElementById(`result-${s}`)!.innerHTML = '';
+    });
+    document.getElementById('globalStatus')!.classList.add('hidden');
+  });
+</script>

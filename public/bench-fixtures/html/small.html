@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A simple tool page for benchmarking the HTML minifier." />
+    <title>Sample Tool Page — Toolbox</title>
+    <link rel="stylesheet" href="/styles/main.css" />
+    <!-- Preconnect to CDN for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <!-- Site header -->
+    <header class="site-header">
+      <div class="container">
+        <a href="/" class="logo" aria-label="Toolbox home">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect width="24" height="24" rx="6" fill="#6d28d9" />
+            <path d="M7 12h10M12 7v10" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span>Toolbox</span>
+        </a>
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="/tools/image-compress">Images</a>
+          <a href="/tools/code-formatter">Code</a>
+          <a href="/tools/wcag-contrast">Colour</a>
+          <a href="/tools/font-converter">Fonts</a>
+        </nav>
+        <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main id="main-content">
+      <div class="container py-10">
+
+        <!-- Breadcrumbs -->
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <ol>
+            <li><a href="/">Home</a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page">Sample Tool</li>
+          </ol>
+        </nav>
+
+        <!-- Tool header -->
+        <div class="tool-header">
+          <div>
+            <h1 class="tool-title">Sample Tool</h1>
+            <p class="tool-subtitle">A placeholder tool page used for HTML minifier benchmarks.</p>
+          </div>
+        </div>
+
+        <!-- Tool panel -->
+        <div class="tool-grid">
+          <div class="tool-main">
+            <div class="card">
+
+              <!-- File drop zone -->
+              <div
+                id="dropZone"
+                class="drop-zone"
+                role="button"
+                tabindex="0"
+                aria-label="Drop files here or click to browse"
+              >
+                <svg class="drop-icon" width="48" height="48" viewBox="0 0 48 48" fill="none">
+                  <circle cx="24" cy="24" r="20" fill="#f3e8ff" />
+                  <path d="M24 16v16M16 24h16" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+                <p class="drop-label">Drop a file here, or <span class="drop-link">browse</span></p>
+                <p class="drop-hint">Supports PNG, JPEG, WebP — up to 20 MB</p>
+                <input id="fileInput" type="file" accept="image/*" class="sr-only" />
+              </div>
+
+              <!-- Controls -->
+              <div id="controls" class="controls hidden">
+                <label class="form-label" for="qualitySlider">
+                  Quality: <strong id="qualityValue">80%</strong>
+                </label>
+                <input
+                  id="qualitySlider"
+                  type="range"
+                  min="10"
+                  max="100"
+                  value="80"
+                  class="range-input"
+                  aria-label="Output quality"
+                />
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="formatSelect">Output format</label>
+                    <select id="formatSelect" class="input">
+                      <option value="jpeg">JPEG</option>
+                      <option value="webp">WebP</option>
+                      <option value="png">PNG</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="maxDimInput">Max dimension (px)</label>
+                    <input
+                      id="maxDimInput"
+                      type="number"
+                      min="32"
+                      max="8000"
+                      placeholder="No limit"
+                      class="input"
+                    />
+                  </div>
+                </div>
+
+                <button id="processBtn" class="btn btn-primary btn-full">
+                  Process Image
+                </button>
+              </div>
+
+              <!-- Status bar -->
+              <p id="statusMsg" class="status hidden" role="alert" aria-live="polite"></p>
+
+              <!-- Preview / result -->
+              <div id="resultPanel" class="result-panel hidden">
+                <canvas id="preview" class="preview-canvas"></canvas>
+                <div class="result-stats">
+                  <dl>
+                    <dt>Original</dt>
+                    <dd id="origSize">—</dd>
+                    <dt>Output</dt>
+                    <dd id="outSize">—</dd>
+                    <dt>Reduction</dt>
+                    <dd id="reduction">—</dd>
+                  </dl>
+                  <a id="downloadLink" class="btn btn-primary" download>
+                    Download
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Sidebar -->
+          <aside class="tool-sidebar">
+            <div class="card">
+              <h2 class="card-title">Quick tips</h2>
+              <ul class="tips-list">
+                <li>
+                  <strong>JPEG</strong> — Best for photos. Lossy compression; quality below 70% may introduce artefacts.
+                </li>
+                <li>
+                  <strong>WebP</strong> — Best overall compression. Supported in all modern browsers.
+                </li>
+                <li>
+                  <strong>PNG</strong> — Lossless. Use for screenshots, icons, or images with transparency.
+                </li>
+                <li>
+                  <strong>Max dimension</strong> — Downscales the longer side before encoding. Useful for reducing large photos.
+                </li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          &copy; 2026 Toolbox &mdash;
+          <a href="/privacy">Privacy</a> &middot;
+          <a href="https://github.com/alekslinde/toolbox">GitHub</a>
+        </p>
+      </div>
+    </footer>
+
+    <script src="/scripts/main.js"></script>
+  </body>
+</html>
