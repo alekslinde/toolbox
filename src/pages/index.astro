@@ -12,6 +12,14 @@ const categories = [
   { id: 'typography', label: 'Typography & Color',  tools: typography },
   { id: 'code',       label: 'Code & Web',          tools: code },
 ];
+
+// Search dataset, derived from the registry so it can never drift out of sync.
+const searchTools = tools.map((t) => ({
+  title: t.title,
+  href: `/tools/${t.slug}`,
+  tags: t.tags.join(' '),
+}));
+const toolCount = tools.length;
 ---
 
 <MainLayout
@@ -52,7 +60,7 @@ const categories = [
         id="search-ph"
         class="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 text-base text-slate-400 transition-opacity duration-300"
         aria-hidden="true"
-      >Search 20 tools…</span>
+      >Search {toolCount} tools…</span>
       <ul
         id="search-results"
         class="absolute left-0 right-0 top-full z-10 mt-1 hidden rounded-lg border border-slate-200 bg-white text-left shadow-lg"
@@ -84,10 +92,8 @@ const categories = [
   </main>
 
   <!-- Use cases strip -->
-  <section class="border-t border-slate-200 bg-white px-8 py-14 lg:px-8" aria-label="Example use cases">
-    <div class="max-w-[1440px] mx-auto">
-
-
+  <section class="border-t border-slate-200 bg-white" aria-label="Example use cases">
+    <div class="max-w-[1440px] mx-auto  px-5 py-14 lg:px-8">
       <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">// Real-world friction</p>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
@@ -114,30 +120,14 @@ const categories = [
 
 </MainLayout>
 
+<script type="application/json" id="tool-search-data" is:inline set:html={JSON.stringify(searchTools)} />
+
 <script is:inline>
 (function () {
-  // Lightweight tool search — no Alpine needed on home page
-  const allTools = [
-    { title: 'Image Compressor',        href: '/tools/image-compress',  tags: 'compress PNG JPG WebP SVG optimise' },
-    { title: 'Image Resizer',           href: '/tools/image-resize',    tags: 'resize dimensions aspect ratio' },
-    { title: 'Image Converter',         href: '/tools/image-convert',   tags: 'convert WebP AVIF HEIC format PNG' },
-    { title: 'ICO Favicon Generator',   href: '/tools/ico-generator',   tags: 'favicon ICO icon 16px 32px' },
-    { title: 'PDF Compressor',          href: '/tools/pdf-compress',    tags: 'PDF compress reduce file size' },
-    { title: 'File Diff',               href: '/tools/file-diff',       tags: 'diff compare code review text' },
-    { title: 'Font Converter',          href: '/tools/font-converter',  tags: 'font TTF OTF WOFF WOFF2 convert' },
-    { title: 'Font Inspector',          href: '/tools/font-inspector',  tags: 'font identify screenshot AI vision image' },
-    { title: 'Font Pairing Explorer',   href: '/tools/font-pairs',      tags: 'font pairing Google Fonts typography' },
-    { title: 'WCAG Contrast Checker',   href: '/tools/wcag-contrast',   tags: 'WCAG accessibility contrast HEX' },
-    { title: 'Color Palette Generator', href: '/tools/color-palette',   tags: 'palette colour HSL complementary' },
-    { title: 'CSS Gradient Builder',    href: '/tools/color-gradient',  tags: 'gradient CSS linear radial' },
-    { title: 'Tints & Shades',          href: '/tools/tints-shades',    tags: 'tints shades design tokens CSS variables' },
-    { title: 'Code Formatter',          href: '/tools/code-formatter',  tags: 'format beautify JS CSS HTML' },
-    { title: 'Code Minifier',           href: '/tools/code-minifier',   tags: 'minify compress JS CSS bundle' },
-    { title: 'SCSS Compiler',           href: '/tools/scss-compiler',   tags: 'SCSS Sass CSS compile variables nesting' },
-    { title: 'Semantic HTML Converter', href: '/tools/semantic-html',   tags: 'semantic HTML5 accessibility div-soup' },
-    { title: 'Brand Assets Extractor',  href: '/tools/brand-assets',    tags: 'brand colours fonts logos CSS extract' },
-    { title: 'XD to Figma Packager',    href: '/tools/xd-to-figma',     tags: 'XD Figma SVG reorder export' },
-  ];
+  // Lightweight tool search — no Alpine needed on home page.
+  // Data is derived from the tool registry and injected via #tool-search-data.
+  const dataEl   = document.getElementById('tool-search-data');
+  const allTools = dataEl ? JSON.parse(dataEl.textContent) : [];
 
   const input   = document.getElementById('tool-search');
   const results = document.getElementById('search-results');
@@ -176,7 +166,7 @@ const categories = [
   // ── Rotating placeholder ───────────────────────────────────────────────────
   if (input && ph) {
     var placeholders = [
-      'Search 20 tools…',
+      ph.textContent || 'Search the toolbox…',
       'Try "compress PDF"…',
       'Try "WOFF2 converter"…',
       'Try "WCAG contrast"…',
