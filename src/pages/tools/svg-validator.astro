@@ -572,16 +572,20 @@ const faq = [
       const doc = new DOMParser().parseFromString(src, 'image/svg+xml');
       if (doc.querySelector('parsererror')) return src;
       const root = doc.documentElement;
-      root.querySelectorAll('script').forEach(s => s.remove());
+      // Strip active content: <script>, <style> (CSS @import/url() exfiltration),
+      // <foreignObject> (arbitrary embedded HTML), <set>/<animate> (can animate
+      // href into a javascript: URL), and external <use> references.
+      root.querySelectorAll('script, style, foreignObject, set, animate, animateTransform, animateMotion').forEach(el => el.remove());
+      const DANGEROUS_URI = /^\s*(javascript|vbscript|data:text\/html)/i;
       root.querySelectorAll('*').forEach(el => {
-        Array.from(el.attributes).filter(a => a.name.startsWith('on')).forEach(a => el.removeAttribute(a.name));
-      });
-      for (const attr of ['href', 'xlink:href']) {
-        root.querySelectorAll(`[${attr}]`).forEach(el => {
-          const v = el.getAttribute(attr) ?? '';
-          if (/^javascript:/i.test(v.trim())) el.removeAttribute(attr);
+        Array.from(el.attributes).forEach(a => {
+          const name = a.name.toLowerCase();
+          // Drop all event handlers (on*) and any attribute carrying a dangerous URI.
+          if (name.startsWith('on') || (name.endsWith('href') && DANGEROUS_URI.test(a.value))) {
+            el.removeAttribute(a.name);
+          }
         });
-      }
+      });
       return new XMLSerializer().serializeToString(root);
     }
 

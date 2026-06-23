@@ -80,6 +80,28 @@ export function toAbsolute(href: string, base: string): string {
   try { return new URL(href, base).href; } catch { return href; }
 }
 
+// Escape a string for safe interpolation into HTML text or double-quoted
+// attribute values. Brand data comes from remote pages, so every interpolation
+// of remote-derived content into innerHTML must pass through this.
+export function escapeHtml(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Return a URL only if it uses a safe scheme (http/https/data), otherwise ''.
+// Blocks javascript:, vbscript:, etc. Result is still HTML-escaped by callers.
+export function safeUrl(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^(https?:|data:image\/)/i.test(s)) return s;
+  if (/^\/\/|^\/|^\.\.?\//.test(s)) return s; // protocol-relative / path
+  return '';
+}
+
 // CDN/framework domains that serve generic component CSS, not brand styles.
 const SKIP_CSS_HOSTS_RE = /\b(cloudfront\.net|fastly\.net|sqspcdn\.com|bootstrapcdn\.com|akamaihd\.net|jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|googletagmanager\.com|intercomcdn\.com|hubspot\.net|zendesk\.com|zopim\.com|tidiochat\.com)\b/i;
 

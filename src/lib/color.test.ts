@@ -31,6 +31,12 @@ describe('hexToRgb', () => {
   it('is case-insensitive', () => {
     expect(hexToRgb('#FF8800')).toEqual(hexToRgb('#ff8800'));
   });
+
+  it('throws on invalid hex instead of returning NaN channels', () => {
+    expect(() => hexToRgb('#xyz')).toThrow();
+    expect(() => hexToRgb('#12')).toThrow();
+    expect(() => hexToRgb('nonsense')).toThrow();
+  });
 });
 
 describe('rgbToHex', () => {
@@ -45,6 +51,12 @@ describe('rgbToHex', () => {
   it('rounds fractional values', () => {
     expect(rgbToHex(254.6, 0, 0)).toBe('#ff0000');
     expect(rgbToHex(254.4, 0, 0)).toBe('#fe0000');
+  });
+
+  it('clamps out-of-range and non-finite channels to valid hex', () => {
+    expect(rgbToHex(300, 10, 5)).toBe('#ff0a05');
+    expect(rgbToHex(-5, 0, 0)).toBe('#000000');
+    expect(rgbToHex(NaN, 0, 0)).toBe('#000000');
   });
 
   it('round-trips with hexToRgb', () => {

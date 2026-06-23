@@ -24,7 +24,11 @@ export class Counter {
   async fetch(request) {
     const params = new URL(request.url).searchParams;
     const action = params.get('action');
-    let value = (await this.state.storage.get('value')) ?? 0;
+    // Coerce to a number: guards against legacy/non-numeric stored values that
+    // would otherwise turn `value += 1` into string concatenation.
+    const stored = await this.state.storage.get('value');
+    let value = Number(stored);
+    if (!Number.isFinite(value)) value = 0;
 
     if (action === 'up') {
       value += 1;
@@ -66,24 +70,16 @@ async function tryUp(env, name, limit) {
 }
 
 // Returns a 429 Response if rate-limited, or null if the request may proceed.
-// Checks global cap first (cost ceiling), then per-IP cap (fairness).
+// Per-IP cap is checked (and consumed) FIRST so that an IP already at its limit
+// is rejected without consuming a global slot — otherwise a single abusive IP
+// could exhaust the global quota with rejected requests and lock out everyone.
 async function checkRateLimit(request, env) {
   const today  = new Date().toISOString().slice(0, 10); // "2026-04-30"
   const hours  = hoursUntilReset();
   const resetMsg = `Available again in ${hours} hour${hours !== 1 ? 's' : ''} (resets at midnight UTC).`;
 
-  // 1 — Global daily cap
-  const globalKey    = `rl:g:${today}`;
-  const globalResult = await tryUp(env, globalKey, AI_LIMIT_GLOBAL);
-  if (!globalResult.allowed) {
-    return Response.json({
-      error: `The daily AI quota has been reached (${globalResult.value} of ${AI_LIMIT_GLOBAL} requests used today). ${resetMsg}`,
-      rateLimited: true,
-      resetIn: hours,
-    }, { status: 429 });
-  }
-
-  // 2 — Per-IP daily cap
+  // 1 — Per-IP daily cap (fairness; consumed before global so abusers can't
+  //     drain the shared quota)
   const ip      = request.headers.get('CF-Connecting-IP') || 'unknown';
   const hash    = await hashIP(ip);
   const ipKey   = `rl:ip:${today}:${hash}`;
@@ -91,6 +87,17 @@ async function checkRateLimit(request, env) {
   if (!ipResult.allowed) {
     return Response.json({
       error: `You've used your ${AI_LIMIT_PER_IP} daily AI requests. ${resetMsg}`,
+      rateLimited: true,
+      resetIn: hours,
+    }, { status: 429 });
+  }
+
+  // 2 — Global daily cap (cost ceiling)
+  const globalKey    = `rl:g:${today}`;
+  const globalResult = await tryUp(env, globalKey, AI_LIMIT_GLOBAL);
+  if (!globalResult.allowed) {
+    return Response.json({
+      error: `The daily AI quota has been reached (${globalResult.value} of ${AI_LIMIT_GLOBAL} requests used today). ${resetMsg}`,
       rateLimited: true,
       resetIn: hours,
     }, { status: 429 });
@@ -194,8 +201,12 @@ export class FeedbackStore {
   }
 }
 
-// ── Counter keys for page-load count injection ────────────────────────────────
+// ── Counter key registry ──────────────────────────────────────────────────────
+// Canonical list of all counter keys in use. Kept as documentation of the valid
+// key space; HTML injection now fetches only the current page's h-<slug> counter
+// (see below) rather than fanning out across this whole list.
 
+// eslint-disable-next-line no-unused-vars
 const COUNTER_KEYS = [
   'font', 'img', 'diff', 'color', 'brand', 'pdf', 'code', 'xd',
   // per-tool helpful counts
@@ -365,8 +376,13 @@ export default {
     const ct = response.headers.get('Content-Type') || '';
     if (!ct.includes('text/html')) return response;
 
+    // Only the HelpfulButton reads window.__C__, and only its own h-<slug>
+    // counter. So fetch just that one Durable Object for a tool page instead of
+    // fanning out to every counter in the catalog on every HTML request.
     const counts = {};
-    await Promise.all(COUNTER_KEYS.map(async key => {
+    const toolMatch = url.pathname.match(/^\/tools\/([a-z][a-z0-9-]*)\/?$/);
+    if (toolMatch) {
+      const key = `h-${toolMatch[1]}`;
       try {
         const doUrl = new URL(url.href);
         doUrl.searchParams.set('action', 'get');
@@ -375,7 +391,7 @@ export default {
         const { value } = await r.json();
         counts[key] = value ?? 0;
       } catch (_) {}
-    }));
+    }
 
     const html     = await response.text();
     const script   = `<script>window.__C__=${JSON.stringify(counts)}</script>`;
