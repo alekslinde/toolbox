@@ -109,11 +109,14 @@ const faq = [
 <script>
   let _beautifyLoaded = false;
 
-  function loadScript(src: string): Promise<void> {
+  function loadScript(src: string, integrity: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
       const s = document.createElement('script');
-      s.src = src; s.onload = () => resolve(); s.onerror = () => reject(new Error('Could not load: ' + src));
+      s.src = src;
+      s.integrity = integrity;
+      s.crossOrigin = 'anonymous';
+      s.onload = () => resolve(); s.onerror = () => reject(new Error('Could not load: ' + src));
       document.head.appendChild(s);
     });
   }
@@ -121,9 +124,9 @@ const faq = [
   async function ensureBeautify() {
     if (_beautifyLoaded) return;
     await Promise.all([
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify.min.js'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-css.min.js'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-html.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify.min.js',      'sha384-KDFWMN6ZABhcMaACFKV7HP4D0Eqzn0SujQnlv05qo1yS61A/vAQxClSdH8mobTn/'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-css.min.js',  'sha384-hLSGh4xWwjFAFwevg4XHWcoUQfqYNeEkqXQ0+defmwZqVW6MdiUmLsCODtJ1zneO'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-html.min.js', 'sha384-EhDs1rq5YpojkjwQGOSyqWZM5GI0BtOfs8OqoSS4NM/tNDSoqsshG8YYza2eBUJX'),
     ]);
     _beautifyLoaded = true;
   }

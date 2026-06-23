@@ -128,9 +128,10 @@ const faq = [
   let currentColors: RGB[] = [];
   let currentCount = 6;
   let currentFmt: 'HEX' | 'RGB' | 'HSL' = 'HEX';
-  /* ── Color conversions ── */
+  /* ── Color conversions (tuple wrappers over shared @/lib/color) ── */
+  import { rgbToHex as rgbToHexFn, isLight as isLightFn } from '@/lib/color';
   function rgbToHex([r, g, b]: RGB): string {
-    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    return rgbToHexFn(r, g, b);
   }
 
   function rgbToHsl([r, g, b]: RGB): string {
@@ -154,7 +155,7 @@ const faq = [
   }
 
   function isLight([r, g, b]: RGB): boolean {
-    return 0.299 * r + 0.587 * g + 0.114 * b > 140;
+    return isLightFn(r, g, b);
   }
 
   /* ── Median cut quantization ── */

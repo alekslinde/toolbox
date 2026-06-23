@@ -1,12 +1,19 @@
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   hex = hex.replace('#', '');
   if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    throw new Error(`Invalid hex colour: "${hex}"`);
+  }
   const n = parseInt(hex, 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
 export function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const clamp = (v: number) => {
+    const n = Math.round(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(255, n)) : 0;
+  };
+  return '#' + [r, g, b].map(v => clamp(v).toString(16).padStart(2, '0')).join('');
 }
 
 export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
