@@ -5,3 +5,4 @@ dist
 figma-plugin/dist/
 .env
 .env.*
+.claude/
