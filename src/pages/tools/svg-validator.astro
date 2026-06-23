@@ -599,10 +599,14 @@ const faq = [
       try {
         optimizeBtn.textContent = 'Optimizing…';
         const { optimize } = await import('svgo/browser');
-        const result = optimize(currentSrc, {
+        // SVGO 4 dropped removeViewBox from preset-default, so the viewBox is
+        // preserved by default — no override needed (the old override is also a
+        // type error under svgo 4's PluginConfig types).
+        const config: import('svgo/browser').Config = {
           multipass: true,
-          plugins: [{ name: 'preset-default', params: { overrides: { removeViewBox: false } } }],
-        });
+          plugins: ['preset-default'],
+        };
+        const result = optimize(currentSrc, config);
         applyEdit(result.data);
       } catch (err) {
         console.error('SVGO error:', err);
