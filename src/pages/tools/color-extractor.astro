@@ -244,7 +244,7 @@ const faq = [
       wrap.style.cssText = 'flex: 1; min-width: 168px; max-width: 200px;';
 
       const block = document.createElement('div');
-      block.className = 'relative h-20 rounded-t-lg transition-transform duration-150 group-hover:-translate-y-0.5';
+      block.className = 'relative h-20 rounded-t-lg transition-transform duration-150 ease-out motion-safe:group-hover:-translate-y-0.5';
       block.style.background = hex;
 
       const overlay = document.createElement('div');
