@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fmtBytes, baseName, extOf } from './utils.js';
+import { fmtBytes, baseName, extOf, replaceUntilStable } from './utils.js';
 
 describe('fmtBytes', () => {
   it('formats exact bytes', () => {
@@ -63,5 +63,15 @@ describe('extOf', () => {
 
   it('handles filenames starting with a dot', () => {
     expect(extOf('.gitignore')).toBe('gitignore');
+  });
+});
+
+describe('replaceUntilStable', () => {
+  it('removes matches re-formed by a previous removal', () => {
+    expect(replaceUntilStable('<!<!---->-- x -->a', /<!--[\s\S]*?-->/g, '')).toBe('a');
+  });
+
+  it('returns the input unchanged when nothing matches', () => {
+    expect(replaceUntilStable('plain', /<!--[\s\S]*?-->/g, '')).toBe('plain');
   });
 });
