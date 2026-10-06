@@ -44,9 +44,9 @@ const faq = [
 
           <!-- Tab bar -->
           <div class="mb-6 flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist">
-            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="p2i" role="tab">PDF → Images</button>
-            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="i2p" role="tab">Images → PDF</button>
-            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all" data-tab="p2t" role="tab">PDF → Text</button>
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-[color,background-color,box-shadow]" data-tab="p2i" role="tab">PDF → Images</button>
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-[color,background-color,box-shadow]" data-tab="i2p" role="tab">Images → PDF</button>
+            <button class="tab-btn flex-1 rounded-md px-3 py-2 text-sm font-medium transition-[color,background-color,box-shadow]" data-tab="p2t" role="tab">PDF → Text</button>
           </div>
 
           <!-- ══ Tab 1: PDF → Images ══════════════════════════════════ -->
@@ -94,7 +94,7 @@ const faq = [
 
               <!-- Progress bar -->
               <div id="p2i-pbar" class="mb-4 hidden h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div id="p2i-pfill" class="h-full rounded-full bg-purple-500 transition-all duration-300" style="width:0%"></div>
+                <div id="p2i-pfill" class="h-full rounded-full bg-purple-500 transition-[width] duration-200 ease-out" style="width:0%"></div>
               </div>
             </div>
 

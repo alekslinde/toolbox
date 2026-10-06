@@ -58,7 +58,7 @@ const toolCount = tools.length;
       </svg>
       <span
         id="search-ph"
-        class="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 text-base text-slate-400 transition-opacity duration-300"
+        class="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 text-base text-slate-400 transition-opacity duration-200 ease-out"
         aria-hidden="true"
       >Search {toolCount} tools…</span>
       <ul
@@ -106,7 +106,7 @@ const toolCount = tools.length;
         ].map((uc) => (
           <a
             href={uc.href}
-            class="group flex flex-col justify-between rounded-md border border-slate-200 bg-slate-50 p-5 no-underline transition-all hover:border-purple-200 hover:bg-purple-50"
+            class="group flex flex-col justify-between rounded-md border border-slate-200 bg-slate-50 p-5 no-underline transition-colors hover:border-purple-200 hover:bg-purple-50"
           >
             <p class="mb-4 text-sm italic leading-relaxed text-slate-600">"{uc.quote}"</p>
             <span class="text-xs font-semibold text-purple-500 transition-colors group-hover:text-purple-600">
@@ -185,7 +185,7 @@ const toolCount = tools.length;
         phIdx = (phIdx + 1) % placeholders.length;
         ph.textContent = placeholders[phIdx];
         ph.style.opacity = '1';
-      }, 300);
+      }, 200);
     }
 
     function startPh() {
@@ -198,10 +198,13 @@ const toolCount = tools.length;
 
     input.addEventListener('focus', function () {
       stopPh();
+      // Hide instantly on focus so the placeholder never overlaps the caret.
+      ph.style.transitionDuration = '0ms';
       ph.style.opacity = '0';
     });
     input.addEventListener('blur', function () {
       if (!input.value) {
+        ph.style.transitionDuration = '';
         ph.style.opacity = '1';
         startPh();
       }

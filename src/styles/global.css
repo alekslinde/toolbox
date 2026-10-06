@@ -12,3 +12,27 @@
 @source inline("text-white/70");
 
 
+
+/* ── Motion (emil-design-eng) ──────────────────────────────────────────────
+   Strong custom curves: the built-in ease-out is too weak to feel intentional.
+   Overriding Tailwind's tokens upgrades every `ease-out` / `ease-in-out` utility. */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Press feedback: pressable elements scale down slightly so the UI feels like
+   it heard the click. Unlayered so it wins over `transition-colors` utilities;
+   the property list keeps their colour/opacity transitions intact. */
+button {
+  transition-property: color, background-color, border-color, outline-color, text-decoration-color,
+    fill, stroke, opacity, box-shadow, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, scale;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active {
+    scale: 0.97;
+  }
+}

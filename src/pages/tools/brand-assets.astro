@@ -72,7 +72,7 @@ const faq = [
               <span id="brandProgressPct" class="text-xs tabular-nums text-slate-400">0%</span>
             </div>
             <div class="mb-3 h-1 w-full overflow-hidden rounded-full bg-slate-100">
-              <div id="brandProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-300" style="width:0%"></div>
+              <div id="brandProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-200 ease-out" style="width:0%"></div>
             </div>
             <div id="brandProgressSteps" class="flex flex-col"></div>
           </div>
@@ -274,7 +274,7 @@ const faq = [
   .prog-spin { animation: prog-spin 0.8s linear infinite; transform-origin: center; }
 
   .brand-empty-note { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
-  .brand-export-btn { border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.375rem 0.875rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: all 0.15s; }
+  .brand-export-btn { border: 1px solid #e2e8f0; background: white; border-radius: 0.375rem; padding: 0.375rem 0.875rem; font-size: 0.8rem; color: #475569; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
   .brand-export-btn:hover { border-color: #a855f7; color: #7c3aed; }
 </style>
 

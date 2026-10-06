@@ -40,7 +40,7 @@ const faq = [
         <p class="mt-1 text-sm text-slate-500">Resize to exact dimensions. Contain · Cover · Stretch · Pad.</p>
       </div>
       <button
-        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-all hover:border-purple-200 hover:text-purple-600"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-colors hover:border-purple-200 hover:text-purple-600"
         @click="helpful++"
         :class="helpful > 0 ? 'border-purple-300 bg-purple-50 text-purple-600' : ''"
       >
@@ -166,7 +166,7 @@ const faq = [
 
             <!-- Progress -->
             <div x-show="progress > 0" class="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div class="h-full rounded-full bg-purple-500 transition-all duration-300" :style="`width:${progress}%`"></div>
+              <div class="h-full rounded-full bg-purple-500 transition-[width] duration-200 ease-out" :style="`width:${progress}%`"></div>
             </div>
 
           </div>
