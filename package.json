@@ -15,7 +15,7 @@
     "@types/upng-js": "^2.1.5",
     "puppeteer": "^25.11.0",
     "vitest": "~4.1.11",
-    "wrangler": "^4.133.0"
+    "wrangler": "^4.146.0"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
