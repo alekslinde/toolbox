@@ -12,6 +12,17 @@ export function extOf(name: string): string {
   return (name.split('.').pop() ?? '').toLowerCase();
 }
 
+/** Repeat a replace until the string stops changing, so removing one match
+ *  can't splice the surrounding text into a new match (e.g. `<!<!---->--`). */
+export function replaceUntilStable(str: string, re: RegExp, replacement: string): string {
+  let prev: string;
+  do {
+    prev = str;
+    str = str.replace(re, replacement);
+  } while (str !== prev);
+  return str;
+}
+
 export function dl(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');

@@ -1,5 +1,5 @@
 import type { Alpine } from 'alpinejs';
-import { fmtBytes, baseName, extOf } from '@/lib/utils';
+import { fmtBytes, baseName, extOf, replaceUntilStable } from '@/lib/utils';
 import { wireDropZone } from '@/lib/file-dropzone';
 
 export function imageCompressor() {
@@ -128,8 +128,7 @@ export function imageCompressor() {
         if (this.format === 'svg' || this._isSvg) {
           const svg  = this._svgText;
           const orig = new TextEncoder().encode(svg).length;
-          const min  = svg
-            .replace(/<!--[\s\S]*?-->/g, '')
+          const min  = replaceUntilStable(svg, /<!--[\s\S]*?-->/g, '')
             .replace(/<\?xml[^>]*\?>/g, '')
             .replace(/<metadata[\s\S]*?<\/metadata>/g, '')
             .replace(/<title>[^<]*<\/title>/g, '')

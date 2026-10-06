@@ -59,7 +59,12 @@ function escapeHTML(str) {
  * Strip all HTML tags from a string, returning plain text.
  */
 function stripTags(html) {
-  return html.replace(/<[^>]*>/g, '');
+  let prev;
+  do {
+    prev = html;
+    html = html.replace(/<[^>]*>/g, '');
+  } while (html !== prev);
+  return html;
 }
 
 /**

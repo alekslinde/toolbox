@@ -1,4 +1,6 @@
-/* Pure minification functions — no DOM, no imports. */
+/* Pure minification functions — no DOM. */
+
+import { replaceUntilStable } from './utils.js';
 
 export function minifyCSS(src: string): string {
   return src
@@ -10,8 +12,7 @@ export function minifyCSS(src: string): string {
 }
 
 export function minifyHTML(src: string): string {
-  return src
-    .replace(/<!--(?!\[if)[\s\S]*?-->/g, '')
+  return replaceUntilStable(src, /<!--(?!\[if)[\s\S]*?-->/g, '')
     .replace(/\s+/g, ' ')
     .replace(/>\s+</g, '><')
     .trim();
