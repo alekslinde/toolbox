@@ -30,5 +30,11 @@
     "tailwindcss": "^4.3.3",
     "upng-js": "^2.1.0",
     "wawoff2": "^2.0.1"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true,
+    "workerd": true,
+    "puppeteer": false
   }
 }
