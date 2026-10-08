@@ -1,7 +1,16 @@
 import { runBatch, shouldZip, zipOutputs, summarise, MAX_BATCH_FILES, type BatchSummary } from './batch';
-import { accepts, type Op, type ParamValues } from './types';
+import { accepts, chainableTo, type Op, type ParamValues } from './types';
+import { OPS } from './index';
+import { handoff, collectHandoff } from './handoff';
 import { fmtBytes } from '@/lib/utils';
 import { reportError, reportFriction } from '@/lib/telemetry';
+
+/** Display names for the chain buttons. */
+const TOOL_LABELS: Record<string, string> = {
+  'image-compress': 'Compress',
+  'image-resize': 'Resize',
+  'image-convert': 'Convert',
+};
 
 /**
  * The batch controller shared by every op-backed tool page.
@@ -62,6 +71,7 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
   const progressEl = el(`${prefix}-progress`);
   const statusEl = el(`${prefix}-status`);
   const runEl = el(`${prefix}-run`) as HTMLButtonElement | null;
+  const chainEl = el(`${prefix}-chain`);
 
   function setStatus(msg: string, tone: 'ok' | 'err' | 'info' = 'info') {
     if (!statusEl) return;
@@ -107,6 +117,52 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
     opts.onFilesChanged?.(files);
   }
 
+  /**
+   * Offer the steps this output can feed into.
+   *
+   * The list is computed from the declarations — which ops accept the MIME
+   * type this run just produced — rather than from a hand-kept table, so it
+   * cannot go stale as tools are added. Choosing one loads the results back in
+   * as the new input, which is the part that previously required downloading
+   * and re-uploading between every step.
+   */
+  function offerChain(summary: BatchSummary, params: ParamValues) {
+    if (!chainEl) return;
+    chainEl.innerHTML = '';
+    chainEl.hidden = true;
+
+    const outputs = summary.items.filter((i) => i.ok && i.output);
+    if (outputs.length === 0) return;
+
+    const next = chainableTo(opts.op, params, OPS);
+    if (next.length === 0) return;
+
+    const label = document.createElement('span');
+    label.className = 'text-xs text-slate-500';
+    label.textContent = 'Next:';
+    chainEl.appendChild(label);
+
+    for (const target of next) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600';
+      btn.textContent = TOOL_LABELS[target.id] ?? target.id;
+      btn.addEventListener('click', () => {
+        // Hand the produced files to the next tool as real File objects, so it
+        // starts from the output rather than the original input.
+        const carried = outputs.map(
+          (i) => new File([i.output!.blob], i.output!.name, { type: i.output!.blob.type }),
+        );
+        sessionStorage.setItem('chain-from', opts.op.id);
+        void handoff(target.id, carried);
+      });
+      chainEl.appendChild(btn);
+    }
+
+    chainEl.hidden = false;
+  }
+
   const api: BatchUi = {
     files: () => files,
     busy: () => running,
@@ -143,6 +199,7 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
 
     remove(index) {
       files.splice(index, 1);
+      if (chainEl) chainEl.hidden = true;
       render();
     },
 
@@ -150,6 +207,7 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
       files = [];
       setStatus('');
       if (progressEl) progressEl.textContent = '';
+      if (chainEl) chainEl.hidden = true;
       render();
     },
 
@@ -185,6 +243,8 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
           setStatus(summarise(summary), summary.failed ? 'info' : 'ok');
         }
 
+        offerChain(summary, params);
+
         // Telemetry: one event per distinct failure code, not one per file, so
         // a forty-file batch cannot flood the store.
         const codes = new Set(summary.items.filter((i) => !i.ok && i.code).map((i) => i.code!));
@@ -218,6 +278,21 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
   };
 
   runEl?.addEventListener('click', () => void api.run());
+
+  // Files handed over from a previous step, if this page was reached by one.
+  const incoming = collectHandoff(opts.op.id);
+  if (incoming.length) {
+    api.add(incoming);
+    const from = sessionStorage.getItem('chain-from');
+    sessionStorage.removeItem('chain-from');
+    setStatus(
+      `${incoming.length} file${incoming.length === 1 ? '' : 's'} carried over${
+        from ? ` from ${TOOL_LABELS[from] ?? from}` : ''
+      }.`,
+      'info',
+    );
+  }
+
   render();
   return api;
 }

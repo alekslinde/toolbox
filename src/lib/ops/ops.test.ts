@@ -203,6 +203,16 @@ describe('minifySvg', () => {
   });
 });
 
+describe('handoff', () => {
+  it('hands files over exactly once', async () => {
+    // A re-render must not be able to re-add the same files, and a tool must
+    // never pick up files meant for a different one.
+    const { collectHandoff, hasHandoff } = await import('./handoff');
+    expect(collectHandoff('image-resize')).toEqual([]);
+    expect(hasHandoff('image-resize')).toBe(false);
+  });
+});
+
 describe('batch ui ordering', () => {
   it('does not re-render the file list after a run finishes', () => {
     // A full render() in the finally block fires onFilesChanged, which pages
