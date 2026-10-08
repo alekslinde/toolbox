@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, it, expect } from 'vitest';
 import { pdfCompressOp } from './pdf-compress';
 import { PDF_LEVELS, estimateLevelSize, pngDefilter } from './pdf-core';
@@ -190,5 +192,45 @@ describe('metadata-cleaner op', () => {
   it('returns no chain options when the input type is unknown', async () => {
     const { metadataCleanOp } = await import('./metadata-clean');
     expect(chainableTo(metadataCleanOp, {}, OPS)).toEqual([]);
+  });
+});
+
+describe('font-converter op', () => {
+  it('requires at least one output format', async () => {
+    const { fontConvertOp } = await import('./font-convert');
+    await expect(
+      fontConvertOp.run(
+        { bytes: new Uint8Array([0, 1, 0, 0, 0, 1]), name: 'a.ttf', type: 'font/ttf' },
+        { ttf: false, otf: false, woff: false, woff2: false, eot: false },
+      ),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_TYPE' });
+  });
+
+  it('takes its WOFF2 codec by injection, never by dynamic import', () => {
+    // wawoff2 must be imported statically so the dep-optimizer pre-bundles its
+    // CJS modules — that keeps its runtimeInit promise synchronous relative to
+    // WASM loading. A dynamic import() breaks the ordering, runtimeInit never
+    // resolves, and WOFF2 output fails silently in a production build. It did:
+    // the batch produced .woff files only, with no error shown.
+    const SRC = readFileSync(join(import.meta.dirname, 'font-convert.ts'), 'utf8');
+    expect(SRC).not.toMatch(/import\(\s*['"]wawoff2/);
+    expect(SRC).toContain('setWoff2Codec');
+
+    const PAGE = readFileSync(
+      join(import.meta.dirname, '../../pages/tools/font-converter.astro'),
+      'utf8',
+    );
+    expect(PAGE).toMatch(/^\s*import wawoff2Compress from 'wawoff2\/compress';/m);
+    expect(PAGE).toMatch(/^\s*import wawoff2Decompress from 'wawoff2\/decompress';/m);
+    expect(PAGE).toContain('setWoff2Codec(');
+  });
+
+  it('defaults to the two formats worth shipping on the web', async () => {
+    const { fontConvertOp } = await import('./font-convert');
+    const on = Object.entries(fontConvertOp.params)
+      .filter(([, s]) => s.kind === 'bool' && s.default)
+      .map(([k]) => k)
+      .sort();
+    expect(on).toEqual(['woff', 'woff2']);
   });
 });

@@ -12,6 +12,7 @@ const TOOL_LABELS: Record<string, string> = {
   'image-convert': 'Convert',
   'pdf-compress': 'Compress PDF',
   'metadata-cleaner': 'Strip metadata',
+  'font-converter': 'Convert font',
 };
 
 /**
