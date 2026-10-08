@@ -285,6 +285,19 @@ const CANONICAL_HOST = 'toolkist.app';
 const LEGACY_HOSTS = new Set(['lindetoolbox.com', 'www.lindetoolbox.com']);
 
 export default {
+  // Retention sweep. The prune action existed from the start but nothing
+  // invoked it, so the 90-day window was a promise rather than a mechanism —
+  // rows would have accumulated indefinitely. The cron trigger lives in
+  // wrangler.toml; this handler is what it calls.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+      const res = await stub.fetch(new Request('https://x/?action=prune'));
+      const { cutoff, remaining } = await res.json();
+      console.log(`events pruned before ${cutoff}; ${remaining} rows remain`);
+    })());
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
 
@@ -303,7 +316,7 @@ export default {
     // including static assets. Anything that is not an API route and not a tool
     // page needs no Worker logic, so hand it to the asset layer immediately
     // rather than falling through the handlers below.
-    const API_PATHS = new Set(['/pv', '/feedback', '/u', '/ev', '/health']);
+    const API_PATHS = new Set(['/pv', '/feedback', '/u', '/ev', '/health.json']);
     if (!API_PATHS.has(url.pathname) && !/^\/tools\/[a-z][a-z0-9-]*\/?$/.test(url.pathname)) {
       return env.ASSETS.fetch(request);
     }
@@ -389,6 +402,42 @@ export default {
       // 204 regardless of whether the row was capped: a client learns nothing
       // from the difference, and telemetry must never alter what a tool does.
       return new Response(null, { status: 204 });
+    }
+
+    // ── Public health ─────────────────────────────────────────────────────────
+    // Aggregates only, no auth. Publishing this keeps the project honest: a
+    // tool sitting at a poor success rate is visible every day rather than
+    // discoverable on request, and a contributor can see where the pain is
+    // without being handed a triage queue.
+    //
+    // It exposes counts per tool and per error code — never a row, never an IP
+    // hash, never a timestamp that could single anyone out.
+    // Served at /health.json, not /health: the Worker runs before the asset
+    // layer, so an API route named /health would shadow the page of the same
+    // name and the page would never be reachable in production.
+    if (url.pathname === '/health.json') {
+      if (request.method !== 'GET') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+
+      const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+      const [healthRes, groupRes] = await Promise.all([
+        stub.fetch(new Request('https://x/?action=health')),
+        stub.fetch(new Request('https://x/?action=groups')),
+      ]);
+      const { tools } = await healthRes.json();
+      const { groups } = await groupRes.json();
+
+      // Strip everything per-user from the group rows before they go public.
+      const publicGroups = groups
+        .filter(g => g.kind === 'error')
+        .slice(0, 20)
+        .map(g => ({ tool: g.tool, code: g.code, browser: g.ua_class, count: g.n }));
+
+      return Response.json(
+        { tools, topErrors: publicGroups, retentionDays: EVENT_RETENTION_DAYS },
+        { headers: { 'Cache-Control': 'public, max-age=300' } },
+      );
     }
 
     // ── Page-view counter ─────────────────────────────────────────────────────

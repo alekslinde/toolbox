@@ -71,8 +71,14 @@ export interface Op<P extends ParamValues = ParamValues> {
     mime: readonly string[];
     ext: readonly string[];
   };
-  /** The MIME type this op will produce, given its params. Drives chaining. */
-  produces: (params: P) => string;
+  /**
+   * The MIME type this op will produce, given its params. Drives chaining.
+   *
+   * A format-preserving op (one that edits a file in place rather than
+   * converting it) returns null: its output type is whatever went in, so the
+   * chain graph has to read it from the input instead of from the params.
+   */
+  produces: (params: P) => string | null;
   params: ParamsSchema;
   /**
    * Whether several files can be run in one go. Single-input ops (a diff needs
@@ -126,7 +132,10 @@ export function chainableTo<P extends ParamValues>(
   from: Op<P>,
   params: P,
   all: readonly Op<never>[],
+  /** The input's type, needed when `from` is format-preserving. */
+  inputMime?: string,
 ): Op<never>[] {
-  const mime = from.produces(params);
+  const mime = from.produces(params) ?? inputMime;
+  if (!mime) return [];
   return all.filter((op) => op.id !== from.id && op.accepts.mime.includes(mime));
 }

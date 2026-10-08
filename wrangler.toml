@@ -17,6 +17,12 @@ binding   = "ASSETS"
 # the Worker, so the extra hop stays cheap.
 run_worker_first = ["/*"]
 
+# Daily retention sweep over the events table (see `scheduled` in
+# worker/counter.js). Aggregates are the point; the rows behind them are
+# deleted once they pass the window.
+[triggers]
+crons = ["17 4 * * *"]
+
 [[durable_objects.bindings]]
 name       = "COUNTERS"
 class_name = "Counter"

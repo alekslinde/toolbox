@@ -1,0 +1,168 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import { tools } from '@/data/tools';
+---
+
+<MainLayout
+  title="Tool Health — Toolkist"
+  description="Live error and friction counts for every Toolkist tool. Published so the numbers are visible rather than discoverable on request."
+>
+  <div class="page-shell">
+
+    <div class="mb-8">
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Tool health</h1>
+      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+        Every tool reports when it fails. This page shows those counts as they are —
+        a tool with a bad week is visible here the same day. Nothing on this page
+        identifies anyone: tools report an error <em>code</em> and a coarse browser
+        class, never a filename, never file contents, never an exception message.
+        Rows are deleted after <span id="h-retention">90</span> days.
+      </p>
+      <p class="mt-2 text-xs text-slate-400">
+        Counts are events, not users, and a quiet tool is usually an unused one
+        rather than a flawless one — so read these as "where to look", not as a score.
+      </p>
+    </div>
+
+    <div id="h-loading" class="rounded-md border border-slate-200 bg-surface p-6 text-sm text-slate-500">
+      Loading…
+    </div>
+
+    <div id="h-error" hidden class="rounded-md border border-slate-200 bg-surface p-6 text-sm text-slate-500">
+      Health data is unavailable right now. The tools themselves are unaffected —
+      this page reads a separate endpoint.
+    </div>
+
+    <div id="h-content" hidden class="flex flex-col gap-8">
+
+      <section>
+        <h2 class="mb-3 text-sm font-semibold text-slate-800">Most reported problems</h2>
+        <div id="h-errors" class="overflow-hidden rounded-md border border-slate-200 bg-surface"></div>
+      </section>
+
+      <section>
+        <h2 class="mb-3 text-sm font-semibold text-slate-800">By tool</h2>
+        <div id="h-tools" class="overflow-hidden rounded-md border border-slate-200 bg-surface"></div>
+      </section>
+
+    </div>
+
+  </div>
+</MainLayout>
+
+<script define:vars={{ knownTools: tools.map((t) => ({ slug: t.slug, title: t.title })) }}>
+  // Codes are deliberately terse on the wire. Expanding them here keeps the
+  // page readable without widening what the client transmits.
+  const CODE_LABELS = {
+    UNSUPPORTED_TYPE: 'Unsupported file type',
+    FILE_TOO_LARGE: 'File too large',
+    FILE_EMPTY: 'Empty file',
+    TOO_MANY_FILES: 'Too many files at once',
+    DECODE_FAILED: 'Could not decode',
+    CORRUPT_INPUT: 'Corrupt file',
+    ENCRYPTED_INPUT: 'Password-protected',
+    HEIC_DECODE_FAIL: 'HEIC could not be decoded',
+    PDF_PARSE_FAIL: 'PDF could not be read',
+    FONT_PARSE_FAIL: 'Font could not be parsed',
+    SVG_PARSE_FAIL: 'SVG could not be parsed',
+    IMAGE_DECODE_FAIL: 'Image could not be decoded',
+    ENCODE_FAILED: 'Could not write output format',
+    OUT_OF_MEMORY: 'Ran out of memory',
+    CANVAS_UNAVAILABLE: 'Canvas unavailable',
+    WORKER_FAILED: 'Background worker failed',
+    TIMEOUT: 'Timed out',
+    FETCH_FAILED: 'Could not fetch the page',
+    PROXY_FAILED: 'All proxies failed',
+    INVALID_URL: 'Invalid URL',
+    UNCAUGHT: 'Unexpected error',
+    UNKNOWN: 'Unclassified error',
+  };
+
+  const BROWSER_LABELS = {
+    'ios-safari': 'iOS',
+    'android-chrome': 'Android',
+    'desktop-safari': 'Safari',
+    'desktop-chrome': 'Chrome',
+    'desktop-firefox': 'Firefox',
+    other: 'Other',
+  };
+
+  const titleOf = (slug) =>
+    knownTools.find((t) => t.slug === slug)?.title ?? slug;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function row(cells) {
+    return `<div class="flex items-center gap-2 border-b sm:gap-3 border-slate-100 px-4 py-2.5 text-sm last:border-0">${cells}</div>`;
+  }
+
+  async function load() {
+    const loading = document.getElementById('h-loading');
+    const errorBox = document.getElementById('h-error');
+    const content = document.getElementById('h-content');
+    if (!loading || !errorBox || !content) return;
+
+    let data;
+    try {
+      const res = await fetch('/health.json');
+      if (!res.ok) throw new Error(String(res.status));
+      data = await res.json();
+    } catch {
+      loading.hidden = true;
+      errorBox.hidden = false;
+      return;
+    }
+
+    document.getElementById('h-retention').textContent = String(data.retentionDays ?? 90);
+
+    const errorsEl = document.getElementById('h-errors');
+    if (!data.topErrors?.length) {
+      errorsEl.innerHTML = row(
+        `<span class="text-slate-500">Nothing reported yet.</span>`,
+      );
+    } else {
+      errorsEl.innerHTML = data.topErrors.map((e) => row(`
+        <span class="min-w-0 flex-1 text-slate-700">
+          <span class="block truncate">${esc(CODE_LABELS[e.code] ?? e.code)}</span>
+          <span class="block truncate text-xs text-slate-400 sm:hidden">
+            ${esc(titleOf(e.tool))} · ${esc(BROWSER_LABELS[e.browser] ?? e.browser)}
+          </span>
+        </span>
+        <a href="/tools/${esc(e.tool)}" class="hidden shrink-0 text-xs text-purple-500 hover:underline sm:block">
+          ${esc(titleOf(e.tool))}
+        </a>
+        <span class="hidden shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500 sm:inline">
+          ${esc(BROWSER_LABELS[e.browser] ?? e.browser)}
+        </span>
+        <span class="w-10 shrink-0 text-right tabular-nums font-medium text-slate-800">${e.count}</span>
+      `)).join('');
+    }
+
+    const toolsEl = document.getElementById('h-tools');
+    if (!data.tools?.length) {
+      toolsEl.innerHTML = row(`<span class="text-slate-500">No reports yet.</span>`);
+    } else {
+      toolsEl.innerHTML = `${row(`
+        <span class="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Tool</span>
+        <span class="w-12 shrink-0 text-right text-[11px] sm:w-16 font-semibold uppercase tracking-wider text-slate-400">Errors</span>
+        <span class="w-12 shrink-0 text-right text-[11px] sm:w-16 font-semibold uppercase tracking-wider text-slate-400">Friction</span>
+        <span class="w-12 shrink-0 text-right text-[11px] sm:w-16 font-semibold uppercase tracking-wider text-slate-400">Reports</span>
+      `)}${data.tools.map((t) => row(`
+        <a href="/tools/${esc(t.tool)}" class="min-w-0 flex-1 truncate text-slate-700 no-underline hover:text-purple-600">
+          ${esc(titleOf(t.tool))}
+        </a>
+        <span class="w-12 sm:w-16 shrink-0 text-right tabular-nums ${t.errors ? 'font-medium text-slate-800' : 'text-slate-300'}">${t.errors}</span>
+        <span class="w-12 sm:w-16 shrink-0 text-right tabular-nums ${t.friction ? 'text-slate-600' : 'text-slate-300'}">${t.friction}</span>
+        <span class="w-12 sm:w-16 shrink-0 text-right tabular-nums ${t.reports ? 'text-slate-600' : 'text-slate-300'}">${t.reports}</span>
+      `)).join('')}`;
+    }
+
+    loading.hidden = true;
+    content.hidden = false;
+  }
+
+  document.addEventListener('astro:page-load', load);
+</script>

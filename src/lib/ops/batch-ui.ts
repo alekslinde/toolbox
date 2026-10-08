@@ -10,6 +10,9 @@ const TOOL_LABELS: Record<string, string> = {
   'image-compress': 'Compress',
   'image-resize': 'Resize',
   'image-convert': 'Convert',
+  'pdf-compress': 'Compress PDF',
+  'metadata-cleaner': 'Strip metadata',
+  'font-converter': 'Convert font',
 };
 
 /**
@@ -134,7 +137,7 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
     const outputs = summary.items.filter((i) => i.ok && i.output);
     if (outputs.length === 0) return;
 
-    const next = chainableTo(opts.op, params, OPS);
+    const next = chainableTo(opts.op, params, OPS, outputs[0].output!.blob.type || undefined);
     if (next.length === 0) return;
 
     const label = document.createElement('span');

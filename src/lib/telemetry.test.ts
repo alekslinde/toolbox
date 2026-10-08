@@ -202,6 +202,19 @@ describe('worker privacy guarantees', () => {
     expect(WORKER).toMatch(/DELETE FROM events WHERE day < \?/);
   });
 
+  it('actually invokes the prune on a schedule', () => {
+    // The prune action existed from the start but nothing called it, so the
+    // retention window was a promise rather than a mechanism. A handler that
+    // is never invoked deletes nothing.
+    expect(WORKER).toMatch(/async scheduled\(/);
+    const handler = WORKER.slice(WORKER.indexOf('async scheduled('));
+    expect(handler.slice(0, handler.indexOf('async fetch('))).toContain("action=prune");
+
+    const cfg = readFileSync(join(import.meta.dirname, '../../wrangler.toml'), 'utf8');
+    expect(cfg).toMatch(/\[triggers\]/);
+    expect(cfg).toMatch(/crons\s*=\s*\[/);
+  });
+
   it('keeps the original reports table intact', () => {
     // It holds live data and its endpoint still works; the events table is a
     // sibling, not a replacement.
@@ -216,5 +229,33 @@ describe('worker privacy guarantees', () => {
     // Both the read and the destructive sweep check the secret.
     expect(block.match(/FEEDBACK_SECRET/g)?.length).toBeGreaterThanOrEqual(2);
     expect(block).toContain("request.method === 'DELETE'");
+  });
+});
+
+describe('public health endpoint', () => {
+  it('is served at /health.json so it cannot shadow the page', () => {
+    // The Worker runs before the asset layer, so an API route named /health
+    // would shadow the page of the same name — the page built fine and was
+    // simply unreachable in production.
+    expect(WORKER).toContain("url.pathname === '/health.json'");
+    expect(WORKER).not.toMatch(/url\.pathname === '\/health'/);
+    expect(WORKER).toContain("'/health.json'");
+  });
+
+  it('publishes aggregates without anything per-user', () => {
+    const block = WORKER.slice(WORKER.indexOf("url.pathname === '/health.json'"));
+    const body = block.slice(0, block.indexOf('Page-view counter'));
+    // Group rows carry ip-derived and timing fields that must not go public.
+    expect(body).toContain('publicGroups');
+    expect(body).not.toMatch(/\bip_hash\b/);
+    expect(body).not.toMatch(/first_seen|last_seen/);
+    expect(body).not.toMatch(/\busers\b/);
+  });
+
+  it('is read-only and needs no token', () => {
+    const block = WORKER.slice(WORKER.indexOf("url.pathname === '/health.json'"));
+    const body = block.slice(0, block.indexOf('Page-view counter'));
+    expect(body).toContain("request.method !== 'GET'");
+    expect(body).not.toContain('FEEDBACK_SECRET');
   });
 });

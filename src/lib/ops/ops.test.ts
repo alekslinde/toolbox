@@ -32,10 +32,12 @@ describe('op declarations', () => {
     expect(bad.map((o) => o.id)).toEqual([]);
   });
 
-  it('every op produces a type it or another op could consume', () => {
-    // A dead-end output is allowed, but a malformed one is not.
+  it('every op produces a well-formed type, or null if format-preserving', () => {
+    // A dead-end output is allowed and a format-preserving op returns null,
+    // but a malformed type string is not.
     const bad = OPS.filter((op) => {
       const mime = op.produces(defaultParams(op.params) as never);
+      if (mime === null) return false;
       return !/^[a-z]+\/[a-z0-9.+-]+$/.test(mime);
     });
     expect(bad.map((o) => o.id)).toEqual([]);
@@ -85,12 +87,16 @@ describe('accepts', () => {
 
   it('lists every op that can take a given file', () => {
     const ids = opsAccepting({ name: 'a.png', type: 'image/png' }).map((o) => o.id).sort();
-    expect(ids).toEqual(['image-compress', 'image-convert', 'image-resize']);
+    expect(ids).toEqual(['image-compress', 'image-convert', 'image-resize', 'metadata-cleaner']);
 
     // SVG is vector: compress minifies it and convert rasterises it, but
     // resize does not take one.
     const svg = opsAccepting({ name: 'logo.svg', type: 'image/svg+xml' }).map((o) => o.id).sort();
     expect(svg).toEqual(['image-compress', 'image-convert']);
+
+    // A PDF reaches only the two ops that handle documents.
+    const pdf = opsAccepting({ name: 'a.pdf', type: 'application/pdf' }).map((o) => o.id).sort();
+    expect(pdf).toEqual(['metadata-cleaner', 'pdf-compress']);
   });
 });
 
