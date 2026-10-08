@@ -2,6 +2,14 @@
 import { ClientRouter } from 'astro:transitions';
 import '@/styles/global.css';
 import { navCategories } from '@/data/nav';
+import { tools, toolBySlug } from '@/data/tools';
+import {
+  slugFromPath,
+  toolPageSchemas,
+  websiteSchema,
+  CATEGORY_LABELS,
+  type FaqItem,
+} from '@/lib/schema';
 import changelog from '../../changelog.json';
 
 // The header version is derived from the newest changelog entry so the two
@@ -16,6 +24,12 @@ interface Props {
   ogDescription?: string;
   /** Set true on pages that use Alpine.js for tool logic */
   alpine?: boolean;
+  /**
+   * The page's visible FAQ. Passing it emits FAQPage structured data for the
+   * questions already on the page — the markup describes what a reader sees,
+   * never anything hidden.
+   */
+  faq?: FaqItem[];
 }
 
 const {
@@ -25,9 +39,20 @@ const {
   ogTitle = title,
   ogDescription = description,
   alpine = false,
+  faq,
 } = Astro.props;
 
 const path = Astro.url.pathname;
+
+// Structured data is derived from the tool registry rather than written per
+// page, so a catalogue edit cannot leave a page's schema stale.
+const slug = slugFromPath(path);
+const tool = slug ? toolBySlug(slug) : undefined;
+const schemas = tool
+  ? toolPageSchemas(path, faq, CATEGORY_LABELS[tool.category])
+  : path === '/'
+    ? [websiteSchema(tools.length)]
+    : null;
 ---
 
 <!doctype html>
@@ -43,7 +68,10 @@ const path = Astro.url.pathname;
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href={canonical} />
 
-  <meta name="theme-color" content="#7c3aed" />
+  {/* The browser chrome follows the page, so each theme names its own colour
+      rather than one value that clashes with half the users. */}
+  <meta name="theme-color" content="#fcfcfd" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)" />
 
   <meta property="og:type"        content="website" />
   <meta property="og:url"         content={canonical} />
@@ -74,6 +102,12 @@ const path = Astro.url.pathname;
   </noscript>
 
   <!-- Alpine is imported per-page via npm (see each tool's <script>) -->
+
+  {/* Structured data. is:inline because this is data for crawlers, not a
+      script to bundle — Astro must emit it verbatim in the head. */}
+  {schemas?.map((schema) => (
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+  ))}
 
   <slot name="head" />
   <ClientRouter />
