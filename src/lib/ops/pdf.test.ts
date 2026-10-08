@@ -63,11 +63,11 @@ describe('pdf-compress op', () => {
     }
   });
 
-  it('is a chaining dead end, which is correct', () => {
-    // Nothing else in the catalogue consumes a PDF yet. The graph should say
-    // so rather than offer a step that cannot work.
-    const next = chainableTo(pdfCompressOp, { level: 'ebook' } as never, OPS);
-    expect(next).toEqual([]);
+  it('chains only to ops that take a PDF', () => {
+    // The graph must not offer an image op for a PDF. Metadata cleaning is
+    // the one valid next step, and it exists because it accepts application/pdf.
+    const next = chainableTo(pdfCompressOp, { level: 'ebook' } as never, OPS).map((o) => o.id);
+    expect(next).toEqual(['metadata-cleaner']);
   });
 });
 
@@ -145,5 +145,50 @@ describe('pngDefilter', () => {
       const raw = new Uint8Array([f, 1, 2, 3, 4, 5, 6, f, 1, 2, 3, 4, 5, 6]);
       expect(pngDefilter(raw, W, H, BPP).length).toBe(W * H * BPP);
     }
+  });
+});
+
+describe('metadata-cleaner op', () => {
+  it('refuses HEIC and AVIF rather than returning them labelled clean', async () => {
+    // Their container cannot be safely rewritten in the browser. Handing back
+    // a file called "_clean" that still carries its GPS tags would be worse
+    // than refusing, because the user would stop worrying about it.
+    const { metadataCleanOp } = await import('./metadata-clean');
+    const heic = new Uint8Array(32);
+    // ftyp box declaring 'heic'
+    heic.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63], 0);
+    await expect(
+      metadataCleanOp.run({ bytes: heic, name: 'IMG.heic', type: 'image/heic' }, {}),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_TYPE' });
+  });
+
+  it('rejects a type it cannot read', async () => {
+    const { metadataCleanOp } = await import('./metadata-clean');
+    await expect(
+      metadataCleanOp.run(
+        { bytes: new TextEncoder().encode('plain text'), name: 'notes.txt', type: 'text/plain' },
+        {},
+      ),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_TYPE' });
+  });
+
+  it('is format-preserving, so its output type comes from the input', async () => {
+    // produces() returns null for an op that edits in place; the chain graph
+    // reads the type from the file instead of from the params.
+    const { metadataCleanOp } = await import('./metadata-clean');
+    expect(metadataCleanOp.produces({})).toBeNull();
+
+    const next = chainableTo(metadataCleanOp, {}, OPS, 'image/png').map((o) => o.id);
+    expect(next).toContain('image-compress');
+    expect(next).toContain('image-resize');
+
+    // A cleaned PDF leads nowhere an image op can take it.
+    const fromPdf = chainableTo(metadataCleanOp, {}, OPS, 'application/pdf').map((o) => o.id);
+    expect(fromPdf).toEqual(['pdf-compress']);
+  });
+
+  it('returns no chain options when the input type is unknown', async () => {
+    const { metadataCleanOp } = await import('./metadata-clean');
+    expect(chainableTo(metadataCleanOp, {}, OPS)).toEqual([]);
   });
 });
