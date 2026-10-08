@@ -1,0 +1,114 @@
+name: Health digest
+
+# Turns error groups into issues, once a week.
+#
+# Capture without a loop is a landfill. This is the loop: each recurring error
+# group becomes one issue that a contributor can pick up, with the count as the
+# priority signal. Nobody triages a queue by hand, and nobody has to read a
+# dashboard for the work to get noticed.
+#
+# Reads the public aggregate endpoint, so it needs no secret of its own.
+
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Open or update an issue per error group
+        uses: actions/github-script@v7
+        env:
+          HEALTH_URL: https://toolkist.app/health.json
+          # Groups below this are noise: one person with an unusual file.
+          MIN_COUNT: '5'
+        with:
+          script: |
+            const res = await fetch(process.env.HEALTH_URL);
+            if (!res.ok) {
+              core.setFailed(`health endpoint returned ${res.status}`);
+              return;
+            }
+            const { topErrors = [], retentionDays } = await res.json();
+
+            const min = Number(process.env.MIN_COUNT);
+            const worth = topErrors.filter(e => e.count >= min);
+            if (worth.length === 0) {
+              core.info('No error group above the reporting threshold.');
+              return;
+            }
+
+            // One issue per group, found by a marker in the body rather than by
+            // title — a title carries a count and so changes every week.
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: 'telemetry',
+              per_page: 100,
+            });
+
+            for (const e of worth) {
+              const key = `${e.tool}:${e.code}:${e.browser}`;
+              const marker = `<!-- health-digest:${key} -->`;
+              const title = `[${e.tool}] ${e.code} on ${e.browser} (×${e.count})`;
+              const body = [
+                marker,
+                `**${e.count}** reports in the last ${retentionDays} days.`,
+                '',
+                `| | |`,
+                `|---|---|`,
+                `| Tool | \`${e.tool}\` |`,
+                `| Code | \`${e.code}\` |`,
+                `| Browser | ${e.browser} |`,
+                '',
+                'Reported automatically from the public health endpoint. The count is',
+                'the priority signal; it reflects events, not distinct people.',
+                '',
+                'Telemetry carries a code and a coarse browser class only — no',
+                'filename, no file contents, no exception message — so reproducing',
+                'this means finding a file of the relevant type that triggers the code.',
+              ].join('\n');
+
+              const match = existing.find(i => i.body?.includes(marker));
+
+              if (!match) {
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title, body, labels: ['telemetry', 'bug'],
+                });
+                core.info(`opened #${created.data.number} for ${key}`);
+                continue;
+              }
+
+              if (match.state === 'closed') {
+                // Closed and recurring: say so rather than silently reopening,
+                // because a fix that did not hold is a different problem from a
+                // new one.
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: match.number,
+                  body: `Still being reported — **${e.count}** in the last ${retentionDays} days, after this was closed.`,
+                });
+                core.info(`commented on closed #${match.number} for ${key}`);
+                continue;
+              }
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                title, body,
+              });
+              core.info(`updated #${match.number} for ${key}`);
+            }
