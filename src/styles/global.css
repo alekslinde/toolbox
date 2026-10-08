@@ -216,6 +216,16 @@
 /* Runtime-assembled class in color-namer — force include */
 @source inline("text-white/70");
 
+/* Result/status line shared by the op-backed tools. The tone is data on the
+   element rather than a class swap in script, so the page markup stays the
+   single place the look is defined. */
+.status {
+  min-height: 1.25rem;
+}
+.status[data-tone='ok'] { color: var(--ok); }
+.status[data-tone='err'] { color: var(--err); }
+.status[data-tone='info'] { color: var(--ink-dim); }
+
 /* The page container every tool shares. The horizontal padding is fluid rather
    than a base/breakpoint pair, so there is one value to reason about and no
    narrow-viewport gap to regress. */

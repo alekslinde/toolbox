@@ -1,6 +1,7 @@
 import type { Alpine } from 'alpinejs';
 import { fmtBytes, baseName, extOf } from '@/lib/utils';
 import { wireDropZone } from '@/lib/file-dropzone';
+import { placement, MIME_BY_FORMAT, type FitMode } from '@/lib/ops/image-core';
 
 export function imageResizer() {
   return {
@@ -298,26 +299,23 @@ export function imageResizer() {
         canvas.width = tw; canvas.height = th;
         const ctx = canvas.getContext('2d')!;
 
-        if (this.fit === 'stretch') {
-          ctx.drawImage(src, 0, 0, tw, th);
-        } else if (this.fit === 'contain') {
-          const scale = Math.min(tw / sw, th / sh);
-          const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
-          ctx.drawImage(src, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
-        } else if (this.fit === 'cover') {
-          const scale = Math.max(tw / sw, th / sh);
-          const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
-          ctx.drawImage(src, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
-        } else if (this.fit === 'pad') {
+        // `pad` paints a backdrop; JPEG needs one too, since it has no alpha
+        // and would otherwise render transparent regions black.
+        if (this.fit === 'pad') {
           ctx.fillStyle = this.padColor;
           ctx.fillRect(0, 0, tw, th);
-          const scale = Math.min(tw / sw, th / sh);
-          const dw = Math.round(sw * scale), dh = Math.round(sh * scale);
-          ctx.drawImage(src, Math.round((tw - dw) / 2), Math.round((th - dh) / 2), dw, dh);
+        } else if (this.format === 'jpeg') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, tw, th);
         }
 
+        // Geometry comes from the shared helper rather than being re-derived
+        // here, so resize and the op agree on what every fit mode means.
+        const { dx, dy, dw, dh } = placement(sw, sh, tw, th, this.fit as FitMode);
+        ctx.drawImage(src, dx, dy, dw, dh);
+
         this.progress = 70;
-        const mime = this.format === 'jpeg' ? 'image/jpeg' : this.format === 'webp' ? 'image/webp' : 'image/png';
+        const mime = MIME_BY_FORMAT[this.format] ?? 'image/png';
         const blob = await new Promise<Blob | null>((res) =>
           canvas.toBlob(res, mime, this.format === 'png' ? undefined : 0.92)
         );

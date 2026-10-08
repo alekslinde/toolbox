@@ -12,7 +12,17 @@ export function minifyCSS(src: string): string {
 }
 
 export function minifyHTML(src: string): string {
-  return replaceUntilStable(src, /<!--(?!\[if)[\s\S]*?-->/g, '')
+  // HTML ends a comment on `-->` OR `--!>`. Matching only the first leaves a
+  // comment closed the second way completely intact — opener included — so a
+  // parser that honours `--!>` sees content this was meant to strip.
+  // Conditional comments (`<!--[if …]`) are deliberately preserved.
+  let out = replaceUntilStable(src, /<!--(?!\[if)[\s\S]*?--!?>/g, '');
+
+  // An opener with no terminator at all would otherwise survive and swallow
+  // the rest of the document in a parser looking for one.
+  out = out.replace(/<!--(?!\[if)[\s\S]*$/, '');
+
+  return out
     .replace(/\s+/g, ' ')
     .replace(/>\s+</g, '><')
     .trim();
