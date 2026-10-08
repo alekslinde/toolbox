@@ -26,8 +26,9 @@ const faq = [
   title="XD to Figma — Package SVG Artboards | Toolkist"
   description="Package Adobe XD SVG exports into a numbered ZIP for ordered import into Figma. Drag to reorder screens. No uploads."
   alpine={false}
+  faq={faq}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -41,7 +42,7 @@ const faq = [
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
 
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
           <!-- Drop zone -->
           <FileDropZone
@@ -57,7 +58,7 @@ const faq = [
           <div id="xdControls" hidden class="mb-4 flex items-center justify-between">
             <span id="xdScreenCount" class="text-sm font-medium text-slate-700"></span>
             <button id="xdClearBtn"
-              class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">
+              class="rounded-md border border-slate-200 bg-surface px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">
               Clear all
             </button>
           </div>
@@ -87,7 +88,7 @@ const faq = [
           </div>
 
           <button id="xdPackBtn"
-            class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            class="w-full rounded-md bg-accent hover:bg-accent-hover px-6 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50"
             disabled
           >
             Pack for Figma &amp; Download ZIP
@@ -107,7 +108,7 @@ const faq = [
     </div>
 
     <!-- Two-step migration workflow -->
-    <div class="mt-8 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="mt-8 rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
       <h2 class="text-sm font-medium text-slate-800">The full XD → Figma migration</h2>
       <p class="mt-2 text-sm text-slate-500">
         Migrating cleanly takes two passes, because the two problems live on opposite sides of the import.
@@ -153,7 +154,7 @@ const faq = [
                   href="https://www.figma.com/community/plugin/1648196064868022957/xdtox"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-accent hover:bg-accent-hover px-4 py-2.5 text-sm font-medium text-white transition-colors"
                 >
                   Get the plugin
                   <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -249,7 +250,7 @@ const faq = [
 
     xdFiles.forEach(({ file, objUrl }, i) => {
       const item = document.createElement('div');
-      item.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-grab select-none';
+      item.className = 'flex items-center gap-3 rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm cursor-grab select-none';
       item.draggable = true;
       item.setAttribute('role', 'listitem');
 

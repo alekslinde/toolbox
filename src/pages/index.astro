@@ -28,7 +28,7 @@ const toolCount = tools.length;
 >
 
   <!-- Hero -->
-  <header class="border-b border-slate-200 bg-white px-8 pb-16 pt-14 text-center lg:px-14 lg:pt-20">
+  <header class="border-b border-slate-200 bg-surface px-8 pb-16 pt-14 text-center lg:px-14 lg:pt-20">
     <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">
       Free · Open source · No account needed
     </p>
@@ -63,14 +63,14 @@ const toolCount = tools.length;
       >Search {toolCount} tools…</span>
       <ul
         id="search-results"
-        class="absolute left-0 right-0 top-full z-10 mt-1 hidden rounded-lg border border-slate-200 bg-white text-left shadow-lg"
+        class="absolute left-0 right-0 top-full z-10 mt-1 hidden rounded-lg border border-slate-200 bg-surface text-left shadow-lg"
         role="listbox"
       ></ul>
     </div>
   </header>
 
   <!-- Tool directory -->
-  <main id="tools" class="px-8 py-14 lg:px-8 max-w-[1440px] mx-auto">
+  <main id="tools" class="page-shell">
     {categories.map((cat) => (
       <section id={cat.id} class="mb-14" aria-label={cat.label}>
         <h2 class="mb-6 text-xs font-semibold uppercase tracking-widest text-slate-400">
@@ -92,8 +92,8 @@ const toolCount = tools.length;
   </main>
 
   <!-- Use cases strip -->
-  <section class="border-t border-slate-200 bg-white" aria-label="Example use cases">
-    <div class="max-w-[1440px] mx-auto  px-5 py-14 lg:px-8">
+  <section class="border-t border-slate-200 bg-surface" aria-label="Example use cases">
+    <div class="page-shell">
       <p class="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-purple-500">// Real-world friction</p>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[

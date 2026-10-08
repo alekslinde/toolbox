@@ -52,8 +52,9 @@ const faq = [
   title="Image Compressor — Free In-Browser Tool | Toolkist"
   description="Compress PNG, JPG, WebP and SVG images in-browser with live before/after size comparison. No uploads, no account, no limits."
   alpine={true}
+  faq={faq}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto" x-data="imageCompressor">
+  <div class="page-shell" x-data="imageCompressor">
 
     <!-- Top bar -->
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -67,7 +68,7 @@ const faq = [
 
       <!-- "This helped me" -->
       <button
-        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm transition-colors hover:border-purple-200 hover:text-purple-600"
+        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-surface px-4 py-2 text-sm text-slate-500 shadow-sm transition-colors hover:border-purple-200 hover:text-purple-600"
         @click="helpful++"
         :class="helpful > 0 ? 'border-purple-300 bg-purple-50 text-purple-600' : ''"
       >
@@ -82,7 +83,7 @@ const faq = [
 
       <!-- Left: Tool workstation (8 cols) -->
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
           <!-- Drop zone -->
           <FileDropZone
@@ -201,7 +202,7 @@ const faq = [
 
           <!-- Action button — always visible, disabled until a file loads -->
           <button
-            class="mt-6 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            class="mt-6 w-full rounded-md bg-accent hover:bg-accent-hover px-6 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50"
             :disabled="!fileLoaded || processing"
             @click="compress()"
           >

@@ -38,7 +38,7 @@ const faq = [
   title="SVG Validator & Repair — Free In-Browser Tool | Toolkist"
   description="Validate, auto-repair, optimize and preview SVG files in your browser. Detects XML errors, missing attributes, unsafe scripts and external references. No uploads."
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -52,7 +52,7 @@ const faq = [
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
 
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
         <!-- Drop zone -->
         <div id="dropZone"
@@ -77,7 +77,7 @@ const faq = [
         <div id="mainPanel" class="hidden flex-col gap-4">
 
           <!-- Toolbar -->
-          <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+          <div class="rounded-lg border border-slate-200 bg-surface px-3 py-2.5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-2.5">
                 <span id="svgFilename" class="max-w-[160px] truncate font-mono text-xs text-slate-500"></span>
@@ -97,7 +97,7 @@ const faq = [
                 <button id="copyBtn"    class="tbtn">Copy SVG</button>
                 <button id="copyUriBtn" class="tbtn">Copy URI</button>
                 <button id="downloadBtn"
-                  class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90">
+                  class="rounded-md bg-accent hover:bg-accent-hover px-3 py-1.5 text-xs font-medium text-white transition-colors">
                   Download
                 </button>
                 <span class="mx-0.5 hidden h-4 w-px self-center bg-slate-200 sm:block"></span>
@@ -145,7 +145,7 @@ const faq = [
                       class="bg-toggle h-5 w-5 rounded border border-slate-300 text-[9px] ring-2 ring-purple-400"
                       title="Checker" aria-pressed="true">⊞</button>
                     <button data-bg="white"
-                      class="bg-toggle h-5 w-5 rounded border border-slate-300 bg-white text-[9px]"
+                      class="bg-toggle h-5 w-5 rounded border border-slate-300 bg-surface text-[9px]"
                       title="White" aria-pressed="false"> </button>
                     <button data-bg="dark"
                       class="bg-toggle h-5 w-5 rounded border border-slate-600 bg-slate-800 text-[9px]"

@@ -27,7 +27,7 @@ const faq = [
   description="Reorder and merge PDF pages in your browser. Drag thumbnails to rearrange, remove unwanted pages, and download a new merged PDF. No uploads."
   alpine={false}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -41,7 +41,7 @@ const faq = [
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
 
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
           <!-- Drop zone -->
           <FileDropZone
@@ -57,12 +57,12 @@ const faq = [
           <div id="controls" class="mb-4 hidden flex items-center justify-between">
             <span id="pageCountLabel" class="text-sm font-medium text-slate-700"></span>
             <div class="flex items-center gap-2">
-              <label class="cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300">
+              <label class="cursor-pointer rounded-md border border-slate-200 bg-surface px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300">
                 Add more PDFs
                 <input id="addMoreInput" type="file" class="sr-only" accept=".pdf,application/pdf" multiple />
               </label>
               <button id="clearBtn"
-                class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">
+                class="rounded-md border border-slate-200 bg-surface px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-rose-200 hover:text-rose-500">
                 Clear all
               </button>
             </div>
@@ -83,7 +83,7 @@ const faq = [
           <!-- Merge button — always visible, disabled until pages load -->
           <div id="mergeRow">
             <button id="mergeBtn"
-              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+              class="w-full rounded-md bg-accent hover:bg-accent-hover px-6 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50"
               disabled
             >
               Merge &amp; Download
@@ -248,7 +248,7 @@ const faq = [
 
   function makeCard(entry: PageEntry): HTMLElement {
     const card = document.createElement('div');
-    card.className = 'page-card relative flex flex-col rounded-md border border-slate-200 bg-white p-1.5 cursor-grab select-none hover:border-purple-300 transition-colors';
+    card.className = 'page-card relative flex flex-col rounded-md border border-slate-200 bg-surface p-1.5 cursor-grab select-none hover:border-purple-300 transition-colors';
     card.setAttribute('draggable', 'true');
     card.setAttribute('role', 'listitem');
     card.dataset.id = entry.id;

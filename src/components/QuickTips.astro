@@ -13,7 +13,7 @@ const { tips, cheatSheet } = Astro.props;
 ---
 
 <div class="flex flex-col gap-4">
-  <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
     <h3 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Quick Tips</h3>
     <ul class="flex flex-col gap-3">
       {tips.map((tip) => (
@@ -26,7 +26,7 @@ const { tips, cheatSheet } = Astro.props;
   </div>
 
   {cheatSheet && cheatSheet.length > 0 && (
-    <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
       <h3 class="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Format Guide</h3>
       <dl class="flex flex-col gap-2">
         {cheatSheet.map((row) => (
