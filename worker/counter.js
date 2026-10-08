@@ -51,8 +51,28 @@ async function hashIP(ip) {
   return Array.from(new Uint8Array(buf)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// How long event rows are kept. Aggregates are the point; the rows behind them
+// are not worth holding indefinitely, and a retention window that exists only
+// as a promise is not a retention window.
+const EVENT_RETENTION_DAYS = 90;
+
+// Per-IP daily caps. Events are machine-generated and so need a looser cap than
+// hand-written reports, but an uncapped endpoint is an invitation.
+const EVENT_DAILY_CAP = 200;
+const REPORT_DAILY_CAP = 10;
+
 // ── Feedback Durable Object ───────────────────────────────────────────────────
-// Stores bad-output reports as rows in SQLite. One DO instance ("feedback").
+// Two tables, one DO instance ("feedback"):
+//
+//   reports — the original per-submission bad-output reports. Shaped for one
+//             tool (original/compressed/note) and kept as-is: it holds live
+//             data, and its endpoint still works.
+//   events  — the generic store every tool reports to. One row per error,
+//             friction signal or feedback chip.
+//
+// The events table holds codes and shapes only. No file content, no filename,
+// no user-entered text, no exception message ever reaches it — see
+// src/lib/telemetry-codes.ts for why that rule is absolute.
 export class FeedbackStore {
   constructor(state) {
     this.state = state;
@@ -68,6 +88,28 @@ export class FeedbackStore {
         note      TEXT    NOT NULL DEFAULT ''
       )
     `);
+
+    this.state.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS events (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts       INTEGER NOT NULL,
+        day      TEXT    NOT NULL,
+        ip_hash  TEXT    NOT NULL,
+        kind     TEXT    NOT NULL,
+        tool     TEXT    NOT NULL,
+        code     TEXT    NOT NULL,
+        size     TEXT    NOT NULL DEFAULT '',
+        mime     TEXT    NOT NULL DEFAULT '',
+        ms       INTEGER,
+        ua_class TEXT    NOT NULL,
+        fp       TEXT    NOT NULL
+      )
+    `);
+
+    // Grouping by fingerprint is the read path that matters, and the daily cap
+    // is checked on every write.
+    this.state.storage.sql.exec('CREATE INDEX IF NOT EXISTS idx_events_fp ON events(fp)');
+    this.state.storage.sql.exec('CREATE INDEX IF NOT EXISTS idx_events_day ON events(day, ip_hash)');
   }
 
   async fetch(request) {
@@ -83,11 +125,11 @@ export class FeedbackStore {
         .toArray();
       if (dup.length > 0) return Response.json({ ok: false, reason: 'duplicate' });
 
-      // Per-IP daily cap: max 10 reports/IP/day
+      // Per-IP daily cap
       const count = this.state.storage.sql
         .exec('SELECT COUNT(*) as n FROM reports WHERE ip_hash=? AND day=?', ipHash, day)
         .toArray()[0].n;
-      if (count >= 10) return Response.json({ ok: false, reason: 'rate_limited' });
+      if (count >= REPORT_DAILY_CAP) return Response.json({ ok: false, reason: 'rate_limited' });
 
       this.state.storage.sql.exec(
         'INSERT INTO reports (ts,ip_hash,day,content_hash,original,compressed,note) VALUES (?,?,?,?,?,?,?)',
@@ -101,6 +143,71 @@ export class FeedbackStore {
         .exec('SELECT id,ts,original,compressed,note FROM reports ORDER BY id DESC LIMIT 500')
         .toArray();
       return Response.json({ rows });
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+
+    if (action === 'event') {
+      const { ipHash, day, kind, tool, code, size, mime, ms, uaClass, fp } = await request.json();
+
+      const count = this.state.storage.sql
+        .exec('SELECT COUNT(*) as n FROM events WHERE ip_hash=? AND day=?', ipHash, day)
+        .toArray()[0].n;
+      if (count >= EVENT_DAILY_CAP) return Response.json({ ok: false, reason: 'rate_limited' });
+
+      this.state.storage.sql.exec(
+        'INSERT INTO events (ts,day,ip_hash,kind,tool,code,size,mime,ms,ua_class,fp) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        Date.now(), day, ipHash, kind, tool, code, size, mime, ms, uaClass, fp
+      );
+      return Response.json({ ok: true });
+    }
+
+    // Grouped read. 500 raw rows say nothing; a dozen ranked groups say what to
+    // fix next, which is the only reason to collect any of this.
+    if (action === 'groups') {
+      const rows = this.state.storage.sql
+        .exec(`
+          SELECT kind, tool, code, ua_class, fp,
+                 COUNT(*)        AS n,
+                 COUNT(DISTINCT ip_hash) AS users,
+                 MIN(ts)         AS first_seen,
+                 MAX(ts)         AS last_seen,
+                 CAST(AVG(ms) AS INTEGER) AS avg_ms
+          FROM events
+          GROUP BY fp
+          ORDER BY n DESC
+          LIMIT 200
+        `)
+        .toArray();
+      return Response.json({ groups: rows });
+    }
+
+    // Per-tool health: the numbers behind a public success-rate page.
+    if (action === 'health') {
+      const rows = this.state.storage.sql
+        .exec(`
+          SELECT tool,
+                 SUM(CASE WHEN kind='error'    THEN 1 ELSE 0 END) AS errors,
+                 SUM(CASE WHEN kind='friction' THEN 1 ELSE 0 END) AS friction,
+                 SUM(CASE WHEN kind='report'   THEN 1 ELSE 0 END) AS reports,
+                 COUNT(*) AS total
+          FROM events
+          GROUP BY tool
+          ORDER BY total DESC
+        `)
+        .toArray();
+      return Response.json({ tools: rows });
+    }
+
+    // Retention. Rows older than the window go; the aggregates computed from
+    // them are what persists.
+    if (action === 'prune') {
+      const cutoff = new Date(Date.now() - EVENT_RETENTION_DAYS * 86400_000)
+        .toISOString().slice(0, 10);
+      this.state.storage.sql.exec('DELETE FROM events WHERE day < ?', cutoff);
+      const left = this.state.storage.sql
+        .exec('SELECT COUNT(*) as n FROM events').toArray()[0].n;
+      return Response.json({ ok: true, cutoff, remaining: left });
     }
 
     return new Response('Bad request', { status: 400 });
@@ -132,6 +239,43 @@ const COUNTER_KEYS = [
   'pv-xd-to-figma',
 ];
 
+// ── Telemetry vocabulary ──────────────────────────────────────────────────────
+// The Worker is plain JS and cannot import the TypeScript enum, so these lists
+// are duplicated from src/lib/telemetry-codes.ts. A test asserts the two stay
+// identical, because a silent drift here would reject real events or admit
+// unvalidated ones.
+//
+// Validation is allowlist-only: an event whose kind, code or ua class is not
+// named here is dropped. That is what keeps the table groupable — a free-text
+// code column cannot be ranked.
+const EVENT_CODES = {
+  error: new Set([
+    'UNSUPPORTED_TYPE', 'FILE_TOO_LARGE', 'FILE_EMPTY', 'TOO_MANY_FILES',
+    'DECODE_FAILED', 'CORRUPT_INPUT', 'ENCRYPTED_INPUT', 'HEIC_DECODE_FAIL',
+    'PDF_PARSE_FAIL', 'FONT_PARSE_FAIL', 'SVG_PARSE_FAIL', 'IMAGE_DECODE_FAIL',
+    'ENCODE_FAILED', 'OUT_OF_MEMORY', 'CANVAS_UNAVAILABLE', 'WORKER_FAILED',
+    'TIMEOUT', 'FETCH_FAILED', 'PROXY_FAILED', 'INVALID_URL',
+    'UNCAUGHT', 'UNKNOWN',
+  ]),
+  friction: new Set([
+    'ABANDONED', 'RETRIED', 'NO_SAVING', 'REJECTED_TYPE', 'SLOW_RUN', 'BATCH_PARTIAL',
+  ]),
+  report: new Set([
+    'WRONG_OUTPUT', 'TOO_SLOW', 'CONFUSING', 'FAILED',
+  ]),
+};
+
+const UA_CLASSES = new Set([
+  'ios-safari', 'android-chrome', 'desktop-safari',
+  'desktop-chrome', 'desktop-firefox', 'other',
+]);
+
+const SIZE_BUCKETS = new Set(['unknown', '0', '<100KB', '<1MB', '<10MB', '<50MB', '>=50MB']);
+
+// A MIME type is a category; a filename is an identifier. Only the former is
+// accepted, and only in its canonical shape.
+const MIME_RE = /^[a-z]+\/[a-z0-9.+-]{1,60}$/;
+
 // ── Main worker ───────────────────────────────────────────────────────────────
 
 // Hosts that must hand traffic to the canonical domain. Kept as an explicit
@@ -159,9 +303,92 @@ export default {
     // including static assets. Anything that is not an API route and not a tool
     // page needs no Worker logic, so hand it to the asset layer immediately
     // rather than falling through the handlers below.
-    const API_PATHS = new Set(['/pv', '/feedback', '/u']);
+    const API_PATHS = new Set(['/pv', '/feedback', '/u', '/ev', '/health']);
     if (!API_PATHS.has(url.pathname) && !/^\/tools\/[a-z][a-z0-9-]*\/?$/.test(url.pathname)) {
       return env.ASSETS.fetch(request);
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    // Accepts only a code and a shape. Every field is validated against an
+    // allowlist and anything unrecognised is dropped rather than stored, so the
+    // table cannot accumulate free text even if a client sends some.
+    if (url.pathname === '/ev') {
+      const origin = request.headers.get('Origin');
+      if (origin && origin !== `https://${CANONICAL_HOST}`) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Admin read — same Bearer token as /feedback.
+      if (request.method === 'GET') {
+        const auth = request.headers.get('Authorization') || '';
+        if (!env.FEEDBACK_SECRET || auth !== `Bearer ${env.FEEDBACK_SECRET}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const view = url.searchParams.get('view') === 'health' ? 'health' : 'groups';
+        const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+        return stub.fetch(new Request(`https://x/?action=${view}`));
+      }
+
+      // Retention sweep — also Bearer-guarded, and idempotent.
+      if (request.method === 'DELETE') {
+        const auth = request.headers.get('Authorization') || '';
+        if (!env.FEEDBACK_SECRET || auth !== `Bearer ${env.FEEDBACK_SECRET}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+        return stub.fetch(new Request('https://x/?action=prune'));
+      }
+
+      if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+
+      let body;
+      try { body = await request.json(); } catch (_) {
+        return new Response('Bad request', { status: 400 });
+      }
+
+      const { kind, tool, code, size, mime, ms, ua } = body || {};
+
+      // Kind and code must both be named in the vocabulary above.
+      if (typeof kind !== 'string' || !EVENT_CODES[kind]) {
+        return new Response('Bad request', { status: 400 });
+      }
+      if (typeof code !== 'string' || !EVENT_CODES[kind].has(code)) {
+        return new Response('Bad request', { status: 400 });
+      }
+      // The tool must look like a slug. A slug is a public route name, not an
+      // identifier for anyone.
+      if (typeof tool !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(tool)) {
+        return new Response('Bad request', { status: 400 });
+      }
+      if (typeof ua !== 'string' || !UA_CLASSES.has(ua)) {
+        return new Response('Bad request', { status: 400 });
+      }
+
+      // Optional fields: accepted only in their canonical shape, else dropped.
+      const sizeVal = typeof size === 'string' && SIZE_BUCKETS.has(size) ? size : '';
+      const mimeVal = typeof mime === 'string' && MIME_RE.test(mime) ? mime : '';
+      const msVal = Number.isFinite(ms) && ms >= 0 && ms < 3_600_000 ? Math.round(ms) : null;
+
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const ipHash = await hashIP(ip);
+      const day = new Date().toISOString().slice(0, 10);
+      const fp = `${kind}:${tool}:${code}:${ua}`;
+
+      const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+      await stub.fetch(new Request('https://x/?action=event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ipHash, day, kind, tool, code,
+          size: sizeVal, mime: mimeVal, ms: msVal, uaClass: ua, fp,
+        }),
+      }));
+
+      // 204 regardless of whether the row was capped: a client learns nothing
+      // from the difference, and telemetry must never alter what a tool does.
+      return new Response(null, { status: 204 });
     }
 
     // ── Page-view counter ─────────────────────────────────────────────────────
