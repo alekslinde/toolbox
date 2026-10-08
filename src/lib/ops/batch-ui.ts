@@ -10,6 +10,7 @@ const TOOL_LABELS: Record<string, string> = {
   'image-compress': 'Compress',
   'image-resize': 'Resize',
   'image-convert': 'Convert',
+  'pdf-compress': 'Compress PDF',
 };
 
 /**
