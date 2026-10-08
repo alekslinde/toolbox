@@ -231,3 +231,31 @@ describe('worker privacy guarantees', () => {
     expect(block).toContain("request.method === 'DELETE'");
   });
 });
+
+describe('public health endpoint', () => {
+  it('is served at /health.json so it cannot shadow the page', () => {
+    // The Worker runs before the asset layer, so an API route named /health
+    // would shadow the page of the same name — the page built fine and was
+    // simply unreachable in production.
+    expect(WORKER).toContain("url.pathname === '/health.json'");
+    expect(WORKER).not.toMatch(/url\.pathname === '\/health'/);
+    expect(WORKER).toContain("'/health.json'");
+  });
+
+  it('publishes aggregates without anything per-user', () => {
+    const block = WORKER.slice(WORKER.indexOf("url.pathname === '/health.json'"));
+    const body = block.slice(0, block.indexOf('Page-view counter'));
+    // Group rows carry ip-derived and timing fields that must not go public.
+    expect(body).toContain('publicGroups');
+    expect(body).not.toMatch(/\bip_hash\b/);
+    expect(body).not.toMatch(/first_seen|last_seen/);
+    expect(body).not.toMatch(/\busers\b/);
+  });
+
+  it('is read-only and needs no token', () => {
+    const block = WORKER.slice(WORKER.indexOf("url.pathname === '/health.json'"));
+    const body = block.slice(0, block.indexOf('Page-view counter'));
+    expect(body).toContain("request.method !== 'GET'");
+    expect(body).not.toContain('FEEDBACK_SECRET');
+  });
+});
