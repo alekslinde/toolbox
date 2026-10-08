@@ -33,7 +33,7 @@ const faq = [
   description="Compare two text files or PDFs side by side. LCS line diff with character-level inline highlighting. No uploads."
   alpine={false}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -47,7 +47,7 @@ const faq = [
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
 
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
           <!-- Two drop zones -->
           <div class="mb-6 grid gap-4 sm:grid-cols-2">
@@ -83,7 +83,7 @@ const faq = [
           <p id="diffStatus" class="mb-4 hidden text-center text-sm"></p>
 
           <button id="diffBtn"
-            class="mb-6 w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            class="mb-6 w-full rounded-md bg-accent hover:bg-accent-hover px-6 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50"
             disabled
           >
             Compare Files

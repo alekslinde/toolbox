@@ -31,7 +31,7 @@ const faq = [
   description="Check foreground/background colour contrast ratios against WCAG AA and AAA standards. Auto-suggestions for failing colours."
   alpine={false}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -45,7 +45,7 @@ const faq = [
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
 
       <div class="lg:col-span-8">
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
 
           <!-- Preview — above pickers, matching original layout -->
           <div id="colorPreviewBox"
@@ -86,7 +86,7 @@ const faq = [
 
           <div class="mb-4 flex justify-end">
             <button id="swapBtn"
-              class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600">
+              class="rounded-md border border-slate-200 bg-surface px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600">
               ⇄ Swap colours
             </button>
           </div>
@@ -287,7 +287,7 @@ const faq = [
       if (rat >= threshold) { bestL = hx; bestLR = rat; break; }
     }
     const chip = (hex: string, rat: number, dir: string) =>
-      `<div class="flex items-center gap-2 cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2 hover:border-purple-300 transition-colors" onclick="applyFg('${hex}')">
+      `<div class="flex items-center gap-2 cursor-pointer rounded-md border border-slate-200 bg-surface px-3 py-2 hover:border-purple-300 transition-colors" onclick="applyFg('${hex}')">
         <div class="h-5 w-5 rounded border border-slate-200" style="background:${hex}"></div>
         <div><div class="font-mono text-xs">${hex.toUpperCase()}</div><div class="text-[10px] text-slate-400">${rat.toFixed(1)}:1 (${dir})</div></div>
       </div>`;

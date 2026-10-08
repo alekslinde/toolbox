@@ -1,27 +1,254 @@
 @import "tailwindcss";
 
-@theme {
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   The whole system is a small set of semantic tokens. Two rules keep it small:
+
+   1. Tokens are defined on :root as raw values, then referenced by the Tailwind
+      colour scale below. Redefining a :root token re-themes every utility that
+      resolves to it — which is how dark mode works here without touching markup.
+   2. The palette scale names (slate-*, purple-*) are deliberately retargeted at
+      the theme layer rather than find-and-replaced across the pages. ~1400
+      utility call sites inherit tokens and dark mode for free, and no page
+      carries a hardcoded hex.
+
+   Add a token only when a value is used in more than one place and carries
+   meaning. A one-off value belongs in the markup. */
+
+:root {
+  color-scheme: light;
+
+  /* Surface — four steps, that's all */
+  --bg: #fcfcfd;
+  --surface: #ffffff;
+  --surface-sunken: #f7f7f9;
+  --glass: rgb(255 255 255 / 0.8);
+  --line: #e8e8ed;
+  --line-strong: #d7d7df;
+
+  /* Ink — three steps */
+  --ink: #16161a;
+  --ink-mid: #45454f;
+  --ink-dim: #6e6e78;
+  --ink-faint: #9a9aa4;
+
+  /* One accent, three uses */
+  --accent: #6d5ce7;
+  --accent-hover: #5b49d9;
+  --accent-weak: #f2f0fe;
+  --accent-weak-hover: #e9e5fd;
+  --accent-ink: #4c3fc4; /* text on --accent-weak; passes AA */
+  --accent-line: #c9c1f7;
+
+  /* State — semantic, not decorative */
+  --ok: #0f8b5f;
+  --ok-weak: #e8f6f0;
+  --warn: #a86008;
+  --warn-weak: #fdf3e5;
+  --err: #c0334d;
+  --err-weak: #fdeef1;
+
+  /* Space — 4px base, six steps */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Fluid page gutter: 16px at phone width, 32px from ~1024px up. Replaces the
+     px-8/lg:px-8 breakpoint pair — one value, no narrow-viewport regression. */
+  --gutter: clamp(16px, 1rem + 2vw, 32px);
+
+  /* Minimum touch target. The core interaction is drop-a-file, move-a-slider,
+     tap-download, so every control is at least this tall. */
+  --tap: 44px;
+}
+
+/* Dark mode is five surface tokens and the accent's weak pair. Everything else
+   is a reference, so nothing below this block needs a dark variant.
+   Opt-out: <html data-theme="light"> keeps light mode on a dark-set OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0e0e11;
+    --surface: #17171c;
+    --surface-sunken: #121216;
+    --glass: rgb(23 23 28 / 0.72);
+    --line: #2a2a32;
+    --line-strong: #3a3a45;
+
+    --ink: #f2f2f5;
+    --ink-mid: #c5c5ce;
+    --ink-dim: #9a9aa4;
+    --ink-faint: #70707a;
+
+    --accent: #8b7bf0;
+    --accent-hover: #9d8ff4;
+    --accent-weak: #201d35;
+    --accent-weak-hover: #292446;
+    --accent-ink: #b8acf7;
+    --accent-line: #413a6b;
+
+    --ok: #3bbd8a;
+    --ok-weak: #14261f;
+    --warn: #d99236;
+    --warn-weak: #2a2015;
+    --err: #e6697f;
+    --err-weak: #2b171c;
+  }
+}
+
+/* Explicit dark, for a future theme toggle. Mirrors the query block. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0e0e11;
+  --surface: #17171c;
+  --surface-sunken: #121216;
+  --glass: rgb(23 23 28 / 0.72);
+  --line: #2a2a32;
+  --line-strong: #3a3a45;
+
+  --ink: #f2f2f5;
+  --ink-mid: #c5c5ce;
+  --ink-dim: #9a9aa4;
+  --ink-faint: #70707a;
+
+  --accent: #8b7bf0;
+  --accent-hover: #9d8ff4;
+  --accent-weak: #201d35;
+  --accent-weak-hover: #292446;
+  --accent-ink: #b8acf7;
+  --accent-line: #413a6b;
+
+  --ok: #3bbd8a;
+  --ok-weak: #14261f;
+  --warn: #d99236;
+  --warn-weak: #2a2015;
+  --err: #e6697f;
+  --err-weak: #2b171c;
+}
+
+@theme inline {
   --font-sans: "DM Sans", sans-serif;
   --font-serif: "DM Serif Display", serif;
   --font-mono: "DM Mono", monospace;
   --font-script: Caveat, cursive;
+
+  /* Semantic colour utilities. Prefer these in new markup — bg-surface,
+     text-ink-dim, border-line — over the retargeted scales below. */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-mid: var(--ink-mid);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-weak: var(--accent-weak);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-line: var(--accent-line);
+  --color-ok: var(--ok);
+  --color-ok-weak: var(--ok-weak);
+  --color-warn: var(--warn);
+  --color-warn-weak: var(--warn-weak);
+  --color-err: var(--err);
+  --color-err-weak: var(--err-weak);
+
+  /* The sidebar and header are intentionally dark in BOTH themes, so their
+     text cannot use the themed ink scale — that scale means "dark text on a
+     light surface" in light mode and would invert against this fixed dark bar.
+     These are the on-dark equivalents and never change with the theme. */
   --color-sidebar: #1a1d23;
+  --color-on-dark: #f2f2f5;
+  --color-on-dark-dim: #9a9aa4;
+  --color-on-dark-faint: #70707a;
+
+  /* Frosted panel fill, used with backdrop-blur. A literal white/80 would read
+     as a near-white card once the page behind it is dark, so the translucency
+     is a token that flips with the theme. */
+  --color-glass: var(--glass);
+
+  /* ── Retargeted scales ──────────────────────────────────────────────────────
+     The existing pages use slate-* for surfaces/text and purple-* for accent.
+     Pointing those names at tokens themes the whole site at once. New markup
+     should use the semantic names above; these exist so 24 shipped tool pages
+     did not need a 1400-site find-and-replace to gain dark mode.
+
+     Steps are mapped by role, not by lightness, so a utility keeps its visual
+     intent in both themes: *-400/500/600 are "dimmer text", *-50/100 are
+     "sunken surface", *-200/300 are "border". */
+  --color-slate-50: var(--surface-sunken);
+  --color-slate-100: var(--line);
+  --color-slate-200: var(--line);
+  --color-slate-300: var(--line-strong);
+  --color-slate-400: var(--ink-faint);
+  --color-slate-500: var(--ink-dim);
+  --color-slate-600: var(--ink-mid);
+  --color-slate-700: var(--ink-mid);
+  --color-slate-800: var(--ink);
+  --color-slate-900: var(--ink);
+
+  --color-purple-50: var(--accent-weak);
+  --color-purple-100: var(--accent-weak-hover);
+  --color-purple-200: var(--accent-line);
+  --color-purple-300: var(--accent-line);
+  --color-purple-400: var(--accent);
+  --color-purple-500: var(--accent);
+  --color-purple-600: var(--accent-hover);
+  --color-purple-700: var(--accent-ink);
+
+  /* Indigo was only ever the first stop of the primary gradient. Collapsing it
+     onto the accent is what turns those gradients into a flat fill. */
+  --color-indigo-500: var(--accent);
+  --color-indigo-600: var(--accent-hover);
+
+  /* Motion. Strong custom curves: the built-in ease-out is too weak to feel
+     intentional. Overriding these upgrades every ease-out / ease-in-out use. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 /* Runtime-assembled class in color-namer — force include */
 @source inline("text-white/70");
 
-
-
-/* ── Motion (emil-design-eng) ──────────────────────────────────────────────
-   Strong custom curves: the built-in ease-out is too weak to feel intentional.
-   Overriding Tailwind's tokens upgrades every `ease-out` / `ease-in-out` utility. */
-@theme {
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+/* The page container every tool shares. The horizontal padding is fluid rather
+   than a base/breakpoint pair, so there is one value to reason about and no
+   narrow-viewport gap to regress. */
+@utility page-shell {
+  margin-inline: auto;
+  max-width: 1440px;
+  padding-inline: var(--gutter);
+  padding-block: clamp(24px, 1.25rem + 1.5vw, 40px);
 }
 
-/* Press feedback: pressable elements scale down slightly so the UI feels like
+/* Page background and default text come from tokens, so the dark theme has an
+   explicit backdrop rather than inheriting white from the user agent. */
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+/* ── Fluid type ───────────────────────────────────────────────────────────────
+   Mobile-first: one value that scales, instead of a base size plus breakpoint
+   overrides. Only the sizes used for page copy are overridden; the rest of the
+   Tailwind scale is untouched. */
+@theme {
+  --text-sm: clamp(0.8125rem, 0.8rem + 0.1vw, 0.875rem);
+  --text-base: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  --text-lg: clamp(1.0625rem, 1rem + 0.3vw, 1.125rem);
+  --text-xl: clamp(1.1875rem, 1.1rem + 0.4vw, 1.25rem);
+  --text-2xl: clamp(1.375rem, 1.25rem + 0.6vw, 1.5rem);
+  --text-3xl: clamp(1.625rem, 1.4rem + 1vw, 1.875rem);
+  --text-4xl: clamp(1.875rem, 1.5rem + 1.6vw, 2.25rem);
+}
+
+/* ── Interaction ──────────────────────────────────────────────────────────────
+   Press feedback: pressable elements scale down slightly so the UI feels like
    it heard the click. Unlayered so it wins over `transition-colors` utilities;
    the property list keeps their colour/opacity transitions intact. */
 button {
@@ -35,4 +262,55 @@ button {
   button:not(:disabled):active {
     scale: 0.97;
   }
+}
+
+/* A single visible focus ring for keyboard users across every control. Replaces
+   the per-component focus styling that varied page to page. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Touch targets. Applies to real controls only — `:where()` keeps specificity
+   at zero so any utility still wins, and the `:not()` guards exempt controls
+   that are intentionally small (icon-only chips sized by their own utilities,
+   and anything already given an explicit height). */
+@media (pointer: coarse) {
+  :where(button, [type="button"], [type="submit"], select):not([data-compact]) {
+    min-height: var(--tap);
+  }
+
+  :where(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="color"])):not([data-compact]) {
+    min-height: var(--tap);
+  }
+
+  /* Range inputs get a taller thumb instead of a taller box, so sliders stay
+     visually thin but remain draggable with a thumb. */
+  :where(input[type="range"]) {
+    min-height: var(--space-6);
+  }
+}
+
+/* Inputs inherit themed surfaces. Pages set border/padding via utilities; this
+   only fixes the parts a utility class was never applied to, which is what made
+   native controls stay light in dark mode. */
+input,
+select,
+textarea {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+/* Native form controls and scrollbars follow the theme rather than the OS
+   default, which otherwise renders a light scrollbar on a dark page. */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
 }

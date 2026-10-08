@@ -26,7 +26,7 @@ const faq = [
   description="Extract colours, fonts, logos and meta tags from any website. WCAG contrast check on colour pairs. Ionic palette export."
   alpine={false}
 >
-  <div class="px-8 py-10 lg:px-8 max-w-[1440px] mx-auto">
+  <div class="page-shell">
 
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -56,12 +56,12 @@ const faq = [
       <div class="lg:col-span-8 flex flex-col gap-5">
 
         <!-- URL Input -->
-        <div class="rounded-md border border-slate-200 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input id="brandUrl" type="url" placeholder="https://example.com"
               class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none" />
             <button id="brandFetchBtn" disabled
-              class="w-full rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">
+              class="w-full rounded-md bg-accent hover:bg-accent-hover px-5 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">
               Extract Brand
             </button>
           </div>
@@ -82,40 +82,40 @@ const faq = [
         <div id="brandResults" class="hidden flex-col gap-5">
 
           <!-- Header -->
-          <div id="brandHeader" class="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-sm"></div>
+          <div id="brandHeader" class="flex items-center gap-4 rounded-md border border-slate-200 bg-surface p-4 shadow-sm"></div>
 
           <!-- Colours -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Colour Palette</p>
             <div id="brandColors" class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"></div>
           </div>
 
           <!-- Colour combinations -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Colour Combinations</p>
             <div id="brandCombos" class="grid grid-cols-2 gap-3 sm:grid-cols-3"></div>
           </div>
 
           <!-- Ionic palette -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Ionic Framework Palette</p>
             <div id="brandIonic" class="flex flex-col gap-3"></div>
           </div>
 
           <!-- Fonts -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Typography</p>
             <div id="brandFonts" class="flex flex-col gap-3"></div>
           </div>
 
           <!-- UI Elements Preview -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">UI Elements Preview</p>
             <div id="brandUIComponents" class="flex flex-col gap-4"></div>
           </div>
 
           <!-- Icons -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Icons, Logos &amp; Images</p>
               <div class="flex items-center gap-2">
@@ -124,7 +124,7 @@ const faq = [
                   All
                 </label>
                 <button id="brandIconsDownloadBtn" disabled
-                  class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-40">
+                  class="rounded border border-slate-200 bg-surface px-2.5 py-1 text-xs text-slate-500 transition-colors hover:border-purple-300 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-40">
                   Download selected
                 </button>
               </div>
@@ -133,7 +133,7 @@ const faq = [
           </div>
 
           <!-- Discovered pages / advanced crawl -->
-          <div id="brandCrawlSection" class="hidden rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div id="brandCrawlSection" class="hidden rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Crawl More Pages</p>
               <span id="brandCrawlCount" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500"></span>
@@ -142,7 +142,7 @@ const faq = [
             <div id="brandCrawlList" class="mb-3 flex max-h-52 flex-col gap-1 overflow-y-auto"></div>
             <div class="flex items-center gap-2">
               <button id="brandCrawlFetchBtn" disabled
-                class="rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40">
+                class="rounded-md bg-accent hover:bg-accent-hover px-4 py-2 text-xs font-semibold text-white transition-colors disabled:opacity-40">
                 Fetch selected pages
               </button>
               <span id="brandCrawlStatus" class="text-xs text-slate-400"></span>
@@ -150,7 +150,7 @@ const faq = [
           </div>
 
           <!-- Meta -->
-          <div class="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="rounded-md border border-slate-200 bg-surface p-5 shadow-sm">
             <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Page Meta</p>
             <table class="brand-meta-table w-full text-sm">
               <tbody id="brandMetaTable"></tbody>
@@ -159,9 +159,9 @@ const faq = [
 
           <!-- Export -->
           <div class="flex flex-wrap gap-2">
-            <button id="brandExportCSSBtn" class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export CSS Variables</button>
-            <button id="brandExportJSONBtn" class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export JSON</button>
-            <button id="brandExportMDBtn"  class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export Markdown</button>
+            <button id="brandExportCSSBtn" class="rounded-md border border-slate-200 bg-surface px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export CSS Variables</button>
+            <button id="brandExportJSONBtn" class="rounded-md border border-slate-200 bg-surface px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export JSON</button>
+            <button id="brandExportMDBtn"  class="rounded-md border border-slate-200 bg-surface px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600">Export Markdown</button>
           </div>
 
         </div>
@@ -549,7 +549,7 @@ const faq = [
       '<div class="brand-logo-box"><img src="'+escapeHtml(safeUrl(data.logoUrl))+'" alt="'+escapeHtml((data.name||'')+' logo')+'" onerror="handleLogoError(this,\''+encodeURIComponent(data.domain)+'\')"></div>'+
       '<div class="brand-meta"><h2>'+escapeHtml(data.name||data.domain)+'</h2>'+
       (data.tagline?'<p>'+escapeHtml(data.tagline)+'</p>':'')+
-      '<p style="color:#94a3b8;font-size:0.7rem;">'+escapeHtml(sourceUrl)+'</p></div>';
+      '<p class="text-ink-faint" style="font-size:0.7rem;">'+escapeHtml(sourceUrl)+'</p></div>';
 
     // Colours
     const colorsEl = document.getElementById('brandColors')!;
