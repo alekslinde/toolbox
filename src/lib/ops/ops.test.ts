@@ -203,6 +203,20 @@ describe('minifySvg', () => {
   });
 });
 
+describe('batch ui ordering', () => {
+  it('does not re-render the file list after a run finishes', () => {
+    // A full render() in the finally block fires onFilesChanged, which pages
+    // use to RESET their result fields — so it silently wiped whatever onDone
+    // had just written. The run leaves the file list unchanged, so only the
+    // button state should be touched.
+    const SRC = readFileSync(join(import.meta.dirname, 'batch-ui.ts'), 'utf8');
+    const finallyBlock = SRC.slice(SRC.indexOf('} finally {'));
+    const body = finallyBlock.slice(0, finallyBlock.indexOf('},'));
+    expect(body).not.toMatch(/^\s*render\(\);/m);
+    expect(body).toContain('runEl.disabled');
+  });
+});
+
 describe('format support', () => {
   it('lists AVIF as an option but does not default to it', async () => {
     // Safari cannot encode AVIF at all, and a canvas that cannot write a

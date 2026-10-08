@@ -4,6 +4,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import QuickTips from '@/components/QuickTips.astro';
 import FAQAccordion from '@/components/FAQAccordion.astro';
 import FileDropZone from '@/components/FileDropZone.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
 
 const tips = [
   { heading: 'JPEG for photos',   body: 'Lossy compression — 75–85% quality is usually indistinguishable from lossless.' },
@@ -51,10 +52,10 @@ const faq = [
 <MainLayout
   title="Image Compressor — Free In-Browser Tool | Toolkist"
   description="Compress PNG, JPG, WebP and SVG images in-browser with live before/after size comparison. No uploads, no account, no limits."
-  alpine={true}
+  alpine={false}
   faq={faq}
 >
-  <div class="page-shell" x-data="imageCompressor">
+  <div class="page-shell">
 
     <!-- Top bar -->
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -62,20 +63,10 @@ const faq = [
         <Breadcrumbs tool="Image Compressor" category="Images & Documents" />
         <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Image Compressor</h1>
         <p class="mt-1 text-sm text-slate-500">
-          Compress PNG, JPG, WebP and SVG files in-browser. Live before/after size comparison.
+          Compress PNG, JPG, WebP and SVG files in-browser. One file or many.
         </p>
       </div>
-
-      <!-- "This helped me" -->
-      <button
-        class="flex shrink-0 items-center gap-2 self-start rounded-full border border-slate-200 bg-surface px-4 py-2 text-sm text-slate-500 shadow-sm transition-colors hover:border-purple-200 hover:text-purple-600"
-        @click="helpful++"
-        :class="helpful > 0 ? 'border-purple-300 bg-purple-50 text-purple-600' : ''"
-      >
-        <span>👍</span>
-        <span>This helped me</span>
-        <span x-show="helpful > 0" class="font-semibold text-purple-600" x-text="helpful"></span>
-      </button>
+      <HelpfulButton toolKey="image-compress" />
     </div>
 
     <!-- Two-column layout -->
@@ -88,163 +79,110 @@ const faq = [
           <!-- Drop zone -->
           <FileDropZone
             id="ic-drop"
+            variant="multi"
             accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            prompt="Drop an image here"
-            hint="PNG · JPG · WebP · SVG accepted"
-            label="Drop image or click to browse"
+            prompt="Drop images here"
+            hint="PNG · JPG · WebP · SVG · one or many"
+            label="Drop images or click to browse"
           />
+
+          <!-- Selected files -->
+          <div id="ic-count" class="mb-2 mt-4 text-xs text-slate-500"></div>
+          <div id="ic-list" class="mb-5 flex max-h-56 flex-col gap-1.5 overflow-y-auto"></div>
 
           <!-- PNG optimisation warning — only when output is lossless PNG -->
           <div
-            x-show="pngWarning && format === 'png' && !pngReduce"
+            id="ic-png-warning"
+            hidden
             class="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700"
           >
             <span aria-hidden="true">⚠️</span>
-            <span x-text="pngWarning"></span>
+            <span id="ic-png-warning-text"></span>
           </div>
 
-          <!-- Controls (shown after file load) -->
-          <div x-show="fileLoaded" class="flex flex-col gap-5">
+          <!-- Controls -->
+          <div id="ic-controls" hidden class="flex flex-col gap-5">
 
-            <!-- Format + quality row -->
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <label class="mb-1.5 block text-xs font-medium text-slate-600" for="out-fmt">Output format</label>
+                <label class="mb-1.5 block text-xs font-medium text-slate-600" for="ic-format">Output format</label>
                 <select
-                  id="out-fmt"
+                  id="ic-format"
                   class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
-                  x-model="format"
-                  @change="onFormatChange()"
                 >
-                  <option value="jpeg">JPEG</option>
+                  <option value="jpeg" selected>JPEG</option>
                   <option value="png">PNG (lossless)</option>
                   <option value="webp">WebP</option>
-                  <option value="svg">SVG (minify)</option>
                 </select>
               </div>
 
-              <div x-show="format !== 'png' && format !== 'svg'">
-                <label class="mb-1.5 block text-xs font-medium text-slate-600" :for="'quality'">
-                  Quality — <span class="text-purple-600 font-semibold" x-text="quality + '%'"></span>
+              <div id="ic-quality-group">
+                <label class="mb-1.5 block text-xs font-medium text-slate-600" for="ic-quality">
+                  Quality — <span id="ic-quality-value" class="font-semibold text-purple-600">82%</span>
                 </label>
-                <input
-                  id="quality"
-                  type="range"
-                  min="10" max="100" step="1"
-                  class="w-full accent-purple-500"
-                  x-model="quality"
-                />
+                <input id="ic-quality" type="range" min="10" max="100" step="1" value="82" class="w-full accent-purple-500" />
               </div>
 
               <!-- PNG: reduce colors (lossy palette) -->
-              <div x-show="format === 'png'">
+              <div id="ic-png-group" hidden>
                 <label class="mb-1.5 flex items-center gap-2 text-xs font-medium text-slate-600">
-                  <input type="checkbox" class="accent-purple-500" x-model="pngReduce" />
+                  <input id="ic-png-reduce" type="checkbox" class="accent-purple-500" />
                   Reduce colors (smaller file)
                 </label>
-                <div x-show="pngReduce" class="mt-1">
-                  <label class="mb-1.5 block text-xs font-medium text-slate-600" for="png-colors">
-                    Colors — <span class="text-purple-600 font-semibold" x-text="pngColors"></span>
+                <div id="ic-png-colors-group" hidden class="mt-1">
+                  <label class="mb-1.5 block text-xs font-medium text-slate-600" for="ic-png-colors">
+                    Colors — <span id="ic-png-colors-value" class="font-semibold text-purple-600">256</span>
                   </label>
-                  <input
-                    id="png-colors"
-                    type="range"
-                    min="2" max="256" step="1"
-                    class="w-full accent-purple-500"
-                    x-model="pngColors"
-                  />
+                  <input id="ic-png-colors" type="range" min="2" max="256" step="1" value="256" class="w-full accent-purple-500" />
                 </div>
               </div>
             </div>
 
             <!-- Max dimension -->
-            <div x-show="format !== 'svg'">
-              <label class="mb-1.5 block text-xs font-medium text-slate-600" for="max-dim">Max dimension (px) — optional</label>
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-slate-600" for="ic-max-dim">Max dimension (px) — optional</label>
               <input
-                id="max-dim"
+                id="ic-max-dim"
                 type="number"
                 min="16" max="8000"
                 placeholder="e.g. 1920 — leave blank to keep original"
                 class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
-                x-model="maxDim"
               />
             </div>
 
             <!-- Stats grid -->
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4" x-show="origSize">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div class="rounded-md bg-slate-50 p-3">
                 <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Original</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800" x-text="origSize"></p>
+                <p id="ic-orig-size" class="mt-1 text-sm font-semibold text-slate-800">—</p>
               </div>
               <div class="rounded-md bg-slate-50 p-3">
                 <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Output</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800" x-text="outSize || '—'"></p>
+                <p id="ic-out-size" class="mt-1 text-sm font-semibold text-slate-800">—</p>
               </div>
               <div class="rounded-md bg-slate-50 p-3">
-                <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Orig dims</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800" x-text="origDims || '—'"></p>
+                <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Files</p>
+                <p id="ic-file-count" class="mt-1 text-sm font-semibold text-slate-800">—</p>
               </div>
               <div class="rounded-md bg-slate-50 p-3">
-                <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Out dims</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800" x-text="outDims || '—'"></p>
+                <p class="text-[10px] font-medium uppercase tracking-wider text-slate-400">Saving</p>
+                <p id="ic-saving" class="mt-1 text-sm font-semibold text-slate-800">—</p>
               </div>
-            </div>
-
-            <!-- Progress bar -->
-            <div x-show="progress > 0" class="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                class="h-full rounded-full bg-purple-500 transition-[width] duration-200 ease-out"
-                :style="`width: ${progress}%`"
-              ></div>
             </div>
 
           </div>
 
           <!-- Action button — always visible, disabled until a file loads -->
           <button
+            id="ic-run"
             class="mt-6 w-full rounded-md bg-accent hover:bg-accent-hover px-6 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-            :disabled="!fileLoaded || processing"
-            @click="compress()"
+            disabled
           >
-            <span x-show="!processing">Preview & Download</span>
-            <span x-show="processing">Processing…</span>
+            Compress &amp; Download
           </button>
 
-          <!-- Results (shown after file load) -->
-          <div x-show="fileLoaded" class="mt-5 flex flex-col gap-5">
-
-            <!-- Status -->
-            <p
-              x-show="status"
-              x-text="status"
-              class="text-center text-sm"
-              :class="{
-                'text-emerald-600': statusType === 'ok',
-                'text-rose-500':    statusType === 'err',
-                'text-slate-500':   statusType === 'info',
-              }"
-            ></p>
-
-            <!-- Preview -->
-            <div x-show="previewSrc" class="mt-2">
-              <p class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Output preview</p>
-              <div class="overflow-hidden rounded-md border border-slate-200 bg-slate-50">
-                <img
-                  :src="previewSrc"
-                  alt="Compressed output preview"
-                  class="mx-auto max-h-96 w-auto object-contain"
-                />
-              </div>
-            </div>
-
-            <!-- Saving badge -->
-            <p
-              x-show="savingBadge"
-              x-text="savingBadge"
-              class="text-center text-sm font-semibold"
-              :class="savingPositive ? 'text-emerald-600' : 'text-rose-500'"
-            ></p>
-          </div>
+          <p id="ic-progress" class="mt-3 text-center text-xs tabular-nums text-slate-500"></p>
+          <p id="ic-status" class="status mt-2 text-center text-sm"></p>
 
         </div>
       </div>
@@ -255,7 +193,6 @@ const faq = [
           <QuickTips tips={tips} cheatSheet={cheatSheet} />
         </div>
       </aside>
-
     </div>
 
     <!-- SEO Sandwich -->
@@ -302,8 +239,114 @@ const faq = [
 </MainLayout>
 
 <script>
-  // Component logic + Alpine bootstrap live in a single shared module so that
-  // Alpine knows about `imageCompressor` before any x-data node is initialised,
-  // even when this page is reached via an in-app View Transition.
-  import '@/scripts/alpine';
+  import { wireMultiDropZone } from '@/lib/file-dropzone';
+  import { imageCompressOp } from '@/lib/ops/image-compress';
+  import { wireBatchUi } from '@/lib/ops/batch-ui';
+  import { defaultParams } from '@/lib/ops/types';
+  import { fmtBytes } from '@/lib/utils';
+  import { installGlobalHandlers } from '@/lib/telemetry';
+
+  // Compression lives in src/lib/ops/image-compress.ts as a pure function over
+  // bytes; this file is only the view. The keep-smaller guard, the SVG path and
+  // the palette quantisation are all tested there rather than here.
+  function setup() {
+    const root = document.getElementById('ic-drop');
+    if (!root || root.dataset.wired) return;
+    root.dataset.wired = 'true';
+
+    installGlobalHandlers('image-compress');
+
+    const fmtEl = document.getElementById('ic-format') as HTMLSelectElement;
+    const qEl = document.getElementById('ic-quality') as HTMLInputElement;
+    const qValEl = document.getElementById('ic-quality-value')!;
+    const qGroup = document.getElementById('ic-quality-group')!;
+    const pngGroup = document.getElementById('ic-png-group')!;
+    const pngReduce = document.getElementById('ic-png-reduce') as HTMLInputElement;
+    const pngColorsGroup = document.getElementById('ic-png-colors-group')!;
+    const pngColors = document.getElementById('ic-png-colors') as HTMLInputElement;
+    const pngColorsVal = document.getElementById('ic-png-colors-value')!;
+    const maxDimEl = document.getElementById('ic-max-dim') as HTMLInputElement;
+    const controls = document.getElementById('ic-controls')!;
+    const warnBox = document.getElementById('ic-png-warning')!;
+    const warnText = document.getElementById('ic-png-warning-text')!;
+    const origSize = document.getElementById('ic-orig-size')!;
+    const outSize = document.getElementById('ic-out-size')!;
+    const fileCount = document.getElementById('ic-file-count')!;
+    const savingEl = document.getElementById('ic-saving')!;
+
+    function syncFormatControls() {
+      const png = fmtEl.value === 'png';
+      qGroup.hidden = png;            // PNG is lossless: a quality slider would do nothing
+      pngGroup.hidden = !png;
+      pngColorsGroup.hidden = !pngReduce.checked;
+    }
+
+    qEl.addEventListener('input', () => { qValEl.textContent = `${qEl.value}%`; });
+    pngColors.addEventListener('input', () => { pngColorsVal.textContent = pngColors.value; });
+    fmtEl.addEventListener('change', () => { syncFormatControls(); void checkPngWarning(); });
+    pngReduce.addEventListener('change', () => { syncFormatControls(); void checkPngWarning(); });
+    syncFormatControls();
+
+    let files: File[] = [];
+
+    // Warn before the work, not after: a lossless re-encode of an already
+    // indexed PNG reliably produces a larger file, and finding that out from
+    // the result is a wasted run.
+    async function checkPngWarning() {
+      warnBox.hidden = true;
+      if (fmtEl.value !== 'png' || pngReduce.checked) return;
+      const png = files.find((f) => f.name.toLowerCase().endsWith('.png'));
+      if (!png) return;
+      try {
+        const { parsePngInfo, wouldLosslessReencodeGrow } = await import('@/lib/png-info');
+        const info = parsePngInfo(new Uint8Array(await png.arrayBuffer()));
+        if (!info || !wouldLosslessReencodeGrow(info)) return;
+        const kind = info.isPalette
+          ? `already a ${info.paletteColors ?? '≤256'}-colour palette PNG`
+          : info.bitDepth < 8 ? `already a ${info.bitDepth}-bit PNG`
+          : 'a grayscale PNG';
+        warnText.textContent = `${files.length > 1 ? 'At least one file is' : 'This is'} ${kind}. A lossless PNG re-encode will likely be larger — enable “Reduce colors”, convert to WebP, or keep the original.`;
+        warnBox.hidden = false;
+      } catch { /* inspection is best-effort — never block the tool */ }
+    }
+
+    const ui = wireBatchUi('ic', {
+      op: imageCompressOp as never,
+
+      getParams: () => ({
+        ...defaultParams(imageCompressOp.params),
+        format: fmtEl.value,
+        quality: parseInt(qEl.value, 10),
+        maxDim: maxDimEl.value ? parseInt(maxDimEl.value, 10) : null,
+        pngReduce: pngReduce.checked,
+        pngColors: parseInt(pngColors.value, 10),
+      }),
+
+      onFilesChanged: (next) => {
+        files = next;
+        const has = next.length > 0;
+        controls.hidden = !has;
+        if (!has) { warnBox.hidden = true; return; }
+        origSize.textContent = fmtBytes(next.reduce((n, f) => n + f.size, 0));
+        fileCount.textContent = String(next.length);
+        outSize.textContent = '—';
+        savingEl.textContent = '—';
+        void checkPngWarning();
+      },
+
+      onDone: (summary) => {
+        outSize.textContent = fmtBytes(summary.bytesOut);
+        const saved = summary.bytesIn - summary.bytesOut;
+        const pct = summary.bytesIn ? (saved / summary.bytesIn) * 100 : 0;
+        // Report an increase honestly rather than showing a negative "saving".
+        savingEl.textContent = saved > 0
+          ? `↓ ${pct.toFixed(1)}%`
+          : saved === 0 ? '—' : `↑ ${Math.abs(pct).toFixed(1)}%`;
+      },
+    });
+
+    wireMultiDropZone('ic-drop', { onFiles: (f) => ui.add(f) });
+  }
+
+  document.addEventListener('astro:page-load', setup);
 </script>

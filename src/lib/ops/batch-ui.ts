@@ -209,7 +209,10 @@ export function wireBatchUi(prefix: string, opts: BatchUiOptions): BatchUi {
       } finally {
         running = false;
         if (progressEl) progressEl.textContent = '';
-        render();
+        // Only re-enable the button. A full render() here would fire
+        // onFilesChanged and overwrite the result the page just wrote in
+        // onDone, since the file list is unchanged by a run.
+        if (runEl) runEl.disabled = files.length === 0;
       }
     },
   };
