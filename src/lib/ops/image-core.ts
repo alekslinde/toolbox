@@ -256,12 +256,20 @@ export function minifySvg(svg: string): string {
   // survives one pass intact — so the element this is meant to strip is still
   // in the output. Looping is the only way the removal is actually complete.
   let out = svg;
-  out = replaceUntilStable(out, /<!--[\s\S]*?-->/g, '');
 
-  // An over-closed comment (`<!--<!--x-->-->`) leaves a bare `-->` behind once
-  // the opener is gone. It is inert text rather than a tag, but emitting it
-  // would be malformed output, so the orphan goes too.
-  out = out.replace(/-->/g, '');
+  // HTML ends a comment on `-->` OR `--!>`. Matching only the first leaves a
+  // comment closed the second way completely intact — opener included — so a
+  // parser that honours `--!>` sees content this was meant to remove.
+  out = replaceUntilStable(out, /<!--[\s\S]*?--!?>/g, '');
+
+  // An over-closed comment (`<!--<!--x-->-->`) leaves a bare terminator behind
+  // once the opener is gone. It is inert text rather than a tag, but emitting
+  // it would be malformed output, so the orphan goes too.
+  out = replaceUntilStable(out, /--!?>/g, '');
+
+  // An opener with no terminator at all would otherwise survive and swallow
+  // the rest of the document in a parser that is looking for one.
+  out = out.replace(/<!--[\s\S]*$/, '');
 
   out = replaceUntilStable(out, /<\?xml[^>]*\?>/g, '');
 

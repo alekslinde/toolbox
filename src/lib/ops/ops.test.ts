@@ -184,6 +184,19 @@ describe('minifySvg', () => {
     expect(out).toContain('<rect/>');
   });
 
+  it('honours both HTML comment terminators', () => {
+    // HTML ends a comment on `-->` or `--!>`. Matching only the first left a
+    // comment closed the second way completely intact, opener and all.
+    expect(minifySvg('<svg><!-- x --!><rect /></svg>')).toBe('<svg><rect/></svg>');
+    expect(minifySvg('<svg><!-- x --><rect /></svg>')).toBe('<svg><rect/></svg>');
+  });
+
+  it('drops an unterminated comment rather than letting it through', () => {
+    // An opener with no terminator would swallow the rest of the document in a
+    // parser looking for one.
+    expect(minifySvg('<svg><rect /><!-- never closed')).toBe('<svg><rect/>');
+  });
+
   it('removes nested comments completely', () => {
     // A single pass leaves a usable comment behind when one is nested inside
     // another — the shape a sanitiser has to defend against.
