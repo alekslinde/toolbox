@@ -202,6 +202,19 @@ describe('worker privacy guarantees', () => {
     expect(WORKER).toMatch(/DELETE FROM events WHERE day < \?/);
   });
 
+  it('actually invokes the prune on a schedule', () => {
+    // The prune action existed from the start but nothing called it, so the
+    // retention window was a promise rather than a mechanism. A handler that
+    // is never invoked deletes nothing.
+    expect(WORKER).toMatch(/async scheduled\(/);
+    const handler = WORKER.slice(WORKER.indexOf('async scheduled('));
+    expect(handler.slice(0, handler.indexOf('async fetch('))).toContain("action=prune");
+
+    const cfg = readFileSync(join(import.meta.dirname, '../../wrangler.toml'), 'utf8');
+    expect(cfg).toMatch(/\[triggers\]/);
+    expect(cfg).toMatch(/crons\s*=\s*\[/);
+  });
+
   it('keeps the original reports table intact', () => {
     // It holds live data and its endpoint still works; the events table is a
     // sibling, not a replacement.

@@ -285,6 +285,19 @@ const CANONICAL_HOST = 'toolkist.app';
 const LEGACY_HOSTS = new Set(['lindetoolbox.com', 'www.lindetoolbox.com']);
 
 export default {
+  // Retention sweep. The prune action existed from the start but nothing
+  // invoked it, so the 90-day window was a promise rather than a mechanism —
+  // rows would have accumulated indefinitely. The cron trigger lives in
+  // wrangler.toml; this handler is what it calls.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      const stub = env.FEEDBACK.get(env.FEEDBACK.idFromName('feedback'));
+      const res = await stub.fetch(new Request('https://x/?action=prune'));
+      const { cutoff, remaining } = await res.json();
+      console.log(`events pruned before ${cutoff}; ${remaining} rows remain`);
+    })());
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
 
