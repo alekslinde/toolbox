@@ -1,4 +1,5 @@
 import { OpError } from './types';
+import { replaceUntilStable } from '@/lib/utils';
 
 /**
  * Image primitives shared by the image ops.
@@ -250,23 +251,30 @@ export function placement(
  * to defend against.
  */
 export function minifySvg(svg: string): string {
+  // Every element removal runs until the string stops changing. A single pass
+  // leaves the outer half of a nested pair behind — `<title><title>x</title>`
+  // survives one pass intact — so the element this is meant to strip is still
+  // in the output. Looping is the only way the removal is actually complete.
   let out = svg;
-  let prev: string;
-  do {
-    prev = out;
-    out = out.replace(/<!--[\s\S]*?-->/g, '');
-  } while (out !== prev);
+  out = replaceUntilStable(out, /<!--[\s\S]*?-->/g, '');
 
   // An over-closed comment (`<!--<!--x-->-->`) leaves a bare `-->` behind once
   // the opener is gone. It is inert text rather than a tag, but emitting it
   // would be malformed output, so the orphan goes too.
   out = out.replace(/-->/g, '');
 
+  out = replaceUntilStable(out, /<\?xml[^>]*\?>/g, '');
+
+  for (const tag of ['metadata', 'title', 'desc']) {
+    // The lazy match pairs an opener with the *first* closer, so on a nested
+    // pair it consumes the inner element and leaves the outer closer orphaned.
+    // Looping removes every pair; the sweep afterwards takes the orphans, which
+    // would otherwise be emitted as stray `</metadata>` text.
+    out = replaceUntilStable(out, new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, 'g'), '');
+    out = replaceUntilStable(out, new RegExp(`</?${tag}[^>]*>`, 'g'), '');
+  }
+
   return out
-    .replace(/<\?xml[^>]*\?>/g, '')
-    .replace(/<metadata[\s\S]*?<\/metadata>/g, '')
-    .replace(/<title>[^<]*<\/title>/g, '')
-    .replace(/<desc>[^<]*<\/desc>/g, '')
     .replace(/\s*\n\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .replace(/>\s+</g, '><')

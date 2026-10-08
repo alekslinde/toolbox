@@ -198,6 +198,25 @@ describe('minifySvg', () => {
     expect(out).not.toContain('-->');
   });
 
+  it('removes nested metadata, title and desc completely', () => {
+    // A single pass leaves the outer half of a nested pair behind, so the
+    // element this is meant to strip survives. Each removal loops until the
+    // string stops changing.
+    expect(minifySvg('<svg><metadata><metadata>x</metadata></metadata><rect /></svg>'))
+      .toBe('<svg><rect/></svg>');
+    expect(minifySvg('<svg><title><title>x</title></title><rect /></svg>'))
+      .toBe('<svg><rect/></svg>');
+    expect(minifySvg('<svg><desc><desc>x</desc></desc><rect /></svg>'))
+      .toBe('<svg><rect/></svg>');
+  });
+
+  it('removes title and desc that carry attributes', () => {
+    // The original pattern only matched a bare <title>, so <title id="x">
+    // passed straight through.
+    expect(minifySvg('<svg><title id="a">T</title><desc lang="en">D</desc><rect /></svg>'))
+      .toBe('<svg><rect/></svg>');
+  });
+
   it('collapses whitespace between tags', () => {
     expect(minifySvg('<svg>\n  <g>\n    <rect />\n  </g>\n</svg>')).toBe('<svg><g><rect/></g></svg>');
   });
