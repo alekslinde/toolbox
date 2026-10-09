@@ -261,6 +261,46 @@ describe('explainCron', () => {
       expect(text.length).toBeGreaterThan(3);
     }
   });
+
+  // A gapped hour list must never be stated as a range. `0 8,20 * * *` ran
+  // twice a day and was glossed "between 08:00 and 20:59" — a thirteen-hour
+  // window, the exact misreading this gloss exists to prevent.
+  it('lists gapped hours instead of spanning them as a range', () => {
+    const text = explainCron(parseCron('0 8,20 * * *'));
+    expect(text).toContain('08:00');
+    expect(text).toContain('20:00');
+    expect(text).not.toMatch(/between/i);
+  });
+
+  it('states a gapless run of hours as a window', () => {
+    expect(explainCron(parseCron('0 9-17 * * *')).toLowerCase()).toContain('hourly from 09:00 to 17:00');
+  });
+
+  it('reads one minute across several hours as clock times', () => {
+    expect(explainCron(parseCron('30 2,14 1 * *'))).toContain('02:30');
+    expect(explainCron(parseCron('30 2,14 1 * *'))).toContain('14:30');
+  });
+
+  // Guards the malformed output "At 0 minutes past , every 6 hours." — an
+  // hour clause appended behind a condition that could not tell whether the
+  // minute clause had already accounted for the hours.
+  it('never emits a dangling clause or stray punctuation', () => {
+    const expressions = [
+      '0 */6 * * *', '0 0,12 * * *', '30 */4 * * *', '0 8,20 * * *',
+      '0 9-17 * * *', '5 * * * *', '15,45 * * * *', '*/5 8,12,18 * * *',
+      '0 0 * * *', '* * * * *', '30 0 * * *', '15,45 9-17 * * *',
+      ...CRON_PRESETS.map((p) => p.expression),
+    ];
+    for (const expr of expressions) {
+      const text = explainCron(parseCron(expr));
+      expect(text, expr).not.toMatch(/\s,/);           // " ," — a clause vanished
+      expect(text, expr).not.toMatch(/past\s+[,.]/);   // "past ." / "past ,"
+      expect(text, expr).not.toMatch(/\bat at\b/);
+      expect(text, expr).not.toMatch(/past at\b/);
+      expect(text, expr).not.toMatch(/ {2}/);
+      expect(text, expr).toMatch(/^[A-Z].*\.$/s);
+    }
+  });
 });
 
 describe('CRON_PRESETS', () => {

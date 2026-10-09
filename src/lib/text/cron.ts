@@ -329,50 +329,119 @@ function isFullRange(values: number[], min: number, max: number): boolean {
   return values.length === max - min + 1;
 }
 
+/** Whether a list is every value from its first to its last with no gaps. */
+function isContiguous(values: number[]): boolean {
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] - values[i - 1] !== 1) return false;
+  }
+  return values.length > 1;
+}
+
+/**
+ * How the hour field reads on its own.
+ *
+ * Kept separate from the minute clause because the two are independent, and
+ * the earlier version could not express that: a gapped list like `8,20` fell
+ * into the same branch as a true range and was glossed "between 08:00 and
+ * 20:59" — a twice-daily job described as a thirteen-hour window, which is
+ * exactly the misreading this module exists to prevent.
+ */
+function describeHours(c: ParsedCron): { phrase: string; everyHour: boolean } {
+  if (isFullRange(c.hours, 0, 23)) return { phrase: '', everyHour: true };
+
+  const step = asStep(c.hours, 0, 23);
+  if (step) return { phrase: `every ${step} hours`, everyHour: false };
+
+  if (c.hours.length === 1) {
+    return { phrase: `at ${pad2(c.hours[0])}:00`, everyHour: false };
+  }
+
+  // Only a gapless run may be stated as a range; anything else is listed, so
+  // the gaps stay visible.
+  if (isContiguous(c.hours)) {
+    return {
+      phrase: `between ${pad2(c.hours[0])}:00 and ${pad2(c.hours[c.hours.length - 1])}:59`,
+      everyHour: false,
+    };
+  }
+
+  return { phrase: `at ${joinList(c.hours.map((h) => `${pad2(h)}:00`))}`, everyHour: false };
+}
+
 function describeTime(c: ParsedCron): string {
   const everySecond = isFullRange(c.seconds, 0, 59);
   const everyMinute = isFullRange(c.minutes, 0, 59);
-  const everyHour = isFullRange(c.hours, 0, 23);
+  const { phrase: hourPhrase, everyHour } = describeHours(c);
 
   // Sub-minute schedules read best as a frequency.
   if (c.hasSeconds && (everySecond || c.seconds.length > 1)) {
     const secStep = asStep(c.seconds, 0, 59);
-    const freq = everySecond ? 'every second' : secStep ? `every ${secStep} seconds` : `at ${joinList(c.seconds.map(String))} seconds past the minute`;
+    const freq = everySecond
+      ? 'every second'
+      : secStep
+        ? `every ${secStep} seconds`
+        : `at ${joinList(c.seconds.map(String))} seconds past the minute`;
     if (everyMinute && everyHour) return freq;
   }
 
   const minStep = asStep(c.minutes, 0, 59);
-  const hourStep = asStep(c.hours, 0, 23);
 
-  let timePart: string;
-  if (everyMinute && everyHour) {
-    timePart = 'every minute';
-  } else if (everyMinute) {
-    timePart = `every minute of ${joinList(c.hours.map((h) => `${pad2(h)}:00`))}`;
-  } else if (minStep && everyHour) {
-    timePart = `every ${minStep} minutes`;
+  // The minute clause, and whether it has already accounted for the hours.
+  // Tracking that explicitly is what the previous version lacked: it appended
+  // an hour suffix behind a condition that could not tell the two cases
+  // apart, producing "at 0 minutes past , every 6 hours".
+  let minutePhrase: string;
+  let hoursCovered = false;
+
+  if (everyMinute) {
+    minutePhrase = 'every minute';
   } else if (minStep) {
-    timePart = `every ${minStep} minutes`;
-  } else if (c.minutes.length === 1 && c.hours.length === 1) {
-    timePart = `at ${pad2(c.hours[0])}:${pad2(c.minutes[0])}`;
-  } else if (c.minutes.length === 1 && everyHour) {
-    timePart = c.minutes[0] === 0 ? 'every hour on the hour' : `at ${c.minutes[0]} minutes past every hour`;
+    minutePhrase = `every ${minStep} minutes`;
+  } else if (c.minutes.length === 1 && !everyHour) {
+    // One minute value and specific hours is a list of clock times, so say
+    // them as clock times. Splitting it into a minute clause plus an hour
+    // clause gives "at 0 minutes past at 08:00 and 20:00", and listing the
+    // hours alone would drop the minute entirely.
+    const minute = c.minutes[0];
+    const hourStep = asStep(c.hours, 0, 23);
+    if (hourStep) {
+      return withSeconds(c, `at ${minute} minutes past every ${hourStep} hours`);
+    }
+    // A gapless run of hours is hourly over a window; listing nine clock times
+    // is accurate but harder to read than the shape it describes.
+    if (c.hours.length > 2 && isContiguous(c.hours)) {
+      const first = `${pad2(c.hours[0])}:${pad2(minute)}`;
+      const last = `${pad2(c.hours[c.hours.length - 1])}:${pad2(minute)}`;
+      return withSeconds(c, `hourly from ${first} to ${last}`);
+    }
+    const times = c.hours.map((h) => `${pad2(h)}:${pad2(minute)}`);
+    return withSeconds(c, `at ${joinList(times)}`);
+  } else if (c.minutes.length === 1) {
+    minutePhrase = c.minutes[0] === 0
+      ? 'every hour on the hour'
+      : `at ${c.minutes[0]} minutes past every hour`;
+    hoursCovered = true;
   } else {
-    timePart = `at ${joinList(c.minutes.map((m) => `${m} minutes past`))}`;
+    minutePhrase = `at ${joinList(c.minutes.map(String))} minutes past`;
+    if (everyHour) {
+      // "At 15 and 45 minutes past." leaves the reader asking "past what?".
+      minutePhrase += ' every hour';
+      hoursCovered = true;
+    }
   }
 
-  if (!everyHour && !(everyMinute && !everyHour) && !(c.minutes.length === 1 && c.hours.length === 1)) {
-    const hourLabel = hourStep
-      ? `every ${hourStep} hours`
-      : `${joinList(c.hours.map((h) => `${pad2(h)}:00`))}`;
-    timePart += c.hours.length === 24 ? '' : ` ${hourStep ? `, ${hourLabel}` : `between ${pad2(c.hours[0])}:00 and ${pad2(c.hours[c.hours.length - 1])}:59`}`;
-  }
+  const parts = [minutePhrase];
+  if (!everyHour && !hoursCovered && hourPhrase) parts.push(hourPhrase);
 
+  return withSeconds(c, parts.join(' '));
+}
+
+/** Append the seconds offset, for a 6-field expression that names one. */
+function withSeconds(c: ParsedCron, phrase: string): string {
   if (c.hasSeconds && c.seconds.length === 1 && c.seconds[0] !== 0) {
-    timePart += ` and ${c.seconds[0]} seconds`;
+    return `${phrase} and ${c.seconds[0]} seconds`;
   }
-
-  return timePart;
+  return phrase;
 }
 
 function pad2(n: number): string {
