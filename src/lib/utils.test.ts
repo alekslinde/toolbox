@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { fmtBytes, baseName, extOf, replaceUntilStable } from './utils.js';
+import { describe, it, expect, vi } from 'vitest';
+import { fmtBytes, baseName, extOf, replaceUntilStable, flashBtn } from './utils.js';
 
 describe('fmtBytes', () => {
   it('formats exact bytes', () => {
@@ -73,5 +73,63 @@ describe('replaceUntilStable', () => {
 
   it('returns the input unchanged when nothing matches', () => {
     expect(replaceUntilStable('plain', /<!--[\s\S]*?-->/g, '')).toBe('plain');
+  });
+});
+
+describe('flashBtn', () => {
+  // The tests run without a DOM, so this is the minimum surface flashBtn
+  // touches: a label, a class list and a dataset. Testing against a stub keeps
+  // the suite dependency-free while still covering the state logic, which is
+  // where the bug worth guarding lives.
+  function stubButton() {
+    const classes = new Set<string>();
+    return {
+      textContent: 'Copy',
+      dataset: {} as Record<string, string>,
+      classList: {
+        add: (c: string) => classes.add(c),
+        remove: (c: string) => classes.delete(c),
+        has: (c: string) => classes.has(c),
+      },
+      _classes: classes,
+    } as unknown as HTMLElement & { _classes: Set<string> };
+  }
+
+  it('shows the message then restores the original label', () => {
+    vi.useFakeTimers();
+    const btn = stubButton();
+
+    flashBtn(btn, '✓ Copied', 1500);
+    expect(btn.textContent).toBe('✓ Copied');
+    expect(btn._classes.has('text-emerald-600')).toBe(true);
+
+    vi.advanceTimersByTime(1500);
+    expect(btn.textContent).toBe('Copy');
+    expect(btn._classes.has('text-emerald-600')).toBe(false);
+    vi.useRealTimers();
+  });
+
+  // The regression this guards: clicking again mid-flash would capture
+  // "✓ Copied" as the label to restore, leaving the button stuck on it.
+  it('restores the true original label when clicked twice mid-flash', () => {
+    vi.useFakeTimers();
+    const btn = stubButton();
+
+    flashBtn(btn, '✓ Copied', 1500);
+    vi.advanceTimersByTime(500);
+    flashBtn(btn, '✓ Copied', 1500);
+    vi.advanceTimersByTime(1500);
+
+    expect(btn.textContent).toBe('Copy');
+    vi.useRealTimers();
+  });
+
+  it('clears its dataset marker so nothing leaks onto the element', () => {
+    vi.useFakeTimers();
+    const btn = stubButton();
+    flashBtn(btn, '✓', 100);
+    vi.advanceTimersByTime(100);
+    expect(btn.dataset.flashLabel).toBeUndefined();
+    vi.useRealTimers();
   });
 });
