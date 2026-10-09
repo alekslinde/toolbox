@@ -1,0 +1,285 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Unit detection', body: 'A bare number is read as seconds, milliseconds, microseconds or nanoseconds based on its magnitude. Override it if the guess is wrong.' },
+  { heading: 'Paste anything', body: 'Epoch numbers, ISO 8601 strings, HTTP dates and "now" all parse. Fractional seconds work too, as logs emit them.' },
+  { heading: 'Local and UTC', body: 'Both are shown together with the real UTC offset, so a local value can be copied without ambiguity.' },
+  { heading: 'Log fields', body: 'Day of week, ISO week number and day of year are included — the details you usually end up looking up separately.' },
+];
+
+const faq = [
+  { question: 'Why is unit detection necessary?', answer: 'Because 1700000000 and 1700000000000 are the same instant in different units, and handing either to a date function without deciding gives you 1970 or 2023 with no warning. Magnitude is the only available signal: around 1e9 is seconds, 1e12 is milliseconds, and so on. It is also why a pasted timestamp so often "does not work" in other tools.' },
+  { question: 'Can the detection be wrong?', answer: 'Yes, for small numbers. A value below about 1e8 is read as seconds, which puts it in the early 1970s — correct if that is what you meant, wrong if it was actually a duration. The unit selector overrides the guess.' },
+  { question: 'What is epoch time?', answer: 'The number of seconds since 1 January 1970 at 00:00 UTC, not counting leap seconds. It is a single number with no timezone, which is exactly why it is used for machine-readable timestamps.' },
+  { question: 'Why does the local time differ from what I expect?', answer: 'Local rendering uses your device\'s timezone and its daylight-saving rules for that specific date — not for today. A timestamp from July may show a different offset from one in January.' },
+  { question: 'Does it handle dates before 1970?', answer: 'Yes. A negative epoch value is a date before the epoch, and it converts normally.' },
+  { question: 'Is anything sent to a server?', answer: 'No. All conversion is arithmetic and date formatting in your browser.' },
+];
+---
+
+<MainLayout
+  title="Unix Timestamp Converter — Free In-Browser Tool | Toolkist"
+  description="Convert Unix timestamps to dates and back in seconds, milliseconds, microseconds or nanoseconds, with the unit detected automatically."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Unix Timestamp Converter" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Unix Timestamp Converter</h1>
+        <p class="mt-1 text-sm text-slate-500">Convert epoch numbers and dates, with the unit worked out for you.</p>
+      </div>
+      <HelpfulButton toolKey="timestamp-converter" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Live clock -->
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-surface px-4 py-3">
+            <div>
+              <p class="text-[0.68rem] uppercase tracking-wider text-slate-400">Now</p>
+              <p id="tsNowEpoch" class="font-mono text-lg font-semibold text-slate-800">—</p>
+              <p id="tsNowIso" class="font-mono text-xs text-slate-500">—</p>
+            </div>
+            <button id="tsUseNowBtn"
+              class="min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">
+              Use current time
+            </button>
+          </div>
+
+          <label for="tsInput" class="mb-1.5 block text-xs font-medium text-slate-600">Timestamp or date</label>
+          <input type="text" id="tsInput" autocomplete="off" spellcheck="false" placeholder="1700000000, 2026-01-01T00:00:00Z, or now"
+            class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-base text-slate-800 focus:border-purple-400 focus:outline-none" />
+
+          <!-- Unit override -->
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-slate-600">Read as:</span>
+            {[
+              { u: 'auto', label: 'Auto' },
+              { u: 'seconds', label: 'Seconds' },
+              { u: 'milliseconds', label: 'Milliseconds' },
+              { u: 'microseconds', label: 'Microseconds' },
+              { u: 'nanoseconds', label: 'Nanoseconds' },
+            ].map((x, i) => (
+              <button
+                data-unit={x.u}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                class="ts-unit min-h-[--tap] rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300"
+              >{x.label}</button>
+            ))}
+          </div>
+
+          <p id="tsError" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></p>
+          <p id="tsInferred" class="mt-3 hidden rounded-md border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600"></p>
+
+          <div id="tsResult" class="mt-6 hidden flex-col gap-5">
+
+            <!-- Relative -->
+            <p id="tsRelative" class="text-center text-lg font-medium text-accent-ink"></p>
+
+            <!-- Main formats -->
+            <dl id="tsFormats" class="flex flex-col gap-2"></dl>
+
+            <!-- Epoch in every unit -->
+            <div>
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Epoch value</h2>
+              <dl id="tsEpochs" class="grid gap-2 sm:grid-cols-2"></dl>
+            </div>
+
+            <!-- Calendar detail -->
+            <div>
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Calendar</h2>
+              <dl id="tsCalendar" class="grid gap-2 sm:grid-cols-3"></dl>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the Timestamp Converter"
+      faq={faq}
+      related={`<a href="/tools/cron-parser" class="text-purple-500 hover:underline">Cron Parser</a> · <a href="/tools/jwt-decoder" class="text-purple-500 hover:underline">JWT Decoder</a> · <a href="/tools/uuid-generator" class="text-purple-500 hover:underline">UUID Generator</a>`}
+      keywords="unix timestamp converter, epoch converter, epoch to date, milliseconds to date, iso 8601 converter, unix time"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Convert between epoch numbers and readable dates in both directions, accepting epoch values in seconds, milliseconds, microseconds or nanoseconds as well as ISO 8601 strings, HTTP dates and the word <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">now</code>. The part that does the real work is unit detection: <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">1700000000</code> and <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">1700000000000</code> are the same instant written in different units, and passing either to a date function without first deciding which gives you 1970 or 2023 with no warning at all — which is why a pasted timestamp so often appears not to work. Magnitude decides, the guess is stated, and a selector overrides it. Results show UTC and local side by side with the real offset for that date, plus the day of week, ISO week number and day of year.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<style>
+  .ts-unit[aria-pressed='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-weak);
+    color: var(--color-accent-ink);
+    font-weight: 500;
+  }
+</style>
+
+<script>
+  import { parseInstant, render, type Unit } from '@/lib/text/timestamp';
+  import { copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input    = $<HTMLInputElement>('tsInput');
+  const errorEl  = $('tsError');
+  const inferredEl = $('tsInferred');
+  const resultEl = $('tsResult');
+  const relativeEl = $('tsRelative');
+  const formatsEl = $<HTMLDListElement>('tsFormats');
+  const epochsEl  = $<HTMLDListElement>('tsEpochs');
+  const calendarEl = $<HTMLDListElement>('tsCalendar');
+
+  let forced: Unit | null = null;
+
+  /** A labelled row with a copy button, used for every output value. */
+  function row(label: string, value: string, mono = true): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex flex-col gap-1 rounded-md border border-slate-200 bg-surface px-3 py-2 sm:flex-row sm:items-center sm:gap-3';
+
+    const dt = document.createElement('dt');
+    dt.className = 'shrink-0 text-[0.68rem] uppercase tracking-wider text-slate-400 sm:w-32';
+    dt.textContent = label;
+
+    const dd = document.createElement('dd');
+    dd.className = `min-w-0 flex-1 break-all text-xs text-slate-800 ${mono ? 'font-mono' : ''}`;
+    dd.textContent = value;
+
+    const copy = document.createElement('button');
+    copy.className = 'shrink-0 self-start text-xs text-slate-400 hover:text-purple-600 sm:self-auto';
+    copy.textContent = 'Copy';
+    copy.addEventListener('click', () => copyWithFeedback(copy, value, '✓'));
+
+    wrap.append(dt, dd, copy);
+    return wrap;
+  }
+
+  function hide() {
+    errorEl.classList.add('hidden');
+    inferredEl.classList.add('hidden');
+    resultEl.classList.add('hidden');
+    resultEl.classList.remove('flex');
+  }
+
+  function convert() {
+    const raw = input.value;
+    if (!raw.trim()) { hide(); return; }
+
+    let parsed: ReturnType<typeof parseInstant>;
+    try {
+      parsed = parseInstant(raw, forced ?? undefined);
+    } catch (e) {
+      hide();
+      errorEl.textContent = e instanceof Error ? e.message : 'Could not read that as a timestamp.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    let out: ReturnType<typeof render>;
+    try {
+      out = render(parsed.ms);
+    } catch (e) {
+      hide();
+      errorEl.textContent = e instanceof Error ? e.message : 'That instant cannot be represented.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    errorEl.classList.add('hidden');
+
+    // Say when the unit was a guess, so a wrong reading is correctable rather
+    // than silently believed.
+    if (parsed.inferred) {
+      inferredEl.textContent = `Read as ${parsed.unit} based on magnitude. If that is wrong, pick the unit above.`;
+      inferredEl.classList.remove('hidden');
+    } else {
+      inferredEl.classList.add('hidden');
+    }
+
+    relativeEl.textContent = out.relative;
+
+    formatsEl.replaceChildren(
+      row('ISO 8601 (UTC)', out.iso),
+      row('ISO 8601 (local)', out.localIso),
+      row('HTTP date', out.http),
+      row('UTC', out.utcHuman, false),
+      row(`Local (${out.timeZone})`, out.localHuman, false),
+    );
+
+    epochsEl.replaceChildren(
+      row('Seconds', out.epoch.seconds),
+      row('Milliseconds', out.epoch.milliseconds),
+      row('Microseconds', out.epoch.microseconds),
+      row('Nanoseconds', out.epoch.nanoseconds),
+    );
+
+    calendarEl.replaceChildren(
+      row('Day of week', out.dayOfWeek, false),
+      row('ISO week', out.isoWeek),
+      row('Day of year', String(out.dayOfYear)),
+    );
+
+    resultEl.classList.remove('hidden');
+    resultEl.classList.add('flex');
+  }
+
+  input.addEventListener('input', convert);
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.ts-unit')) {
+    btn.addEventListener('click', () => {
+      const unit = btn.dataset.unit!;
+      forced = unit === 'auto' ? null : (unit as Unit);
+      for (const b of document.querySelectorAll<HTMLButtonElement>('.ts-unit')) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      }
+      convert();
+    });
+  }
+
+  $('tsUseNowBtn').addEventListener('click', () => {
+    input.value = String(Math.floor(Date.now() / 1000));
+    // An explicit "now" is in seconds, so the inference note would be noise.
+    forced = 'seconds';
+    for (const b of document.querySelectorAll<HTMLButtonElement>('.ts-unit')) {
+      b.setAttribute('aria-pressed', String(b.dataset.unit === 'seconds'));
+    }
+    convert();
+  });
+
+  // Live clock. One second is the right interval for a seconds display, and
+  // the interval is cleared on navigation so it cannot outlive the page.
+  const nowEpoch = $('tsNowEpoch');
+  const nowIso   = $('tsNowIso');
+  function tick() {
+    const now = Date.now();
+    nowEpoch.textContent = String(Math.floor(now / 1000));
+    nowIso.textContent = new Date(now).toISOString().replace('.000Z', 'Z');
+  }
+  const timer = setInterval(tick, 1000);
+  tick();
+
+  // Astro's client router swaps the DOM without a reload, so an interval left
+  // running would keep writing to detached nodes.
+  document.addEventListener('astro:before-swap', () => clearInterval(timer), { once: true });
+</script>

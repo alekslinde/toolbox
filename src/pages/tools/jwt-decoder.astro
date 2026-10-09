@@ -1,0 +1,299 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Decoding is not verifying', body: 'This reads the token. It does not check the signature, which would need the signing key — the one secret that makes a token forgeable.' },
+  { heading: 'Nothing is transmitted', body: 'A JWT is a live credential. Decoding runs in your tab with no network request, so the token is not handed to anyone.' },
+  { heading: 'Claims in plain time', body: 'iat, nbf and exp are shown as readable timestamps with the validity state, instead of epoch seconds you convert by hand.' },
+  { heading: 'Bearer prefix is fine', body: 'Paste the whole Authorization header value if that is what you copied — a leading "Bearer " is stripped.' },
+];
+
+const faq = [
+  { question: 'Is my token sent anywhere?', answer: 'No. The decoder is JavaScript running in your browser and makes no network request. This matters more here than for most tools: a JWT is usually a working credential, and pasting one into a server you do not control hands over whatever it authorises.' },
+  { question: 'Does this verify the signature?', answer: 'No, deliberately. Verification requires the signing key, and a tool that asked you for your signing key would be asking for the secret that lets anyone forge tokens. Decoding tells you what a token claims; it proves nothing about whether those claims are authentic.' },
+  { question: 'So a decoded token is not a trusted token?', answer: 'Correct, and this is the mistake worth avoiding. Anyone can craft a JWT with any payload — the signature is the only thing that makes it trustworthy, and only your server, holding the key, can check it. Never make an authorisation decision based on a decoded payload alone.' },
+  { question: 'Is the payload encrypted?', answer: 'No. A standard JWT payload is Base64URL-encoded, not encrypted, so anyone holding the token can read every claim in it. Never put a secret in a JWT payload. (JWE is a separate, encrypted format and is not what most systems issue.)' },
+  { question: 'What does "alg: none" mean?', answer: 'An unsecured token with no signature at all. It should be rejected by any server in production — accepting one means accepting a token anybody could have written.' },
+  { question: 'Why does it say my token is expired when it just worked?', answer: 'The exp claim is compared against your device clock. If your clock is off, or the token was issued for a different leeway window, the two can disagree. The timestamps shown are what the token itself says.' },
+];
+---
+
+<MainLayout
+  title="JWT Decoder — Free In-Browser Tool | Toolkist"
+  description="Decode a JWT and read its header, claims and expiry in your browser. Nothing is transmitted — a token is a live credential."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="JWT Decoder" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">JWT Decoder</h1>
+        <p class="mt-1 text-sm text-slate-500">Read a token's header, claims and expiry — without sending it anywhere.</p>
+      </div>
+      <HelpfulButton toolKey="jwt-decoder" />
+    </div>
+
+    <!--
+      This notice is the most important element on the page. The common and
+      costly mistake with a JWT tool is treating a decoded payload as a
+      verified one, so the distinction is stated before the input, not buried
+      in the FAQ below it.
+    -->
+    <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4">
+      <p class="text-sm font-medium text-amber-900">Decoding is not verification.</p>
+      <p class="mt-1 text-sm leading-relaxed text-amber-800">
+        Anyone can write a JWT that claims anything. Only the signature makes a token trustworthy, and checking it
+        requires the signing key — which this tool deliberately never asks for. Read the claims here; never authorise
+        anything based on them.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <div class="mb-1.5 flex items-center justify-between">
+            <label for="jwtInput" class="text-xs font-medium text-slate-600">Token</label>
+            <div class="flex gap-3">
+              <button id="jwtSampleBtn" class="text-xs text-slate-400 hover:text-purple-600">Sample</button>
+              <button id="jwtClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+          </div>
+          <textarea id="jwtInput" rows="5" spellcheck="false" placeholder="Paste a JWT — eyJhbGciOi…"
+            class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs break-all text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+
+          <!-- Colour-coded segments, the standard way to read a JWT's three parts -->
+          <div id="jwtSegments" class="mt-3 hidden overflow-x-auto rounded-md border border-slate-200 bg-surface px-3 py-2 font-mono text-xs break-all"></div>
+
+          <p id="jwtError" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></p>
+
+          <div id="jwtResult" class="mt-6 hidden flex-col gap-5">
+
+            <!-- Validity banner -->
+            <div id="jwtValidity" class="rounded-md border px-4 py-3 text-sm"></div>
+
+            <!-- Registered claims -->
+            <div id="jwtClaimsWrap" class="hidden">
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Registered claims</h2>
+              <div class="overflow-x-auto rounded-md border border-slate-200">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th scope="col" class="px-3 py-2 font-medium">Claim</th>
+                      <th scope="col" class="px-3 py-2 font-medium">Meaning</th>
+                      <th scope="col" class="px-3 py-2 font-medium">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody id="jwtClaimsBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Header -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400">Header</h2>
+                <button id="jwtCopyHeader" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+              </div>
+              <pre id="jwtHeader" class="overflow-x-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800"></pre>
+            </div>
+
+            <!-- Payload -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400">Payload</h2>
+                <button id="jwtCopyPayload" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+              </div>
+              <pre id="jwtPayload" class="overflow-x-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800"></pre>
+            </div>
+
+            <!-- Signature -->
+            <div>
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Signature</h2>
+              <p id="jwtSignature" class="overflow-x-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs break-all text-slate-500"></p>
+              <p class="mt-1.5 text-xs text-slate-400">Shown as received. Not checked — see the notice above.</p>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the JWT Decoder"
+      faq={faq}
+      related={`<a href="/tools/base64-encode" class="text-purple-500 hover:underline">Base64 Encoder</a> · <a href="/tools/hash-generator" class="text-purple-500 hover:underline">Hash Generator</a> · <a href="/tools/timestamp-converter" class="text-purple-500 hover:underline">Timestamp Converter</a>`}
+      keywords="jwt decoder, decode jwt, json web token, jwt claims, jwt expiry, decode bearer token, offline jwt decoder, no upload"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Paste a JSON Web Token to read its header, its payload and the registered claims — with <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">iat</code>, <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">nbf</code> and <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">exp</code> rendered as readable timestamps and the token's validity window resolved against your clock. The reason to decode a token locally is specific: a JWT is normally a working credential, and the usual way people read one is to paste it into a web page, which hands that credential to whoever runs the page. Nothing here is transmitted. The signature is shown but not checked, because verifying it needs the signing key, and no tool should ask you for that.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<script>
+  import { decodeJwt, jwtClaimNotes, jwtValidity } from '@/lib/text/encoding';
+  import { copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input     = $<HTMLTextAreaElement>('jwtInput');
+  const errorEl   = $('jwtError');
+  const resultEl  = $('jwtResult');
+  const segmentsEl = $('jwtSegments');
+  const headerEl  = $<HTMLPreElement>('jwtHeader');
+  const payloadEl = $<HTMLPreElement>('jwtPayload');
+  const signatureEl = $('jwtSignature');
+  const validityEl = $('jwtValidity');
+  const claimsWrap = $('jwtClaimsWrap');
+  const claimsBody = $<HTMLTableSectionElement>('jwtClaimsBody');
+
+  // A token whose payload is obviously fake, so nobody is tempted to think the
+  // sample is a real credential.
+  const SAMPLE = [
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    'eyJzdWIiOiJleGFtcGxlLXVzZXIiLCJuYW1lIjoiRXhhbXBsZSBPbmx5IiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjIwNjcyMjU2MDAsImlzcyI6Imh0dHBzOi8vZXhhbXBsZS50ZXN0Iiwicm9sZSI6ImRlbW8ifQ',
+    'ZmFrZS1zaWduYXR1cmUtbm90LXZlcmlmaWVk',
+  ].join('.');
+
+  function hide() {
+    errorEl.classList.add('hidden');
+    resultEl.classList.add('hidden');
+    resultEl.classList.remove('flex');
+    segmentsEl.classList.add('hidden');
+  }
+
+  function showError(msg: string) {
+    hide();
+    errorEl.textContent = msg;
+    errorEl.classList.remove('hidden');
+  }
+
+  /** The three parts, coloured, so the structure of a token is visible. */
+  function renderSegments(token: string) {
+    const parts = token.split('.');
+    const colours = ['text-rose-600', 'text-purple-600', 'text-sky-600'];
+    segmentsEl.replaceChildren(...parts.flatMap((part, i) => {
+      const span = document.createElement('span');
+      span.className = colours[i] ?? 'text-slate-500';
+      span.textContent = part;
+      if (i === parts.length - 1) return [span];
+      const dot = document.createElement('span');
+      dot.className = 'text-slate-400';
+      dot.textContent = '.';
+      return [span, dot];
+    }));
+    segmentsEl.classList.remove('hidden');
+  }
+
+  const VALIDITY_STYLE = {
+    ok:              ['border-emerald-200 bg-emerald-50 text-emerald-700', '✓ Within its validity window'],
+    expired:         ['border-rose-200 bg-rose-50 text-rose-700',          '✕ Expired'],
+    'not-yet-valid': ['border-amber-200 bg-amber-50 text-amber-800',       '⏳ Not valid yet'],
+    unbounded:       ['border-slate-200 bg-slate-50 text-slate-600',       'No expiry claim — this token does not expire on its own'],
+  } as const;
+
+  function renderClaims(payload: Record<string, unknown>) {
+    const notes = jwtClaimNotes(payload);
+    if (!notes.length) {
+      claimsWrap.classList.add('hidden');
+      return;
+    }
+    claimsBody.replaceChildren(...notes.map((note) => {
+      const tr = document.createElement('tr');
+
+      const tdClaim = document.createElement('td');
+      tdClaim.className = 'px-3 py-2 font-mono text-xs font-medium text-purple-600';
+      tdClaim.textContent = note.claim;
+
+      const tdLabel = document.createElement('td');
+      tdLabel.className = 'px-3 py-2 text-xs text-slate-500';
+      tdLabel.textContent = note.label;
+
+      const tdValue = document.createElement('td');
+      tdValue.className = 'px-3 py-2 font-mono text-xs break-all ' + (
+        note.state === 'expired' ? 'font-semibold text-rose-600'
+        : note.state === 'not-yet-valid' ? 'font-semibold text-amber-700'
+        : 'text-slate-700'
+      );
+      // textContent throughout: a claim value is attacker-controlled text and
+      // must never be able to become markup.
+      tdValue.textContent = note.value;
+
+      tr.append(tdClaim, tdLabel, tdValue);
+      return tr;
+    }));
+    claimsWrap.classList.remove('hidden');
+  }
+
+  function decode() {
+    const raw = input.value.trim();
+    if (!raw) { hide(); return; }
+
+    try {
+      const parts = decodeJwt(raw);
+      hide();
+      renderSegments(raw.replace(/^Bearer\s+/i, ''));
+
+      headerEl.textContent = JSON.stringify(parts.header, null, 2);
+      payloadEl.textContent = JSON.stringify(parts.payload, null, 2);
+      signatureEl.textContent = parts.signature || '(none — this token is unsigned)';
+
+      const state = jwtValidity(parts.payload);
+      const [cls, label] = VALIDITY_STYLE[state];
+      validityEl.className = `rounded-md border px-4 py-3 text-sm ${cls}`;
+      validityEl.textContent = label;
+
+      renderClaims(parts.payload);
+
+      // An unsecured token deserves saying out loud: a server accepting one
+      // is accepting a token anybody could have written.
+      if (parts.header.alg === 'none' || parts.header.alg === 'None') {
+        validityEl.textContent = `${label} — and alg is "none", so this token carries no signature at all.`;
+        validityEl.className = 'rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700';
+      }
+
+      resultEl.classList.remove('hidden');
+      resultEl.classList.add('flex');
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'That does not look like a JWT.');
+    }
+  }
+
+  input.addEventListener('input', decode);
+
+  $('jwtSampleBtn').addEventListener('click', () => {
+    input.value = SAMPLE;
+    decode();
+  });
+
+  $('jwtClearBtn').addEventListener('click', () => {
+    input.value = '';
+    hide();
+    input.focus();
+  });
+
+  function wireCopy(btnId: string, source: HTMLElement) {
+    $(btnId).addEventListener('click', function (this: HTMLElement) {
+      copyWithFeedback(this, source.textContent ?? '');
+    });
+  }
+
+  wireCopy('jwtCopyHeader', headerEl);
+  wireCopy('jwtCopyPayload', payloadEl);
+</script>

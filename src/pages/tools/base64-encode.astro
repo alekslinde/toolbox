@@ -1,0 +1,307 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Full Unicode', body: 'Encodes through UTF-8, so emoji and non-Latin scripts round-trip correctly. The browser\'s own btoa() cannot do this.' },
+  { heading: 'Base64URL', body: 'The URL-safe variant swaps + and / for - and _ and drops padding. Decoding accepts either alphabet, with or without padding.' },
+  { heading: 'Binary input', body: 'Decoding bytes that are not valid text shows a hex dump instead of replacement characters, so you can see what you actually have.' },
+  { heading: 'Query strings', body: 'Paste a whole URL into the URL tab to see its parameters decoded as a list, duplicates included.' },
+];
+
+const faq = [
+  { question: 'Is my data uploaded?', answer: 'No. Encoding and decoding run in your browser with no network request, which is why this is a reasonable place to decode something sensitive.' },
+  { question: 'Why not just use btoa and atob?', answer: 'Those two only handle latin1. Any character outside it — an emoji, an accented letter, Japanese text — either throws or round-trips to the wrong bytes. This tool encodes via UTF-8 first, so the result is correct for any input.' },
+  { question: 'What is the difference between Base64 and Base64URL?', answer: 'Base64URL replaces the + and / characters with - and _ so the result is safe in a URL or filename, and it conventionally omits the = padding. It is what JWTs use. Decoding here accepts both alphabets automatically.' },
+  { question: 'Base64 is not encryption, is it?', answer: 'No, and this matters. Base64 is an encoding, fully reversible by anyone, with no key involved. It makes binary data safe to put in text; it provides no confidentiality whatsoever. Never use it to protect a secret.' },
+  { question: 'Why does decoding sometimes show a hex dump?', answer: 'Because the decoded bytes are not valid UTF-8 text — you have decoded something binary, like an image or a compressed blob. Showing a hex dump says that plainly, where showing replacement characters would look like a tool failure.' },
+];
+---
+
+<MainLayout
+  title="Base64 & URL Encoder / Decoder — Free In-Browser Tool | Toolkist"
+  description="Encode and decode Base64, Base64URL, percent-encoding and hex in your browser. Full Unicode support, no uploads."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Base64 & URL Encoder" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Base64 &amp; URL Encoder</h1>
+        <p class="mt-1 text-sm text-slate-500">Encode and decode Base64, percent-encoding and hex — entirely in your browser.</p>
+      </div>
+      <HelpfulButton toolKey="base64-encode" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Mode tabs -->
+          <div role="tablist" aria-label="Encoding type" class="mb-4 flex flex-wrap gap-2">
+            {[
+              { id: 'base64', label: 'Base64' },
+              { id: 'url',    label: 'URL' },
+              { id: 'hex',    label: 'Hex' },
+            ].map((m, i) => (
+              <button
+                role="tab"
+                id={`encTab-${m.id}`}
+                data-mode={m.id}
+                aria-selected={i === 0 ? 'true' : 'false'}
+                class="enc-tab min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300"
+              >{m.label}</button>
+            ))}
+          </div>
+
+          <!-- Options -->
+          <div class="mb-4 flex flex-wrap items-center gap-4">
+            <div class="flex gap-2" role="group" aria-label="Direction">
+              <button id="encDirEncode" data-dir="encode" aria-pressed="true"
+                class="enc-dir min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Encode</button>
+              <button id="encDirDecode" data-dir="decode" aria-pressed="false"
+                class="enc-dir min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Decode</button>
+            </div>
+
+            <label id="encUrlSafeWrap" class="flex min-h-[--tap] cursor-pointer items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" id="encUrlSafe" class="h-4 w-4 rounded border-slate-300 accent-[--color-accent]" />
+              <span>URL-safe (Base64URL)</span>
+            </label>
+
+            <label id="encHexSepWrap" class="hidden min-h-[--tap] cursor-pointer items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" id="encHexSep" class="h-4 w-4 rounded border-slate-300 accent-[--color-accent]" />
+              <span>Space-separated</span>
+            </label>
+
+            <button id="encSwapBtn" class="ml-auto min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">
+              ⇅ Swap
+            </button>
+          </div>
+
+          <div class="mb-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label for="encInput" class="text-xs font-medium text-slate-600">Input</label>
+                <button id="encClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+              </div>
+              <textarea id="encInput" rows="14" spellcheck="false" placeholder="Type or paste here…"
+                class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+            </div>
+
+            <div>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label for="encOutput" class="text-xs font-medium text-slate-600">Output</label>
+                <button id="encCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+              </div>
+              <textarea id="encOutput" rows="14" readonly spellcheck="false"
+                class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+            </div>
+          </div>
+
+          <p id="encStatus" class="hidden rounded-md px-4 py-3 text-sm"></p>
+
+          <!-- Query parameter table, URL mode only -->
+          <div id="encQueryWrap" class="mt-4 hidden">
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Query parameters</h3>
+            <div class="overflow-x-auto rounded-md border border-slate-200">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                  <tr><th scope="col" class="px-3 py-2 font-medium">Key</th><th scope="col" class="px-3 py-2 font-medium">Value</th></tr>
+                </thead>
+                <tbody id="encQueryBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the Base64 &amp; URL Encoder"
+      faq={faq}
+      related={`<a href="/tools/jwt-decoder" class="text-purple-500 hover:underline">JWT Decoder</a> · <a href="/tools/hash-generator" class="text-purple-500 hover:underline">Hash Generator</a> · <a href="/tools/json-formatter" class="text-purple-500 hover:underline">JSON Formatter</a>`}
+      keywords="base64 encode, base64 decode, base64url, url encode, percent encoding, hex converter, unicode base64, no upload"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Convert text to and from Base64, the URL-safe Base64URL variant, percent-encoding and hexadecimal. Encoding goes through UTF-8, so emoji and non-Latin scripts survive the round trip — something the browser's built-in <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">btoa</code> cannot manage, since it only handles latin1. Decoding accepts either Base64 alphabet with or without padding, because tokens arrive both ways, and reports binary results as a hex dump rather than returning unreadable replacement characters. Base64 is an encoding and not encryption: it is reversible by anyone and protects nothing, which is worth stating plainly because it is widely misused as though it did.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<style>
+  .enc-tab[aria-selected='true'],
+  .enc-dir[aria-pressed='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-weak);
+    color: var(--color-accent-ink);
+    font-weight: 500;
+  }
+</style>
+
+<script>
+  import {
+    encodeBase64Text, decodeBase64Text,
+    encodeUrlComponent, decodeUrlComponent, parseQuery,
+    bytesToHex, hexToBytes, utf8Bytes, utf8String,
+  } from '@/lib/text/encoding';
+  import { copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input   = $<HTMLTextAreaElement>('encInput');
+  const output  = $<HTMLTextAreaElement>('encOutput');
+  const status  = $('encStatus');
+  const urlSafe = $<HTMLInputElement>('encUrlSafe');
+  const hexSep  = $<HTMLInputElement>('encHexSep');
+  const queryWrap = $('encQueryWrap');
+  const queryBody = $<HTMLTableSectionElement>('encQueryBody');
+
+  type Mode = 'base64' | 'url' | 'hex';
+  let mode: Mode = 'base64';
+  let direction: 'encode' | 'decode' = 'encode';
+
+  function showStatus(msg: string, kind: 'ok' | 'err' | 'info') {
+    status.textContent = msg;
+    status.className = {
+      ok:   'rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700',
+      err:  'rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700',
+      info: 'rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600',
+    }[kind];
+  }
+
+  function clearStatus() {
+    status.classList.add('hidden');
+    status.textContent = '';
+  }
+
+  function renderQuery(src: string) {
+    const params = parseQuery(src);
+    if (!params.length) {
+      queryWrap.classList.add('hidden');
+      return;
+    }
+    queryBody.replaceChildren(...params.map(({ key, value }) => {
+      const tr = document.createElement('tr');
+      const tdKey = document.createElement('td');
+      tdKey.className = 'px-3 py-2 font-mono text-xs font-medium text-purple-600';
+      // textContent, never innerHTML: a query value is arbitrary user input
+      // and must never be able to become markup on the page.
+      tdKey.textContent = key;
+      const tdVal = document.createElement('td');
+      tdVal.className = 'px-3 py-2 font-mono text-xs break-all text-slate-700';
+      tdVal.textContent = value || '(empty)';
+      tr.append(tdKey, tdVal);
+      return tr;
+    }));
+    queryWrap.classList.remove('hidden');
+  }
+
+  function convert() {
+    const src = input.value;
+    clearStatus();
+    queryWrap.classList.add('hidden');
+
+    if (!src) {
+      output.value = '';
+      return;
+    }
+
+    try {
+      if (mode === 'base64') {
+        if (direction === 'encode') {
+          output.value = encodeBase64Text(src, urlSafe.checked);
+        } else {
+          const { text, binary } = decodeBase64Text(src);
+          output.value = text;
+          if (binary) {
+            showStatus('Decoded successfully, but the bytes are not valid UTF-8 text — shown as a hex dump.', 'info');
+            status.classList.remove('hidden');
+          }
+        }
+      } else if (mode === 'url') {
+        if (direction === 'encode') {
+          output.value = encodeUrlComponent(src);
+        } else {
+          output.value = decodeUrlComponent(src);
+          renderQuery(src);
+        }
+      } else {
+        if (direction === 'encode') {
+          output.value = bytesToHex(utf8Bytes(src), hexSep.checked ? ' ' : '');
+        } else {
+          output.value = utf8String(hexToBytes(src));
+        }
+      }
+    } catch (e) {
+      output.value = '';
+      showStatus(e instanceof Error ? e.message : 'Could not convert that input.', 'err');
+      status.classList.remove('hidden');
+    }
+  }
+
+  // Mode tabs
+  for (const tab of document.querySelectorAll<HTMLButtonElement>('.enc-tab')) {
+    tab.addEventListener('click', () => {
+      mode = tab.dataset.mode as Mode;
+      for (const t of document.querySelectorAll<HTMLButtonElement>('.enc-tab')) {
+        t.setAttribute('aria-selected', String(t === tab));
+      }
+      // Only Base64 has a URL-safe alphabet; only hex has a separator.
+      $('encUrlSafeWrap').classList.toggle('hidden', mode !== 'base64');
+      $('encUrlSafeWrap').classList.toggle('flex', mode === 'base64');
+      $('encHexSepWrap').classList.toggle('hidden', mode !== 'hex');
+      $('encHexSepWrap').classList.toggle('flex', mode === 'hex');
+      convert();
+    });
+  }
+
+  // Direction
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.enc-dir')) {
+    btn.addEventListener('click', () => {
+      direction = btn.dataset.dir as 'encode' | 'decode';
+      for (const b of document.querySelectorAll<HTMLButtonElement>('.enc-dir')) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      }
+      convert();
+    });
+  }
+
+  input.addEventListener('input', convert);
+  urlSafe.addEventListener('change', convert);
+  hexSep.addEventListener('change', convert);
+
+  // Swap feeds the output back as input and flips direction, which is how you
+  // check a round trip.
+  $('encSwapBtn').addEventListener('click', () => {
+    if (!output.value) return;
+    input.value = output.value;
+    const next = direction === 'encode' ? 'decode' : 'encode';
+    (document.querySelector(`.enc-dir[data-dir="${next}"]`) as HTMLButtonElement).click();
+  });
+
+  $('encClearBtn').addEventListener('click', () => {
+    input.value = '';
+    output.value = '';
+    clearStatus();
+    queryWrap.classList.add('hidden');
+    input.focus();
+  });
+
+  $('encCopyBtn').addEventListener('click', function (this: HTMLElement) {
+    copyWithFeedback(this, output.value);
+  });
+</script>

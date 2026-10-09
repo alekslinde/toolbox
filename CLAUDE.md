@@ -36,8 +36,16 @@ src/
     nav.ts                — Navigation structure
   lib/                    — Shared TS logic + colocated *.test.ts files
     color.ts              — Colour utility functions
-    utils.ts              — Shared utilities
+    utils.ts              — Shared utilities (fmtBytes, dl, flashBtn, copyWithFeedback)
     code-minifier.ts, font-converter.ts, scss-converter.ts, brand-extract.ts
+    ops/                  — Declared operations (file-in/file-out tools)
+    text/                 — Text & data transforms (string-in/string-out)
+      json-tool.ts        — Parse, format, validate, shape stats
+      encoding.ts         — Base64/base64url, hex, URL, query, JWT decode
+      hash.ts             — MD5/SHA/CRC32/HMAC + UUID v4/v7, ULID, Nano ID
+      regex.ts            — Match, replace, backtracking-risk screening
+      cron.ts             — Parse, explain, next-run calculation
+      timestamp.ts        — Epoch unit inference, parsing, rendering
 worker/
   counter.js              — Cloudflare Worker: serves static assets + /u endpoint (Durable Objects)
 ```
@@ -49,7 +57,7 @@ worker/
 - Extract logic used in 2+ places into `src/lib/`.
 - New tools go in `src/pages/tools/<slug>.astro` and must be registered in `src/data/tools.ts` (use `/new-tool`).
 
-## Tools (25)
+## Tools (32)
 
 Source of truth is `src/data/tools.ts` — keep this table in sync with it.
 
@@ -91,6 +99,22 @@ Source of truth is `src/data/tools.ts` — keep this table in sync with it.
 | `svg-validator` | SVG Validator & Repair (svgo) |
 | `token-saver` | Prompt Token Saver |
 
+**Text & Data**
+
+Pure string/number transforms. Logic lives in `src/lib/text/` with colocated
+tests; the pages are thin views over it.
+
+| Slug | Tool |
+|---|---|
+| `json-formatter` | JSON Formatter & Validator |
+| `base64-encode` | Base64 & URL Encoder |
+| `jwt-decoder` | JWT Decoder (decode only — never verifies) |
+| `hash-generator` | Hash & Checksum Generator (WebCrypto + MD5/CRC32) |
+| `uuid-generator` | UUID & ID Generator (v4, v7, ULID, Nano ID) |
+| `regex-tester` | Regex Tester (screens for catastrophic backtracking) |
+| `cron-parser` | Cron Expression Parser |
+| `timestamp-converter` | Unix Timestamp Converter |
+
 ## Build & deploy
 
 ```bash
@@ -126,6 +150,16 @@ This project uses **Tailwind CSS**. Follow the utility class patterns already us
 - **Don't add a backend.** All tools must stay 100% client-side.
 - **Don't switch away from static output.** Astro is configured for no SSR.
 - `worker/counter.js` handles Durable Objects (usage counter) — edit carefully.
+- **The JWT decoder must never verify a signature.** Verification needs the
+  signing key, and asking a user for that asks for the one secret that makes
+  their tokens forgeable. The page states decode ≠ verify above the input;
+  keep it there.
+- **Don't drop the regex backtracking screen.** Once the engine starts on a
+  pathological pattern nothing in JS can interrupt it, so a risky pattern is
+  refused *before* running rather than timed out after.
+- **Don't make UUID v7 or ULID re-randomise per call.** They share a monotonic
+  counter so a batch generated inside one millisecond stays strictly ordered —
+  which is the only reason to choose either over v4.
 
 ## Git commits
 

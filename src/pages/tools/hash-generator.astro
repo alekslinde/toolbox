@@ -1,0 +1,340 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+import FileDropZone from '@/components/FileDropZone.astro';
+
+const tips = [
+  { heading: 'Verify a download', body: 'Paste the checksum from a release page into the compare box. Matching is case-insensitive and ignores spaces and colons.' },
+  { heading: 'MD5 and SHA-1', body: 'Included because real checksums are still published with them. Both are broken for anything an attacker can influence, and are labelled as such.' },
+  { heading: 'Files stay local', body: 'Hashing a file reads it in your browser. Nothing is uploaded, so a large or private file is fine.' },
+  { heading: 'HMAC', body: 'For checking a signed webhook. Enter the shared secret and the exact payload body — the secret never leaves the tab.' },
+];
+
+const faq = [
+  { question: 'Are my files or text uploaded?', answer: 'No. SHA hashing uses the browser\'s built-in WebCrypto, and MD5 and CRC32 are implemented in JavaScript here. Everything runs in your tab with no network request.' },
+  { question: 'Which algorithm should I use?', answer: 'SHA-256 for anything new. Use MD5 or SHA-1 only to verify a checksum that was published in that form, and CRC32 only for error detection — a zip or PNG integrity check.' },
+  { question: 'Why are MD5 and SHA-1 marked broken?', answer: 'Both have practical collision attacks: an attacker can construct two different inputs with the same digest. That makes them unfit for signatures, passwords or any integrity check against a deliberate attacker. They remain fine for spotting accidental corruption, which is why they are here at all.' },
+  { question: 'Can I use this to hash a password?', answer: 'No — and no general-purpose hash should be used for passwords. A password needs a deliberately slow algorithm with a per-user salt, such as Argon2, scrypt or bcrypt. A fast hash like SHA-256 is exactly the wrong tool, because speed is what makes guessing cheap.' },
+  { question: 'Why does SHA hashing need HTTPS?', answer: 'Browsers only expose WebCrypto in a secure context, so on a plain http:// page the SHA algorithms are unavailable. MD5 and CRC32 still work, since they do not depend on it.' },
+  { question: 'Does the file hash match what the command line gives?', answer: 'Yes. The digests are over the exact bytes of the file, so they match sha256sum, md5sum, certutil and the equivalents.' },
+];
+---
+
+<MainLayout
+  title="Hash & Checksum Generator — Free In-Browser Tool | Toolkist"
+  description="Generate MD5, SHA-1, SHA-256, SHA-384, SHA-512, CRC32 and HMAC digests from text or a file. Compare against a published checksum. No uploads."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Hash & Checksum Generator" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Hash &amp; Checksum Generator</h1>
+        <p class="mt-1 text-sm text-slate-500">Digest text or a file, and verify it against a published checksum.</p>
+      </div>
+      <HelpfulButton toolKey="hash-generator" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Source tabs -->
+          <div role="tablist" aria-label="Input source" class="mb-4 flex flex-wrap gap-2">
+            <button role="tab" data-src="text" aria-selected="true"
+              class="hash-tab min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Text</button>
+            <button role="tab" data-src="file" aria-selected="false"
+              class="hash-tab min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">File</button>
+          </div>
+
+          <!-- Text input -->
+          <div id="hashTextPane">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label for="hashInput" class="text-xs font-medium text-slate-600">Text</label>
+              <button id="hashClearBtn" class="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+            </div>
+            <textarea id="hashInput" rows="6" spellcheck="false" placeholder="Type or paste text to hash…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <!-- File input -->
+          <div id="hashFilePane" class="hidden">
+            <FileDropZone
+              id="hashDrop"
+              accept="*/*"
+              prompt="Drop a file to hash"
+              hint="Any file type — read in your browser, never uploaded"
+            />
+          </div>
+
+          <!-- HMAC key -->
+          <div class="mt-4">
+            <label class="flex min-h-[--tap] cursor-pointer items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" id="hashHmacOn" class="h-4 w-4 rounded border-slate-300 accent-[--color-accent]" />
+              <span>HMAC with a secret key</span>
+            </label>
+            <div id="hashHmacWrap" class="mt-2 hidden">
+              <label for="hashHmacKey" class="mb-1.5 block text-xs font-medium text-slate-600">Secret key</label>
+              <input type="text" id="hashHmacKey" autocomplete="off" spellcheck="false" placeholder="Shared secret"
+                class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none" />
+              <p class="mt-1.5 text-xs text-slate-400">Stays in this tab. HMAC is available for the SHA algorithms only.</p>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div id="hashResults" class="mt-6 hidden flex-col gap-2"></div>
+
+          <p id="hashStatus" class="mt-4 hidden rounded-md px-4 py-3 text-sm"></p>
+
+          <!-- Compare -->
+          <div class="mt-6 border-t border-slate-200 pt-6">
+            <label for="hashCompare" class="mb-1.5 block text-xs font-medium text-slate-600">Compare against a published checksum</label>
+            <input type="text" id="hashCompare" autocomplete="off" spellcheck="false" placeholder="Paste the expected hash…"
+              class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none" />
+            <p id="hashCompareResult" class="mt-2 hidden text-sm font-medium"></p>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the Hash Generator"
+      faq={faq}
+      related={`<a href="/tools/base64-encode" class="text-purple-500 hover:underline">Base64 Encoder</a> · <a href="/tools/uuid-generator" class="text-purple-500 hover:underline">UUID Generator</a> · <a href="/tools/jwt-decoder" class="text-purple-500 hover:underline">JWT Decoder</a>`}
+      keywords="hash generator, md5, sha256, sha512, crc32, hmac, checksum verify, file hash, online hash no upload"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Compute MD5, SHA-1, SHA-256, SHA-384, SHA-512 and CRC32 over text or a file, and compare the result against a checksum from a release page — the comparison ignores case, spaces and colons, so a pasted value matches without hand-tidying. The SHA family comes from the browser's own WebCrypto; MD5 and CRC32 are implemented here because WebCrypto deliberately omits them and real-world checksums are still published in both forms. They are labelled broken where they appear, which they are: both have practical collision attacks and neither should carry security weight. For passwords, none of these is the right tool — a password needs a deliberately slow, salted algorithm, and a fast hash is what makes guessing cheap.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<style>
+  .hash-tab[aria-selected='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-weak);
+    color: var(--color-accent-ink);
+    font-weight: 500;
+  }
+</style>
+
+<script>
+  import { HASH_ALGOS, digest, hmac, hashesMatch, isBroken, type HashAlgo, type SecureAlgo } from '@/lib/text/hash';
+  import { utf8Bytes } from '@/lib/text/encoding';
+  import { wireDropZone } from '@/lib/file-dropzone';
+  import { fmtBytes, copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input    = $<HTMLTextAreaElement>('hashInput');
+  const results  = $('hashResults');
+  const status   = $('hashStatus');
+  const compare  = $<HTMLInputElement>('hashCompare');
+  const compareResult = $('hashCompareResult');
+  const hmacOn   = $<HTMLInputElement>('hashHmacOn');
+  const hmacKey  = $<HTMLInputElement>('hashHmacKey');
+
+  let source: 'text' | 'file' = 'text';
+  let fileBytes: Uint8Array | null = null;
+  /** Latest digests, keyed by algorithm, for the compare box to check against. */
+  let digests = new Map<HashAlgo, string>();
+  /** Guards against an out-of-order render when a slow run is superseded. */
+  let runToken = 0;
+
+  function showStatus(msg: string, kind: 'err' | 'info') {
+    status.textContent = msg;
+    status.className = kind === 'err'
+      ? 'mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'
+      : 'mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600';
+  }
+
+  function clearStatus() {
+    status.classList.add('hidden');
+  }
+
+  function row(algo: HashAlgo, value: string): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex flex-col gap-1 rounded-md border border-slate-200 bg-surface px-3 py-2 sm:flex-row sm:items-center sm:gap-3';
+
+    const label = document.createElement('div');
+    label.className = 'flex shrink-0 items-center gap-2 sm:w-32';
+    const name = document.createElement('span');
+    name.className = 'font-mono text-xs font-semibold text-slate-700';
+    name.textContent = algo;
+    label.append(name);
+    if (isBroken(algo)) {
+      const badge = document.createElement('span');
+      badge.className = 'rounded-full bg-amber-50 px-2 py-0.5 text-[0.65rem] font-medium text-amber-700';
+      badge.textContent = 'broken';
+      badge.title = 'Has practical collision attacks — not for security use';
+      label.append(badge);
+    }
+
+    const out = document.createElement('code');
+    out.className = 'min-w-0 flex-1 break-all font-mono text-xs text-slate-600';
+    out.textContent = value;
+
+    const copy = document.createElement('button');
+    copy.className = 'shrink-0 self-start text-xs text-slate-400 hover:text-purple-600 sm:self-auto';
+    copy.textContent = 'Copy';
+    copy.addEventListener('click', () => copyWithFeedback(copy, value, '✓'));
+
+    wrap.append(label, out, copy);
+    return wrap;
+  }
+
+  function currentBytes(): Uint8Array | null {
+    if (source === 'file') return fileBytes;
+    const text = input.value;
+    return text ? utf8Bytes(text) : null;
+  }
+
+  async function compute() {
+    const token = ++runToken;
+    const bytes = currentBytes();
+
+    if (!bytes || bytes.length === 0) {
+      // An empty file is a real input with real digests; empty *text* is not
+      // yet an input, so only the text pane clears.
+      if (source === 'text' || !fileBytes) {
+        results.classList.add('hidden');
+        results.classList.remove('flex');
+        digests.clear();
+        checkCompare();
+        clearStatus();
+        return;
+      }
+    }
+
+    const data = bytes ?? new Uint8Array(0);
+    const useHmac = hmacOn.checked && hmacKey.value !== '';
+    const next = new Map<HashAlgo, string>();
+    const rows: HTMLElement[] = [];
+    const failures: string[] = [];
+
+    for (const algo of HASH_ALGOS) {
+      // HMAC is defined over the SHA family only; CRC32 and MD5 fall back to
+      // a plain digest rather than silently claiming to be keyed.
+      const keyed = useHmac && algo.startsWith('SHA-');
+      try {
+        const value = keyed
+          ? await hmac(algo as SecureAlgo, utf8Bytes(hmacKey.value), data)
+          : await digest(algo, data);
+        next.set(algo, value);
+        rows.push(row(algo, value));
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : `${algo} failed`);
+      }
+    }
+
+    // A later run already started; discarding this one keeps a slow digest
+    // from overwriting a newer result.
+    if (token !== runToken) return;
+
+    digests = next;
+    results.replaceChildren(...rows);
+    results.classList.toggle('hidden', rows.length === 0);
+    results.classList.toggle('flex', rows.length > 0);
+
+    if (failures.length) {
+      showStatus(failures[0], 'err');
+      status.classList.remove('hidden');
+    } else if (useHmac) {
+      showStatus('HMAC applied to the SHA algorithms. MD5 and CRC32 are shown unkeyed — HMAC is not defined for them here.', 'info');
+      status.classList.remove('hidden');
+    } else {
+      clearStatus();
+    }
+
+    checkCompare();
+  }
+
+  function checkCompare() {
+    const expected = compare.value.trim();
+    if (!expected || digests.size === 0) {
+      compareResult.classList.add('hidden');
+      return;
+    }
+    // Check every algorithm, so the user does not have to say which one the
+    // published checksum is — the length usually gives it away anyway.
+    const hit = [...digests.entries()].find(([, value]) => hashesMatch(value, expected));
+    if (hit) {
+      compareResult.textContent = `✓ Matches the ${hit[0]} digest.`;
+      compareResult.className = 'mt-2 text-sm font-medium text-emerald-600';
+    } else {
+      compareResult.textContent = '✕ No match against any algorithm above.';
+      compareResult.className = 'mt-2 text-sm font-medium text-rose-600';
+    }
+    compareResult.classList.remove('hidden');
+  }
+
+  // Source tabs
+  for (const tab of document.querySelectorAll<HTMLButtonElement>('.hash-tab')) {
+    tab.addEventListener('click', () => {
+      source = tab.dataset.src as 'text' | 'file';
+      for (const t of document.querySelectorAll<HTMLButtonElement>('.hash-tab')) {
+        t.setAttribute('aria-selected', String(t === tab));
+      }
+      $('hashTextPane').classList.toggle('hidden', source !== 'text');
+      $('hashFilePane').classList.toggle('hidden', source !== 'file');
+      compute();
+    });
+  }
+
+  input.addEventListener('input', compute);
+  compare.addEventListener('input', checkCompare);
+  hmacKey.addEventListener('input', compute);
+
+  hmacOn.addEventListener('change', () => {
+    $('hashHmacWrap').classList.toggle('hidden', !hmacOn.checked);
+    if (hmacOn.checked) hmacKey.focus();
+    compute();
+  });
+
+  $('hashClearBtn').addEventListener('click', () => {
+    input.value = '';
+    compute();
+    input.focus();
+  });
+
+  wireDropZone('hashDrop', {
+    // onFile is synchronous, so the read is kicked off rather than awaited.
+    onFile: (file) => {
+      showStatus(`Reading ${fmtBytes(file.size)}…`, 'info');
+      status.classList.remove('hidden');
+      file.arrayBuffer().then(
+        async (buf) => {
+          fileBytes = new Uint8Array(buf);
+          clearStatus();
+          await compute();
+        },
+        () => {
+          showStatus('That file could not be read.', 'err');
+          status.classList.remove('hidden');
+        },
+      );
+    },
+    onClear: () => {
+      fileBytes = null;
+      digests.clear();
+      results.classList.add('hidden');
+      results.classList.remove('flex');
+      clearStatus();
+      checkCompare();
+    },
+  });
+</script>

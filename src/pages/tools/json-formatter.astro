@@ -1,0 +1,284 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Error location', body: 'A syntax error reports its line and column. Where the browser cannot say which character it stopped at, the tool says the position is unknown rather than guessing.' },
+  { heading: 'Sort keys', body: 'Sorts object keys alphabetically at every level. Array order is left alone — order is data in an array.' },
+  { heading: 'Shape summary', body: 'Counts objects, arrays and values and reports nesting depth, which is the fastest way to understand an unfamiliar payload.' },
+  { heading: 'No uploads', body: 'Parsing and formatting run in your browser. Nothing is transmitted, so pasting a production response is safe.' },
+];
+
+const faq = [
+  { question: 'Is my JSON uploaded anywhere?', answer: 'No. The parser is the browser\'s own JSON engine, running in your tab. Nothing is sent to a server, which is why pasting an API response containing real data is safe here.' },
+  { question: 'Why does it sometimes not show a line number?', answer: 'The browser reports some syntax errors without saying which character it stopped at — for example a stray comma, when the document contains several valid commas. In that case any line number would be a guess, and a confident wrong line sends you to code that is fine. The tool says the position is unknown instead.' },
+  { question: 'What does sorting keys change?', answer: 'It reorders object keys alphabetically, recursively, which makes two payloads comparable by eye or by diff. Arrays keep their original order because position carries meaning in an array.' },
+  { question: 'Can it handle a large file?', answer: 'Yes, within the memory your browser allows. Formatting a very large document is fast, but a deeply nested one is counted iteratively rather than recursively so it cannot overflow the stack.' },
+  { question: 'Does it support JSON5 or comments?', answer: 'No. It validates strict JSON, which is what an API will accept. A trailing comma or an unquoted key is reported as the error it would be in production.' },
+];
+---
+
+<MainLayout
+  title="JSON Formatter & Validator — Free In-Browser Tool | Toolkist"
+  description="Format, minify, validate and sort JSON in your browser. Reports the line and column of any syntax error. No uploads."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="JSON Formatter & Validator" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">JSON Formatter &amp; Validator</h1>
+        <p class="mt-1 text-sm text-slate-500">Format, minify and validate JSON — with the line and column of any error.</p>
+      </div>
+      <HelpfulButton toolKey="json-formatter" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Controls -->
+          <div class="mb-4 flex flex-wrap items-end gap-4">
+            <div>
+              <label for="jsonIndent" class="mb-1.5 block text-xs font-medium text-slate-600">Indent</label>
+              <select id="jsonIndent"
+                class="rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-700 focus:border-purple-400 focus:outline-none">
+                <option value="2" selected>2 spaces</option>
+                <option value="4">4 spaces</option>
+                <option value="tab">Tab</option>
+                <option value="0">Minify</option>
+              </select>
+            </div>
+
+            <label class="flex min-h-[--tap] cursor-pointer items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" id="jsonSort" class="h-4 w-4 rounded border-slate-300 accent-[--color-accent]" />
+              <span>Sort keys</span>
+            </label>
+
+            <div class="ml-auto flex gap-2">
+              <button id="jsonSampleBtn" class="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Sample</button>
+              <button id="jsonClearBtn" class="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Clear</button>
+            </div>
+          </div>
+
+          <!-- Input / Output -->
+          <div class="mb-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <label for="jsonInput" class="mb-1.5 block text-xs font-medium text-slate-600">Input</label>
+              <textarea id="jsonInput" rows="18" spellcheck="false" placeholder="Paste JSON here…"
+                class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+            </div>
+
+            <div>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label for="jsonOutput" class="text-xs font-medium text-slate-600">Output</label>
+                <div class="flex gap-3">
+                  <button id="jsonCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+                  <button id="jsonDownloadBtn" class="text-xs text-slate-400 hover:text-purple-600">Download</button>
+                </div>
+              </div>
+              <textarea id="jsonOutput" rows="18" readonly spellcheck="false"
+                class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 focus:outline-none"></textarea>
+            </div>
+          </div>
+
+          <button id="jsonFormatBtn"
+            class="min-h-[--tap] w-full rounded-md bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            disabled>
+            Format JSON
+          </button>
+
+          <!-- Error panel -->
+          <div id="jsonError" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 p-4">
+            <p class="text-sm font-medium text-rose-700"><span id="jsonErrMsg"></span></p>
+            <p id="jsonErrPos" class="mt-1 text-xs text-rose-600"></p>
+            <pre id="jsonErrExcerpt" class="mt-2 hidden overflow-x-auto rounded border border-rose-200 bg-surface px-3 py-2 font-mono text-xs text-slate-700"></pre>
+          </div>
+
+          <p id="jsonOk" class="mt-4 hidden rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"></p>
+
+          <!-- Shape summary -->
+          <dl id="jsonStats" class="mt-4 hidden grid-cols-2 gap-3 sm:grid-cols-4">
+          </dl>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the JSON Formatter"
+      faq={faq}
+      related={`<a href="/tools/base64-encode" class="text-purple-500 hover:underline">Base64 Encoder</a> · <a href="/tools/jwt-decoder" class="text-purple-500 hover:underline">JWT Decoder</a> · <a href="/tools/code-formatter" class="text-purple-500 hover:underline">Code Formatter</a>`}
+      keywords="json formatter, json validator, json beautifier, json minify, format json online, json lint, no upload"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Paste JSON to reformat it at your chosen indent, minify it to a single line, or sort its keys for comparison. Invalid input reports the line and column where parsing stopped, together with the offending line — which is the part a bare <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">JSON.parse</code> error does badly. The shape summary counts objects, arrays and values and measures nesting depth, so an unfamiliar payload can be understood at a glance. Everything runs in your browser: no request is made, which is what makes pasting a real API response reasonable.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<script>
+  import { parseJson, formatValue, jsonStats, type FormatOptions } from '@/lib/text/json-tool';
+  import { dl, copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input    = $<HTMLTextAreaElement>('jsonInput');
+  const output   = $<HTMLTextAreaElement>('jsonOutput');
+  const indentEl = $<HTMLSelectElement>('jsonIndent');
+  const sortEl   = $<HTMLInputElement>('jsonSort');
+  const formatBtn = $<HTMLButtonElement>('jsonFormatBtn');
+  const errBox   = $('jsonError');
+  const errMsg   = $('jsonErrMsg');
+  const errPos   = $('jsonErrPos');
+  const errExcerpt = $<HTMLPreElement>('jsonErrExcerpt');
+  const okBox    = $('jsonOk');
+  const statsBox = $<HTMLDListElement>('jsonStats');
+
+  const SAMPLE = JSON.stringify({
+    id: 'c3f1a8e2',
+    active: true,
+    score: 42.5,
+    tags: ['beta', 'internal'],
+    owner: { name: 'Example', teams: [{ id: 1, role: 'admin' }] },
+    retired: null,
+  });
+
+  function indentOption(): FormatOptions['indent'] {
+    const v = indentEl.value;
+    return v === 'tab' ? 'tab' : Number(v);
+  }
+
+  function hideAll() {
+    errBox.classList.add('hidden');
+    okBox.classList.add('hidden');
+    statsBox.classList.add('hidden');
+    statsBox.classList.remove('grid');
+  }
+
+  function showError(msg: string, line: number | null, column: number | null, excerpt: string) {
+    hideAll();
+    errMsg.textContent = msg;
+    // A null position is reported as unknown rather than as line 1. The
+    // browser does not always say which character it stopped at, and a
+    // confident wrong line sends the reader to code that is correct.
+    errPos.textContent = line === null
+      ? 'The browser did not report which character it stopped at, so the position is unknown.'
+      : `Line ${line}, column ${column}`;
+    if (excerpt.trim()) {
+      errExcerpt.textContent = excerpt;
+      errExcerpt.classList.remove('hidden');
+    } else {
+      errExcerpt.classList.add('hidden');
+    }
+    errBox.classList.remove('hidden');
+    output.value = '';
+  }
+
+  const STAT_LABELS: [keyof ReturnType<typeof jsonStats>, string][] = [
+    ['objects', 'Objects'], ['arrays', 'Arrays'], ['keys', 'Keys'], ['depth', 'Max depth'],
+    ['strings', 'Strings'], ['numbers', 'Numbers'], ['booleans', 'Booleans'], ['nulls', 'Nulls'],
+  ];
+
+  function showStats(value: unknown) {
+    const s = jsonStats(value);
+    statsBox.replaceChildren(...STAT_LABELS.map(([key, label]) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'rounded-md border border-slate-200 bg-surface px-3 py-2';
+      const dt = document.createElement('dt');
+      dt.className = 'text-[0.68rem] uppercase tracking-wider text-slate-400';
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.className = 'mt-0.5 font-mono text-sm font-semibold text-slate-800';
+      dd.textContent = String(s[key]);
+      wrap.append(dt, dd);
+      return wrap;
+    }));
+    statsBox.classList.remove('hidden');
+    statsBox.classList.add('grid');
+  }
+
+  function format() {
+    const src = input.value;
+    if (!src.trim()) return;
+
+    const result = parseJson(src);
+    if (!result.ok) {
+      showError(result.error.message, result.error.line, result.error.column, result.error.excerpt);
+      return;
+    }
+
+    const text = formatValue(result.value, {
+      indent: indentOption(),
+      sort: sortEl.checked ? 'keys' : 'none',
+    });
+    output.value = text;
+
+    hideAll();
+    const delta = text.length - src.length;
+    const pct = src.length ? Math.abs((delta / src.length) * 100).toFixed(1) : '0.0';
+    okBox.textContent = delta < 0
+      ? `✓ Valid JSON — ${pct}% smaller (${src.length.toLocaleString()} → ${text.length.toLocaleString()} characters)`
+      : delta > 0
+        ? `✓ Valid JSON — expanded for readability (${src.length.toLocaleString()} → ${text.length.toLocaleString()} characters)`
+        : `✓ Valid JSON — ${text.length.toLocaleString()} characters`;
+    okBox.classList.remove('hidden');
+    showStats(result.value);
+  }
+
+  function syncBtn() {
+    formatBtn.disabled = input.value.trim() === '';
+  }
+
+  formatBtn.addEventListener('click', format);
+  input.addEventListener('input', syncBtn);
+  // Re-run on an option change only when output already exists, so toggling
+  // does not surface an error for input the user is still typing.
+  for (const el of [indentEl, sortEl]) {
+    el.addEventListener('change', () => { if (output.value) format(); });
+  }
+
+  $('jsonSampleBtn').addEventListener('click', () => {
+    input.value = SAMPLE;
+    syncBtn();
+    format();
+  });
+
+  $('jsonClearBtn').addEventListener('click', () => {
+    input.value = '';
+    output.value = '';
+    hideAll();
+    syncBtn();
+    input.focus();
+  });
+
+  $('jsonCopyBtn').addEventListener('click', function (this: HTMLElement) {
+    copyWithFeedback(this, output.value);
+  });
+
+  $('jsonDownloadBtn').addEventListener('click', () => {
+    if (!output.value) return;
+    dl(new Blob([output.value], { type: 'application/json' }), 'formatted.json');
+  });
+
+  // Ctrl/Cmd+Enter formats, which is the shortcut people reach for in a
+  // two-pane editor.
+  input.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); format(); }
+  });
+
+  syncBtn();
+</script>

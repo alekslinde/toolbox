@@ -1,0 +1,426 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+
+const tips = [
+  { heading: 'Live highlighting', body: 'Matches are highlighted in the test string as you type, with capture groups listed per match.' },
+  { heading: 'Runaway patterns', body: 'A pattern with nested quantifiers can hang a page for minutes. This tool checks for that shape first and asks before running it.' },
+  { heading: 'Flags explained', body: 'Each flag says what it does. g and y cannot combine, nor can u and v — the tool refuses rather than letting the browser throw.' },
+  { heading: 'Replace preview', body: 'Switch to Replace to see the result, with $1 and $<name> references working as the engine defines them.' },
+];
+
+const faq = [
+  { question: 'Which flavour of regex is this?', answer: 'JavaScript\'s own, as implemented by your browser. Patterns that work here work in JavaScript and TypeScript; PCRE, Python and Go differ in places, most notably around lookbehind and named group syntax.' },
+  { question: 'Why does it warn before running some patterns?', answer: 'Because a pattern like (a+)+b can take exponentially long on input that almost matches, and once the regex engine starts there is no way for JavaScript to interrupt it — the tab simply stops responding. The check looks for that structural shape and asks first. It is a heuristic, so it occasionally warns about a pattern that is fine.' },
+  { question: 'What is catastrophic backtracking?', answer: 'When a pattern can divide the same input many different ways, the engine tries every division before concluding there is no match. Nested quantifiers and overlapping alternations are the usual causes. The same flaw is a denial-of-service vector in production code, which is why it is worth spotting here.' },
+  { question: 'Is there a limit on the test string?', answer: 'Yes, 100,000 characters, and matches are capped at 1,000. Both exist because the cost of a bad pattern scales with input length, and because no interface can usefully show more than a thousand matches.' },
+  { question: 'Is my pattern or test data sent anywhere?', answer: 'No. The regex runs in your browser and nothing is transmitted.' },
+];
+---
+
+<MainLayout
+  title="Regex Tester — Free In-Browser Tool | Toolkist"
+  description="Test regular expressions with live match highlighting, capture groups and a plain-English breakdown. Warns before a pattern that could hang the page."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Regex Tester" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Regex Tester</h1>
+        <p class="mt-1 text-sm text-slate-500">Test a pattern against sample text, with live highlighting and group capture.</p>
+      </div>
+      <HelpfulButton toolKey="regex-tester" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <!-- Pattern -->
+          <label for="reInput" class="mb-1.5 block text-xs font-medium text-slate-600">Pattern</label>
+          <div class="flex items-stretch gap-0 rounded-md border border-slate-200 bg-slate-50 focus-within:border-purple-400">
+            <span class="flex items-center pl-3 font-mono text-sm text-slate-400" aria-hidden="true">/</span>
+            <input type="text" id="reInput" autocomplete="off" spellcheck="false" placeholder="\d{4}-\d{2}-\d{2}"
+              class="min-w-0 flex-1 bg-transparent px-2 py-2 font-mono text-sm text-slate-800 focus:outline-none" />
+            <span class="flex items-center font-mono text-sm text-slate-400" aria-hidden="true">/</span>
+            <input type="text" id="reFlags" autocomplete="off" spellcheck="false" value="g" placeholder="gimsuy"
+              aria-label="Flags"
+              class="w-20 bg-transparent px-2 py-2 font-mono text-sm text-purple-600 focus:outline-none" />
+          </div>
+
+          <!-- Flag toggles -->
+          <div class="mt-3 flex flex-wrap gap-2">
+            {[
+              { f: 'g', t: 'Find every match, not just the first' },
+              { f: 'i', t: 'Match regardless of case' },
+              { f: 'm', t: '^ and $ match at each line break' },
+              { f: 's', t: 'Let . match newlines' },
+              { f: 'u', t: 'Unicode mode — required for \\p{…}' },
+              { f: 'y', t: 'Sticky — match only at the search position' },
+            ].map((x) => (
+              <button
+                data-flag={x.f}
+                title={x.t}
+                aria-pressed="false"
+                class="re-flag min-h-[--tap] rounded-md border border-slate-200 px-3 py-1.5 font-mono text-sm text-slate-600 transition-colors hover:border-purple-300"
+              >{x.f}</button>
+            ))}
+          </div>
+
+          <!-- Mode -->
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <button data-mode="match" aria-pressed="true"
+              class="re-mode min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Match</button>
+            <button data-mode="replace" aria-pressed="false"
+              class="re-mode min-h-[--tap] rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 transition-colors hover:border-purple-300">Replace</button>
+          </div>
+
+          <div id="reReplaceWrap" class="mt-3 hidden">
+            <label for="reReplacement" class="mb-1.5 block text-xs font-medium text-slate-600">Replacement</label>
+            <input type="text" id="reReplacement" autocomplete="off" spellcheck="false" placeholder="$1 — use $1, $&lt;name&gt; for groups"
+              class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-800 focus:border-purple-400 focus:outline-none" />
+          </div>
+
+          <!-- Test string -->
+          <div class="mt-4">
+            <div class="mb-1.5 flex items-center justify-between">
+              <label for="reTest" class="text-xs font-medium text-slate-600">Test string</label>
+              <button id="reSampleBtn" class="text-xs text-slate-400 hover:text-purple-600">Sample</button>
+            </div>
+            <textarea id="reTest" rows="8" spellcheck="false" placeholder="Paste the text to match against…"
+              class="w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 focus:border-purple-400 focus:outline-none"></textarea>
+          </div>
+
+          <!-- Risk warning -->
+          <div id="reRisk" class="mt-4 hidden rounded-md border border-amber-200 bg-amber-50 p-4">
+            <p class="text-sm font-medium text-amber-900">This pattern could hang the page.</p>
+            <p id="reRiskDetail" class="mt-1 text-sm leading-relaxed text-amber-800"></p>
+            <button id="reRiskConfirm"
+              class="mt-3 min-h-[--tap] rounded-md border border-amber-300 bg-surface px-4 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100">
+              Run it anyway
+            </button>
+          </div>
+
+          <p id="reError" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></p>
+
+          <!-- Result -->
+          <div id="reResult" class="mt-4 hidden flex-col gap-4">
+            <p id="reSummary" class="text-sm text-slate-600"></p>
+
+            <div>
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Highlighted</h2>
+              <pre id="reHighlight" class="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-surface px-3 py-2 font-mono text-xs leading-relaxed text-slate-700"></pre>
+            </div>
+
+            <div id="reMatchesWrap">
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Matches</h2>
+              <div class="overflow-x-auto rounded-md border border-slate-200">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th scope="col" class="px-3 py-2 font-medium">#</th>
+                      <th scope="col" class="px-3 py-2 font-medium">Match</th>
+                      <th scope="col" class="px-3 py-2 font-medium">At</th>
+                      <th scope="col" class="px-3 py-2 font-medium">Groups</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reMatchesBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="reReplaceOut" class="hidden">
+              <div class="mb-2 flex items-center justify-between">
+                <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400">Result</h2>
+                <button id="reCopyBtn" class="text-xs text-slate-400 hover:text-purple-600">Copy</button>
+              </div>
+              <pre id="reReplaceText" class="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-surface px-3 py-2 font-mono text-xs text-slate-700"></pre>
+            </div>
+
+            <div id="reExplainWrap" class="hidden">
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">What this pattern uses</h2>
+              <dl id="reExplain" class="flex flex-col gap-1.5"></dl>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the Regex Tester"
+      faq={faq}
+      related={`<a href="/tools/json-formatter" class="text-purple-500 hover:underline">JSON Formatter</a> · <a href="/tools/base64-encode" class="text-purple-500 hover:underline">Base64 Encoder</a> · <a href="/tools/cron-parser" class="text-purple-500 hover:underline">Cron Parser</a>`}
+      keywords="regex tester, regular expression tester, regex match, capture groups, regex replace, javascript regex, redos"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Write a pattern, paste sample text, and see every match highlighted with its position and capture groups — or switch to Replace to preview a substitution. The flavour is JavaScript's own, so what works here works in JavaScript and TypeScript. One feature is worth knowing about before you need it: a pattern with nested quantifiers, such as <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">(a+)+b</code>, can take exponentially long on input that nearly matches, and because the match happens inside the regex engine nothing in JavaScript can interrupt it — the page simply stops. This tool screens for that shape before running anything and asks first. The same flaw is a real denial-of-service vector in production code, so a warning here is worth heeding there.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<style>
+  .re-flag[aria-pressed='true'],
+  .re-mode[aria-pressed='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-weak);
+    color: var(--color-accent-ink);
+    font-weight: 500;
+  }
+  #reHighlight mark {
+    background: var(--color-accent-weak);
+    color: var(--color-accent-ink);
+    border-radius: 3px;
+    padding: 0 1px;
+    font-weight: 600;
+  }
+  #reHighlight mark:nth-of-type(even) {
+    background: #e0f2fe;
+    color: #075985;
+  }
+</style>
+
+<script>
+  import { run, replace, segments, explain, backtrackingRisk, compile, MATCH_CAP } from '@/lib/text/regex';
+  import { copyWithFeedback } from '@/lib/utils';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const patternEl = $<HTMLInputElement>('reInput');
+  const flagsEl   = $<HTMLInputElement>('reFlags');
+  const testEl    = $<HTMLTextAreaElement>('reTest');
+  const replEl    = $<HTMLInputElement>('reReplacement');
+  const errorEl   = $('reError');
+  const resultEl  = $('reResult');
+  const summaryEl = $('reSummary');
+  const highlightEl = $<HTMLPreElement>('reHighlight');
+  const matchesBody = $<HTMLTableSectionElement>('reMatchesBody');
+  const riskEl    = $('reRisk');
+  const riskDetail = $('reRiskDetail');
+  const explainEl = $<HTMLDListElement>('reExplain');
+
+  let mode: 'match' | 'replace' = 'match';
+  /** Set once the user accepts the risk for the pattern currently in the box. */
+  let confirmedPattern: string | null = null;
+
+  const SAMPLE = [
+    'order 1842 shipped 2026-03-14 to ada@example.test',
+    'order 1843 pending 2026-03-21 to grace@example.test',
+    'order 1844 shipped 2026-04-02 to alan@example.test',
+  ].join('\n');
+
+  function hide() {
+    errorEl.classList.add('hidden');
+    resultEl.classList.add('hidden');
+    resultEl.classList.remove('flex');
+  }
+
+  function showError(msg: string) {
+    hide();
+    errorEl.textContent = msg;
+    errorEl.classList.remove('hidden');
+  }
+
+  function renderHighlight(input: string, matches: ReturnType<typeof run>['matches']) {
+    // Built from DOM nodes with textContent, never an HTML string: the test
+    // string is arbitrary input and must never become markup.
+    highlightEl.replaceChildren(...segments(input, matches).map((seg) => {
+      if (seg.match === null) return document.createTextNode(seg.text);
+      const mark = document.createElement('mark');
+      mark.textContent = seg.text;
+      return mark;
+    }));
+  }
+
+  function renderMatches(matches: ReturnType<typeof run>['matches']) {
+    matchesBody.replaceChildren(...matches.map((m, i) => {
+      const tr = document.createElement('tr');
+
+      const tdNum = document.createElement('td');
+      tdNum.className = 'px-3 py-2 font-mono text-xs text-slate-400';
+      tdNum.textContent = String(i + 1);
+
+      const tdText = document.createElement('td');
+      tdText.className = 'px-3 py-2 font-mono text-xs break-all text-slate-800';
+      tdText.textContent = m.text === '' ? '(empty match)' : m.text;
+
+      const tdAt = document.createElement('td');
+      tdAt.className = 'px-3 py-2 font-mono text-xs text-slate-500';
+      tdAt.textContent = String(m.index);
+
+      const tdGroups = document.createElement('td');
+      tdGroups.className = 'px-3 py-2 font-mono text-xs break-all text-slate-600';
+      const named = Object.entries(m.named);
+      const parts: string[] = [];
+      m.groups.forEach((g, gi) => parts.push(`$${gi + 1}=${g === undefined ? '—' : g}`));
+      for (const [name, value] of named) parts.push(`${name}=${value === undefined ? '—' : value}`);
+      tdGroups.textContent = parts.length ? parts.join('  ') : '—';
+
+      tr.append(tdNum, tdText, tdAt, tdGroups);
+      return tr;
+    }));
+  }
+
+  function renderExplain(pattern: string) {
+    const notes = explain(pattern);
+    if (!notes.length) {
+      $('reExplainWrap').classList.add('hidden');
+      return;
+    }
+    explainEl.replaceChildren(...notes.map((note) => {
+      const row = document.createElement('div');
+      row.className = 'flex flex-col gap-0.5 sm:flex-row sm:gap-3';
+      const dt = document.createElement('dt');
+      dt.className = 'shrink-0 font-mono text-xs font-semibold text-purple-600 sm:w-24';
+      dt.textContent = note.token;
+      const dd = document.createElement('dd');
+      dd.className = 'text-xs text-slate-600';
+      dd.textContent = note.meaning;
+      row.append(dt, dd);
+      return row;
+    }));
+    $('reExplainWrap').classList.remove('hidden');
+  }
+
+  function evaluate() {
+    const pattern = patternEl.value;
+    const flags = flagsEl.value;
+    const input = testEl.value;
+
+    riskEl.classList.add('hidden');
+
+    if (!pattern) { hide(); return; }
+
+    // Validate the pattern before anything else, so a syntax error is reported
+    // even with no test string present.
+    try {
+      compile(pattern, flags);
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Invalid pattern.');
+      return;
+    }
+
+    // Surface the risk panel before attempting a run. Once the engine starts
+    // on a pathological pattern, nothing here can stop it.
+    const confirmed = confirmedPattern === pattern;
+    if (!confirmed) {
+      const risks = backtrackingRisk(pattern);
+      if (risks.length) {
+        hide();
+        riskDetail.textContent = `${risks[0].construct} — ${risks[0].message}`;
+        riskEl.classList.remove('hidden');
+        renderExplain(pattern);
+        return;
+      }
+    }
+
+    if (!input) { hide(); return; }
+
+    try {
+      const result = run(pattern, flags, input, { confirmRisk: confirmed });
+      hide();
+
+      const count = result.matches.length;
+      summaryEl.textContent = count === 0
+        ? 'No matches.'
+        : `${count}${result.truncated ? `+ (showing the first ${MATCH_CAP})` : ''} ${count === 1 ? 'match' : 'matches'} in ${result.ms.toFixed(1)} ms`;
+
+      renderHighlight(input, result.matches);
+      renderMatches(result.matches);
+      $('reMatchesWrap').classList.toggle('hidden', count === 0);
+
+      if (mode === 'replace') {
+        const out = replace(pattern, flags, input, replEl.value, { confirmRisk: confirmed });
+        $<HTMLPreElement>('reReplaceText').textContent = out;
+        $('reReplaceOut').classList.remove('hidden');
+      } else {
+        $('reReplaceOut').classList.add('hidden');
+      }
+
+      renderExplain(pattern);
+      resultEl.classList.remove('hidden');
+      resultEl.classList.add('flex');
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Could not run that pattern.');
+    }
+  }
+
+  /** Keep the flag buttons and the flag text field in agreement. */
+  function syncFlagButtons() {
+    const flags = flagsEl.value;
+    for (const btn of document.querySelectorAll<HTMLButtonElement>('.re-flag')) {
+      btn.setAttribute('aria-pressed', String(flags.includes(btn.dataset.flag!)));
+    }
+  }
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.re-flag')) {
+    btn.addEventListener('click', () => {
+      const flag = btn.dataset.flag!;
+      const has = flagsEl.value.includes(flag);
+      let next = has
+        ? flagsEl.value.replace(flag, '')
+        : flagsEl.value + flag;
+      // g/y and u/v are mutually exclusive; turning one on turns its partner
+      // off rather than producing a combination the engine rejects.
+      if (!has) {
+        if (flag === 'g') next = next.replace('y', '');
+        if (flag === 'y') next = next.replace('g', '');
+        if (flag === 'u') next = next.replace('v', '');
+      }
+      flagsEl.value = next;
+      syncFlagButtons();
+      evaluate();
+    });
+  }
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.re-mode')) {
+    btn.addEventListener('click', () => {
+      mode = btn.dataset.mode as 'match' | 'replace';
+      for (const b of document.querySelectorAll<HTMLButtonElement>('.re-mode')) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      }
+      $('reReplaceWrap').classList.toggle('hidden', mode !== 'replace');
+      evaluate();
+    });
+  }
+
+  patternEl.addEventListener('input', () => {
+    // A changed pattern has not been reviewed, so consent does not carry over.
+    confirmedPattern = null;
+    evaluate();
+  });
+  flagsEl.addEventListener('input', () => { syncFlagButtons(); evaluate(); });
+  testEl.addEventListener('input', evaluate);
+  replEl.addEventListener('input', evaluate);
+
+  $('reRiskConfirm').addEventListener('click', () => {
+    confirmedPattern = patternEl.value;
+    evaluate();
+  });
+
+  $('reSampleBtn').addEventListener('click', () => {
+    testEl.value = SAMPLE;
+    if (!patternEl.value) patternEl.value = '(\\d{4})-(\\d{2})-(\\d{2})';
+    evaluate();
+  });
+
+  $('reCopyBtn').addEventListener('click', function (this: HTMLElement) {
+    copyWithFeedback(this, $('reReplaceText').textContent ?? '');
+  });
+
+  syncFlagButtons();
+</script>
