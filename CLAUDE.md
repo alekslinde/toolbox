@@ -157,6 +157,11 @@ This project uses **Tailwind CSS**. Follow the utility class patterns already us
 - **Don't drop the regex backtracking screen.** Once the engine starts on a
   pathological pattern nothing in JS can interrupt it, so a risky pattern is
   refused *before* running rather than timed out after.
+- **Don't detect regex problems with a regex.** The screener in
+  `src/lib/text/regex.ts` is a single-pass tokenizer because the regex version
+  of it was itself a ReDoS vector — it ran on every keystroke, and a
+  45-character pattern froze the tab for 44 seconds. Anything inspecting
+  pattern structure stays linear and non-backtracking.
 - **Don't make UUID v7 or ULID re-randomise per call.** They share a monotonic
   counter so a batch generated inside one millisecond stays strictly ordered —
   which is the only reason to choose either over v4.
