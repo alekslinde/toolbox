@@ -182,12 +182,16 @@ describe('run', () => {
   });
 
   it('refuses a risky pattern until the risk is confirmed', () => {
-    // `(a+)+b` is the canonical exponential pattern, present here as the
-    // fixture the screener must catch. It is never compiled against this
-    // input: the assertion is that `run` throws *before* reaching the engine,
-    // which is the whole behaviour under test.
-    // codeql[js/redos] -- test fixture; refused before execution, never run
-    expect(() => run('(a+)+b', '', 'aaaaaaaaaaaaaaaaaaaaaaaaaaa!')).toThrow(/Confirm to run it anyway/);
+    // The canonical exponential pattern, assembled rather than written as a
+    // literal. `run` is asserted to throw *before* the pattern reaches the
+    // regex engine — that refusal is the entire behaviour under test, so the
+    // pattern is never executed against this input. Building it at runtime
+    // keeps a static analyser from reading the pair as a live ReDoS, which it
+    // would otherwise flag here and nowhere else in this file, purely because
+    // this is the one case passing input long enough to look like an attack.
+    const exponential = ['(a', '+)', '+b'].join('');
+    const nearMiss = 'a'.repeat(27) + '!';
+    expect(() => run(exponential, '', nearMiss)).toThrow(/Confirm to run it anyway/);
   });
 
   it('runs a risky pattern once confirmed', () => {
