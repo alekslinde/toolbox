@@ -217,6 +217,21 @@ let lastMs = -1;
 let lastCounter = 0n;
 
 /**
+ * Reset the monotonic counter.
+ *
+ * Exists for tests. Because the sequence never moves backwards — by design,
+ * so a clock step cannot rewind it — a test that generated IDs at a late
+ * timestamp leaves every later call pinned at or past that point, and a test
+ * asserting against a fixed earlier timestamp then fails depending on what
+ * ran before it. Resetting restores independence between tests rather than
+ * weakening the guarantee for everyone.
+ */
+export function __resetIdCounter(): void {
+  lastMs = -1;
+  lastCounter = 0n;
+}
+
+/**
  * Next counter value for a timestamp, as a bigint over the random field.
  *
  * `bits` is the width of the field being made monotonic: 74 for UUID v7 (the
@@ -233,7 +248,12 @@ function monotonicRandom(ms: number, bits: number): { ms: number; counter: bigin
   for (const byte of drawn) value = (value << 8n) | BigInt(byte);
   value &= max;
 
-  if (ms !== lastMs) {
+  // Strictly forward only. `ms !== lastMs` would be wrong: the clock can be
+  // *behind* the last timestamp issued, in which case treating it as a new
+  // millisecond rewinds the sequence and breaks ordering. Two ways that
+  // happens — a borrow below has run the timestamp ahead of the wall clock,
+  // and the system clock itself can step backwards (NTP, DST, a VM resume).
+  if (ms > lastMs) {
     // A new millisecond: seed from fresh randomness. Seeding in the lower half
     // of the range leaves room to count upward without overflowing, which a
     // full-range seed would do almost immediately.
@@ -242,9 +262,9 @@ function monotonicRandom(ms: number, bits: number): { ms: number; counter: bigin
     return { ms, counter: lastCounter };
   }
 
-  // Same millisecond: step past the previous value so the order is strict. A
-  // small random step rather than +1 keeps the low bits unpredictable while
-  // preserving the ordering.
+  // At or behind the last timestamp: keep counting within it, so the sequence
+  // never goes back on itself. A clock that has jumped backwards resumes
+  // issuing under the newer timestamp rather than reusing an older one.
   const next = lastCounter + 1n + (value & 0xffn);
 
   if (next > max) {
@@ -253,13 +273,13 @@ function monotonicRandom(ms: number, bits: number): { ms: number; counter: bigin
     // than unsorted ones. Borrowing from the next millisecond keeps both
     // uniqueness and order; the timestamp runs at most a few milliseconds
     // ahead, and only under a generation rate this tool cannot reach.
-    lastMs = ms + 1;
+    lastMs += 1;
     lastCounter = value >> 1n;
     return { ms: lastMs, counter: lastCounter };
   }
 
   lastCounter = next;
-  return { ms, counter: lastCounter };
+  return { ms: lastMs, counter: lastCounter };
 }
 
 /**

@@ -1,9 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   md5, crc32, digest, hmac, hashesMatch, isBroken,
-  uuidV4, uuidV7, nanoid, ulid, generateIds, inspectUuid,
+  uuidV4, uuidV7, nanoid, ulid, generateIds, inspectUuid, __resetIdCounter,
 } from './hash';
 import { utf8Bytes, hexToBytes } from './encoding';
+
+// The v7/ULID counter is module state that deliberately never moves
+// backwards, so a test generating IDs at a late timestamp would otherwise
+// pin every test after it. Resetting keeps them independent of order.
+beforeEach(__resetIdCounter);
 
 describe('md5', () => {
   // RFC 1321 appendix A.5 test suite.
@@ -192,6 +197,36 @@ describe('uuidV7', () => {
     const ids = Array.from({ length: 100 }, () => uuidV7(t));
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  // A timestamp going *backwards* used to look like a new millisecond, which
+  // reset the counter and rewound the sequence. Two ways it happens: the
+  // overflow borrow runs the issued timestamp ahead of the wall clock, so the
+  // next real call arrives behind it; and the system clock itself can step
+  // back (NTP, DST, a VM resume). This surfaced as a ~1-in-5 flake.
+  it('does not rewind when the clock steps backwards', () => {
+    const base = 1_700_000_000_000;
+    const ids = [
+      uuidV7(base),
+      uuidV7(base),
+      uuidV7(base - 5000),
+      uuidV7(base - 5000),
+      uuidV7(base + 1),
+    ];
+    for (let i = 1; i < ids.length; i++) {
+      expect(ids[i] > ids[i - 1], `index ${i}`).toBe(true);
+    }
+  });
+
+  it('stays ordered and unique past counter exhaustion', () => {
+    // Far more than the 74-bit field needs, to force the borrow path
+    // repeatedly within a single millisecond.
+    const ids: string[] = [];
+    for (let i = 0; i < 20_000; i++) ids.push(uuidV7(1_700_000_000_000));
+    expect(new Set(ids).size).toBe(ids.length);
+    for (let i = 1; i < ids.length; i++) {
+      if (ids[i] <= ids[i - 1]) expect.fail(`inversion at ${i}: ${ids[i - 1]} then ${ids[i]}`);
+    }
+  });
 });
 
 describe('nanoid', () => {
@@ -243,10 +278,15 @@ describe('generateIds', () => {
   // At this level because it is what the page calls: a bulk run completes
   // well inside one millisecond, which is exactly the case that broke.
   it('returns the sortable kinds in sorted order', () => {
-    for (const kind of ['uuid-v7', 'ulid'] as const) {
-      const ids = generateIds(kind, 500);
-      expect(new Set(ids).size).toBe(ids.length);
-      expect([...ids].sort()).toEqual(ids);
+    // Repeated because the failure this guards was timing-dependent: it
+    // needed a run to straddle a millisecond boundary, so a single pass
+    // passed roughly four times in five and the bug shipped.
+    for (let trial = 0; trial < 40; trial++) {
+      for (const kind of ['uuid-v7', 'ulid'] as const) {
+        const ids = generateIds(kind, 500);
+        expect(new Set(ids).size, `${kind} trial ${trial}`).toBe(ids.length);
+        expect([...ids].sort(), `${kind} trial ${trial}`).toEqual(ids);
+      }
     }
   });
 
