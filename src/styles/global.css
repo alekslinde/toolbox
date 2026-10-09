@@ -226,6 +226,8 @@
   --color-emerald-600: var(--ok);
   --color-emerald-700: var(--ok);
   --color-emerald-800: var(--ok);
+  --color-emerald-900: var(--ok);
+  --color-emerald-950: var(--ok);
 
   --color-rose-50: var(--err-weak);
   --color-rose-100: var(--err-weak);
@@ -235,16 +237,21 @@
   --color-rose-500: var(--err);
   --color-rose-600: var(--err);
   --color-rose-700: var(--err);
+  --color-rose-800: var(--err);
+  --color-rose-900: var(--err);
+  --color-rose-950: var(--err);
 
   --color-amber-50: var(--warn-weak);
   --color-amber-100: var(--warn-weak);
   --color-amber-200: var(--warn);
   --color-amber-300: var(--warn);
+  --color-amber-400: var(--warn);
   --color-amber-500: var(--warn);
   --color-amber-600: var(--warn);
   --color-amber-700: var(--warn);
   --color-amber-800: var(--warn);
   --color-amber-900: var(--warn);
+  --color-amber-950: var(--warn);
 
   /* Motion. Strong custom curves: the built-in ease-out is too weak to feel
      intentional. Overriding these upgrades every ease-out / ease-in-out use. */
