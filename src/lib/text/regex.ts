@@ -60,6 +60,130 @@ export interface RiskWarning {
   message: string;
 }
 
+/** One token of a regex pattern, as the scanner below sees it. */
+interface Token {
+  kind: 'group-open' | 'group-close' | 'class' | 'literal' | 'alternation' | 'quantifier';
+  start: number;
+  end: number;
+  /** For a quantifier: whether it is open-ended (`*`, `+`, `{n,}`). */
+  openEnded?: boolean;
+}
+
+/**
+ * Split a pattern into tokens in one left-to-right pass.
+ *
+ * Deliberately not a regex. The thing being inspected is a structure —
+ * nesting, escapes, character classes — and matching it with another regex is
+ * what made the previous version of this function a ReDoS vector in its own
+ * right: two alternatives that could both consume the same character meant
+ * `(?!?!?!…` divided exponentially many ways, and a 45-character pattern took
+ * 44 seconds. Since this runs on every keystroke in the pattern field, the
+ * screener hung the tab it exists to protect. A single pass cannot do that:
+ * the cost is linear in the pattern length, with no backtracking available.
+ */
+function tokenize(pattern: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  while (i < pattern.length) {
+    const ch = pattern[i];
+
+    // An escape consumes exactly two characters and can never open a group or
+    // a class, so handling it first keeps everything below simple.
+    if (ch === '\\') {
+      tokens.push({ kind: 'literal', start: i, end: Math.min(i + 2, pattern.length) });
+      i += 2;
+      continue;
+    }
+
+    if (ch === '[') {
+      // Scan to the closing bracket. A `]` immediately after `[` or `[^` is a
+      // literal, and escapes inside the class still consume two characters.
+      let j = i + 1;
+      if (pattern[j] === '^') j++;
+      if (pattern[j] === ']') j++;
+      while (j < pattern.length && pattern[j] !== ']') {
+        j += pattern[j] === '\\' ? 2 : 1;
+      }
+      tokens.push({ kind: 'class', start: i, end: Math.min(j + 1, pattern.length) });
+      i = j + 1;
+      continue;
+    }
+
+    if (ch === '(') {
+      // Group openers vary in length: `(`, `(?:`, `(?=`, `(?!`, `(?<=`,
+      // `(?<!`, `(?<name>`. The exact flavour does not matter here, only
+      // where the opener ends.
+      let j = i + 1;
+      if (pattern[j] === '?') {
+        j++;
+        if (pattern[j] === '<' && pattern[j + 1] !== '=' && pattern[j + 1] !== '!') {
+          while (j < pattern.length && pattern[j] !== '>') j++;
+          j++;
+        } else if (pattern[j] === '<') {
+          j += 2;
+        } else if (pattern[j] === ':' || pattern[j] === '=' || pattern[j] === '!') {
+          j++;
+        }
+      }
+      tokens.push({ kind: 'group-open', start: i, end: Math.min(j, pattern.length) });
+      i = j;
+      continue;
+    }
+
+    if (ch === ')') {
+      tokens.push({ kind: 'group-close', start: i, end: i + 1 });
+      i++;
+      continue;
+    }
+
+    if (ch === '|') {
+      tokens.push({ kind: 'alternation', start: i, end: i + 1 });
+      i++;
+      continue;
+    }
+
+    if (ch === '*' || ch === '+') {
+      tokens.push({ kind: 'quantifier', start: i, end: i + 1, openEnded: true });
+      i++;
+      continue;
+    }
+
+    if (ch === '?') {
+      // A bare `?` is a quantifier but bounded, so it cannot drive
+      // exponential behaviour on its own.
+      tokens.push({ kind: 'quantifier', start: i, end: i + 1, openEnded: false });
+      i++;
+      continue;
+    }
+
+    if (ch === '{') {
+      const close = pattern.indexOf('}', i);
+      const body = close > i ? pattern.slice(i + 1, close) : '';
+      if (close > i && /^\d+(,\d*)?$/.test(body)) {
+        tokens.push({
+          kind: 'quantifier',
+          start: i,
+          end: close + 1,
+          // `{n,}` has no upper bound; `{n}` and `{n,m}` do.
+          openEnded: /,\s*$/.test(body),
+        });
+        i = close + 1;
+        continue;
+      }
+      // Not a quantifier — a literal brace.
+      tokens.push({ kind: 'literal', start: i, end: i + 1 });
+      i++;
+      continue;
+    }
+
+    tokens.push({ kind: 'literal', start: i, end: i + 1 });
+    i++;
+  }
+
+  return tokens;
+}
+
 /**
  * Screen a pattern for catastrophic-backtracking shapes.
  *
@@ -71,33 +195,100 @@ export interface RiskWarning {
  */
 export function backtrackingRisk(pattern: string): RiskWarning[] {
   const warnings: RiskWarning[] = [];
+  const tokens = tokenize(pattern);
 
-  // A quantified group whose body is itself quantified: (a+)+ (a*)* (a+)*
-  const nested = /\((?:\?[:<=!][^)]*|[^)])*?[+*}]\s*\)\s*[+*]/.exec(pattern);
-  if (nested) {
-    warnings.push({
-      construct: nested[0],
-      message: 'A repeated group that already repeats inside can take exponential time on input that nearly matches.',
-    });
+  // Walk the group structure once, tracking for each open group whether its
+  // body contains a quantifier or an alternation. When the group closes and
+  // is itself quantified, that combination is the risk.
+  interface Frame {
+    start: number;
+    hasOpenEndedQuantifier: boolean;
+    hasAlternation: boolean;
+  }
+  const stack: Frame[] = [];
+  let nestedFound = false;
+  let altFound = false;
+
+  for (let t = 0; t < tokens.length; t++) {
+    const token = tokens[t];
+
+    if (token.kind === 'group-open') {
+      stack.push({ start: token.start, hasOpenEndedQuantifier: false, hasAlternation: false });
+      continue;
+    }
+
+    if (token.kind === 'quantifier') {
+      if (token.openEnded && stack.length) {
+        stack[stack.length - 1].hasOpenEndedQuantifier = true;
+      }
+      continue;
+    }
+
+    if (token.kind === 'alternation') {
+      if (stack.length) stack[stack.length - 1].hasAlternation = true;
+      continue;
+    }
+
+    if (token.kind === 'group-close') {
+      const frame = stack.pop();
+      if (!frame) continue;
+
+      // Is the group itself repeated? A lazy `+?` or `*?` still backtracks.
+      const next = tokens[t + 1];
+      const repeated = next?.kind === 'quantifier' && next.openEnded === true;
+      if (!repeated) {
+        // The group is not repeated, but its contents still count toward the
+        // enclosing group — `((a+))+` must still be caught.
+        if (stack.length) {
+          const parent = stack[stack.length - 1];
+          parent.hasOpenEndedQuantifier ||= frame.hasOpenEndedQuantifier;
+          parent.hasAlternation ||= frame.hasAlternation;
+        }
+        continue;
+      }
+
+      const construct = pattern.slice(frame.start, next.end);
+      if (frame.hasOpenEndedQuantifier && !nestedFound) {
+        nestedFound = true;
+        warnings.push({
+          construct,
+          message: 'A repeated group that already repeats inside can take exponential time on input that nearly matches.',
+        });
+      }
+      if (frame.hasAlternation && !altFound) {
+        altFound = true;
+        warnings.push({
+          construct,
+          message: 'A repeated alternation can retry every possible split of the input if the branches overlap.',
+        });
+      }
+      // A repeated group is itself an open-ended quantifier to its parent.
+      if (stack.length) stack[stack.length - 1].hasOpenEndedQuantifier = true;
+    }
   }
 
-  // An alternation inside a quantified group where branches can match the same
-  // text: (a|ab)+ — the engine tries every division of the input.
-  const altInQuant = /\((?:\?[:<=!])?[^)]*\|[^)]*\)\s*[+*]/.exec(pattern);
-  if (altInQuant) {
-    warnings.push({
-      construct: altInQuant[0],
-      message: 'A repeated alternation can retry every possible split of the input if the branches overlap.',
-    });
-  }
+  // Two adjacent open-ended quantifiers over wide atoms: `.*.*`, `[a-z]+[a-z]+`.
+  // Each is an atom (`.` or a class) immediately followed by `*`/`+`.
+  for (let t = 0; t + 3 < tokens.length + 1; t++) {
+    const a = tokens[t];
+    const aq = tokens[t + 1];
+    const b = tokens[t + 2];
+    const bq = tokens[t + 3];
+    if (!a || !aq || !b || !bq) break;
 
-  // Two adjacent open-ended quantifiers over overlapping classes: .*.*
-  const adjacent = /(\.\*|\.\+|\[[^\]]*\][*+])\s*(\.\*|\.\+|\[[^\]]*\][*+])/.exec(pattern);
-  if (adjacent) {
-    warnings.push({
-      construct: adjacent[0],
-      message: 'Two open-ended quantifiers in a row multiply the ways the input can be divided between them.',
-    });
+    const wide = (tok: Token) =>
+      tok.kind === 'class' || (tok.kind === 'literal' && pattern[tok.start] === '.');
+
+    if (
+      wide(a) && aq.kind === 'quantifier' && aq.openEnded &&
+      wide(b) && bq.kind === 'quantifier' && bq.openEnded
+    ) {
+      warnings.push({
+        construct: pattern.slice(a.start, bq.end),
+        message: 'Two open-ended quantifiers in a row multiply the ways the input can be divided between them.',
+      });
+      break;
+    }
   }
 
   return warnings;

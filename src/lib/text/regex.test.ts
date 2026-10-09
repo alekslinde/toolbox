@@ -64,6 +64,72 @@ describe('backtrackingRisk', () => {
     expect(first.construct).toContain('+');
     expect(first.message.length).toBeGreaterThan(10);
   });
+
+  it('sees through a group that only nests the quantifier deeper', () => {
+    expect(backtrackingRisk('((a+))+')).not.toHaveLength(0);
+    expect(backtrackingRisk('(?:a+)+')).not.toHaveLength(0);
+  });
+
+  it('flags a lazy outer quantifier, which still backtracks', () => {
+    expect(backtrackingRisk('(a+)+?b')).not.toHaveLength(0);
+  });
+
+  it('does not flag quantifier characters that are escaped literals', () => {
+    expect(backtrackingRisk('\\(a\\+\\)\\+')).toEqual([]);
+    expect(backtrackingRisk('[(]+')).toEqual([]);
+  });
+
+  it('does not flag bounded quantifiers', () => {
+    expect(backtrackingRisk('a{2,5}')).toEqual([]);
+    expect(backtrackingRisk('(a|b)?')).toEqual([]);
+  });
+
+  // The screener used to be a ReDoS vector itself: its detection regex had two
+  // alternatives that could both consume the same character, so `(?!?!?!…`
+  // divided exponentially many ways. A 45-character pattern took 44 seconds —
+  // and because this runs on every keystroke in the pattern field, the
+  // function meant to protect the tab was the thing freezing it.
+  //
+  // The budget is deliberately loose. Exponential blowup is orders of
+  // magnitude over it, so a slow CI machine cannot make this flaky while a
+  // regression could not possibly pass.
+  it('stays fast on input engineered to make it backtrack', () => {
+    const evil = '(' + '?!'.repeat(5000);
+    const started = performance.now();
+    backtrackingRisk(evil);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('stays fast on other adversarial shapes', () => {
+    const shapes = [
+      '('.repeat(5000),          // unclosed groups
+      '[' + 'a'.repeat(5000),    // unterminated class
+      '\\'.repeat(5000),         // trailing escapes
+      'a+'.repeat(5000),         // many quantifiers
+      '(?:(?=(?!'.repeat(1000),  // mixed group openers
+      '{1,'.repeat(5000),        // malformed braces
+    ];
+    for (const shape of shapes) {
+      const started = performance.now();
+      backtrackingRisk(shape);
+      expect(performance.now() - started, shape.slice(0, 12)).toBeLessThan(1000);
+    }
+  });
+
+  it('scales linearly rather than exponentially with pattern length', () => {
+    const time = (n: number) => {
+      const p = '(' + '?!'.repeat(n);
+      const started = performance.now();
+      backtrackingRisk(p);
+      return performance.now() - started;
+    };
+    // Doubling the length must not explode the cost. Under the old regex this
+    // factor was ~1000x per 2 characters added.
+    time(500); // warm up, so JIT state is not attributed to the measurement
+    const small = Math.max(time(2000), 0.05);
+    const large = time(4000);
+    expect(large / small).toBeLessThan(50);
+  });
 });
 
 describe('run', () => {
@@ -116,6 +182,11 @@ describe('run', () => {
   });
 
   it('refuses a risky pattern until the risk is confirmed', () => {
+    // `(a+)+b` is the canonical exponential pattern, present here as the
+    // fixture the screener must catch. It is never compiled against this
+    // input: the assertion is that `run` throws *before* reaching the engine,
+    // which is the whole behaviour under test.
+    // codeql[js/redos] -- test fixture; refused before execution, never run
     expect(() => run('(a+)+b', '', 'aaaaaaaaaaaaaaaaaaaaaaaaaaa!')).toThrow(/Confirm to run it anyway/);
   });
 
