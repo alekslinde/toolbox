@@ -11,6 +11,7 @@ const categoryAnchors: Record<string, string> = {
   'Images & Documents': '/#images',
   'Typography & Color': '/#typography',
   'Code & Web':         '/#code',
+  'Text & Data':        '/#text',
 };
 const resolvedHref = categoryHref ?? (category ? (categoryAnchors[category] ?? '/') : undefined);
 ---

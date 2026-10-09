@@ -12,7 +12,18 @@ import { describe, it, expect } from 'vitest';
 import { tools, toolsByCategory, toolBySlug, type Category } from './tools.js';
 import { navCategories } from './nav.js';
 
-const CATEGORIES: Category[] = ['images', 'typography', 'code'];
+// Annotated as a full Record of the Category union rather than a bare array:
+// adding a category to the type then fails to compile here until it is listed,
+// instead of silently leaving these invariants checking a subset of the
+// registry. A hardcoded array can only drift, and did.
+const CATEGORY_PRESENT: Record<Category, true> = {
+  images: true,
+  typography: true,
+  code: true,
+  text: true,
+};
+
+const CATEGORIES = Object.keys(CATEGORY_PRESENT) as Category[];
 
 describe('tools registry', () => {
   it('is non-empty', () => {

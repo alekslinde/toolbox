@@ -1,4 +1,4 @@
-export type Category = 'images' | 'typography' | 'code';
+export type Category = 'images' | 'typography' | 'code' | 'text';
 
 export type Tool = {
   slug: string;
@@ -229,6 +229,79 @@ export const tools: Tool[] = [
     category: 'code',
     tags: ['AI', 'prompt', 'token', 'compress', 'LLM', 'GPT', 'cost'],
     icon: 'AI',
+  },
+  // ── Text & Data ───────────────────────────────────────────────────────────
+  {
+    slug: 'json-formatter',
+    title: 'JSON Formatter & Validator',
+    shortTitle: 'JSON Tools',
+    description: 'Format, minify, validate and sort JSON with the exact line and column of any syntax error. Runs in your browser — nothing is uploaded.',
+    category: 'text',
+    tags: ['JSON', 'format', 'validate', 'beautify', 'minify', 'pretty print', 'lint'],
+    icon: '{ }',
+  },
+  {
+    slug: 'base64-encode',
+    title: 'Base64 & URL Encoder',
+    shortTitle: 'Encode & Decode',
+    description: 'Encode and decode Base64, Base64URL, percent-encoding and hex. Handles full Unicode and shows a hex dump for binary data.',
+    category: 'text',
+    tags: ['base64', 'base64url', 'URL encode', 'percent encoding', 'hex', 'decode'],
+    icon: 'B64',
+  },
+  {
+    slug: 'jwt-decoder',
+    title: 'JWT Decoder',
+    shortTitle: 'JWT Decoder',
+    description: 'Decode a JWT and read its header, claims and expiry. A token is a live credential — this one never leaves your browser.',
+    category: 'text',
+    tags: ['JWT', 'token', 'decode', 'claims', 'bearer', 'OAuth', 'expiry'],
+    icon: 'JWT',
+  },
+  {
+    slug: 'hash-generator',
+    title: 'Hash & Checksum Generator',
+    shortTitle: 'Hash Tools',
+    description: 'Generate MD5, SHA-1, SHA-256, SHA-384, SHA-512, CRC32 and HMAC digests from text or a file, and compare against a published checksum.',
+    category: 'text',
+    tags: ['hash', 'MD5', 'SHA-256', 'SHA-512', 'checksum', 'CRC32', 'HMAC', 'verify'],
+    icon: '#',
+  },
+  {
+    slug: 'uuid-generator',
+    title: 'UUID & ID Generator',
+    shortTitle: 'UUID Generator',
+    description: 'Generate UUID v4, UUID v7, ULID and Nano ID in bulk, and inspect any UUID for its version and embedded timestamp.',
+    category: 'text',
+    tags: ['UUID', 'GUID', 'v4', 'v7', 'ULID', 'nanoid', 'identifier', 'random'],
+    icon: 'ID',
+  },
+  {
+    slug: 'regex-tester',
+    title: 'Regex Tester',
+    shortTitle: 'Regex Tester',
+    description: 'Test regular expressions with live match highlighting, capture groups and a plain-English breakdown. Warns before a pattern that could hang the page.',
+    category: 'text',
+    tags: ['regex', 'regular expression', 'pattern', 'match', 'capture group', 'test'],
+    icon: '.*',
+  },
+  {
+    slug: 'cron-parser',
+    title: 'Cron Expression Parser',
+    shortTitle: 'Cron Parser',
+    description: 'Translate a cron expression into plain English and see its next run times. Catches the day-of-week rule that trips everyone up.',
+    category: 'text',
+    tags: ['cron', 'crontab', 'schedule', 'next run', 'expression', 'parser'],
+    icon: '⏱',
+  },
+  {
+    slug: 'timestamp-converter',
+    title: 'Unix Timestamp Converter',
+    shortTitle: 'Timestamp Converter',
+    description: 'Convert Unix timestamps to dates and back, in seconds, milliseconds, microseconds or nanoseconds — with the unit detected automatically.',
+    category: 'text',
+    tags: ['timestamp', 'unix time', 'epoch', 'ISO 8601', 'date convert', 'milliseconds'],
+    icon: 'UTC',
   },
 ];
 
