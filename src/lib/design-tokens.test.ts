@@ -146,3 +146,50 @@ describe('design tokens', () => {
     expect(found).toEqual([]);
   });
 });
+
+describe('status colour scales', () => {
+  // emerald/rose/amber carry success, failure and caution across the pages.
+  // They are retargeted at tokens like slate-* and purple-* are, because the
+  // raw Tailwind values do not flip with the theme — an unmapped step renders
+  // a near-white panel on a dark page, which is how this broke the first time.
+  const SCALES = ['emerald', 'rose', 'amber'] as const;
+
+  /** Every step actually referenced by a utility class anywhere in src/. */
+  function usedSteps(scale: string): Set<string> {
+    const used = new Set<string>();
+    const re = new RegExp(`\\b(?:bg|text|border|ring|divide|from|to|via|fill|stroke|accent|outline|shadow|decoration)-${scale}-(\\d+)\\b`, 'g');
+    for (const { text } of markupFiles()) {
+      for (const m of text.matchAll(re)) used.add(m[1]);
+    }
+    return used;
+  }
+
+  function mappedSteps(scale: string): Set<string> {
+    const mapped = new Set<string>();
+    const re = new RegExp(`--color-${scale}-(\\d+)\\s*:`, 'g');
+    for (const m of css().matchAll(re)) mapped.add(m[1]);
+    return mapped;
+  }
+
+  it('maps every status step the markup actually uses', () => {
+    const unmapped: string[] = [];
+    for (const scale of SCALES) {
+      const mapped = mappedSteps(scale);
+      for (const step of usedSteps(scale)) {
+        if (!mapped.has(step)) unmapped.push(`${scale}-${step}`);
+      }
+    }
+    expect(unmapped, 'these resolve to raw Tailwind values and will not theme').toEqual([]);
+  });
+
+  it('maps each status step to a theme token rather than a literal', () => {
+    const literals: string[] = [];
+    for (const scale of SCALES) {
+      const re = new RegExp(`--color-${scale}-\\d+\\s*:\\s*([^;]+);`, 'g');
+      for (const m of css().matchAll(re)) {
+        if (!m[1].trim().startsWith('var(--')) literals.push(`${scale}: ${m[1].trim()}`);
+      }
+    }
+    expect(literals).toEqual([]);
+  });
+});

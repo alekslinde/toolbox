@@ -207,6 +207,52 @@
   --color-indigo-500: var(--accent);
   --color-indigo-600: var(--accent-hover);
 
+  /* Status scales, retargeted for the same reason as slate-* and purple-*:
+     pages spell success as emerald-*, failure as rose-* and caution as
+     amber-*, and the raw Tailwind values do not flip with the theme — a
+     success banner stayed a bright near-white block on a dark page, which is
+     the one place the dark theme visibly broke.
+
+     Mapped by role like the scales above: *-50/100 are "weak surface fill",
+     *-200/300 are "border", and *-400 upward are "text or solid fill". The
+     weak tokens are already near-black in dark mode, so one mapping serves
+     both themes. */
+  --color-emerald-50: var(--ok-weak);
+  --color-emerald-100: var(--ok-weak);
+  --color-emerald-200: var(--ok);
+  --color-emerald-300: var(--ok);
+  --color-emerald-400: var(--ok);
+  --color-emerald-500: var(--ok);
+  --color-emerald-600: var(--ok);
+  --color-emerald-700: var(--ok);
+  --color-emerald-800: var(--ok);
+  --color-emerald-900: var(--ok);
+  --color-emerald-950: var(--ok);
+
+  --color-rose-50: var(--err-weak);
+  --color-rose-100: var(--err-weak);
+  --color-rose-200: var(--err);
+  --color-rose-300: var(--err);
+  --color-rose-400: var(--err);
+  --color-rose-500: var(--err);
+  --color-rose-600: var(--err);
+  --color-rose-700: var(--err);
+  --color-rose-800: var(--err);
+  --color-rose-900: var(--err);
+  --color-rose-950: var(--err);
+
+  --color-amber-50: var(--warn-weak);
+  --color-amber-100: var(--warn-weak);
+  --color-amber-200: var(--warn);
+  --color-amber-300: var(--warn);
+  --color-amber-400: var(--warn);
+  --color-amber-500: var(--warn);
+  --color-amber-600: var(--warn);
+  --color-amber-700: var(--warn);
+  --color-amber-800: var(--warn);
+  --color-amber-900: var(--warn);
+  --color-amber-950: var(--warn);
+
   /* Motion. Strong custom curves: the built-in ease-out is too weak to feel
      intentional. Overriding these upgrades every ease-out / ease-in-out use. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);

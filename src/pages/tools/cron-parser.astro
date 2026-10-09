@@ -1,0 +1,263 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import QuickTips from '@/components/QuickTips.astro';
+import HelpfulButton from '@/components/HelpfulButton.astro';
+import ToolSEO from '@/components/ToolSEO.astro';
+import { CRON_PRESETS } from '@/lib/text/cron';
+
+const tips = [
+  { heading: 'Read the run times', body: 'The English sentence is a summary; the next run times are the proof. A gloss can read convincingly and still be a misreading.' },
+  { heading: 'The day-field trap', body: 'When both day-of-month and day-of-week are set, cron fires when either matches — not both. "0 0 13 * 5" means the 13th and every Friday.' },
+  { heading: 'Times are UTC', body: 'A cron expression carries no timezone. Applying yours would make the preview disagree with the server that runs the job.' },
+  { heading: 'Frequency check', body: 'The runs-per-year figure catches the expression that fires far more often than intended — the usual cost of a misplaced step.' },
+];
+
+const faq = [
+  { question: 'What does the five-field order mean?', answer: 'Minute, hour, day of month, month, day of week — in that order. A sixth field, if present, is prepended as seconds, which is what many modern schedulers accept.' },
+  { question: 'Why does "0 0 13 * 5" fire more often than I expect?', answer: 'Because when both the day-of-month and day-of-week fields are restricted, cron treats them as OR, not AND. That expression means "the 13th of the month, and additionally every Friday" — not "Friday the 13th". This is specified behaviour and it surprises nearly everyone, so the tool states it explicitly whenever both fields are set.' },
+  { question: 'Which timezone are the run times in?', answer: 'UTC. A cron expression has no timezone of its own — the timezone comes from the machine or scheduler running it. Showing the preview in your local zone would quietly disagree with your server, so UTC is used and labelled.' },
+  { question: 'Are L, W and # supported?', answer: 'No, deliberately. Those are Quartz extensions that standard cron, most container schedulers and most cloud cron services reject. Accepting them here would let you ship an expression that fails where it runs, so they are refused with an explanation instead.' },
+  { question: 'What about @reboot?', answer: 'It fires when the daemon starts, so it has no schedule that can be predicted. The other macros — @hourly, @daily, @weekly, @monthly, @yearly — all expand and preview normally.' },
+  { question: 'Why does it reject a range like fri-mon?', answer: 'A range that wraps around the end of the week is not portable: schedulers disagree on whether it means anything at all. Writing it as "fri,sat,sun,mon" is unambiguous everywhere.' },
+];
+---
+
+<MainLayout
+  title="Cron Expression Parser — Free In-Browser Tool | Toolkist"
+  description="Translate a cron expression into plain English and preview its next run times in UTC. Catches the day-of-week rule that trips everyone up."
+  alpine={false}
+  faq={faq}
+>
+  <div class="page-shell">
+
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <Breadcrumbs tool="Cron Expression Parser" category="Text & Data" />
+        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Cron Expression Parser</h1>
+        <p class="mt-1 text-sm text-slate-500">Explain a cron expression in English and preview when it actually fires.</p>
+      </div>
+      <HelpfulButton toolKey="cron-parser" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+
+      <div class="lg:col-span-8">
+        <div class="rounded-md border border-slate-200 bg-glass p-6 shadow-sm backdrop-blur-sm">
+
+          <label for="cronInput" class="mb-1.5 block text-xs font-medium text-slate-600">Cron expression</label>
+          <input type="text" id="cronInput" autocomplete="off" spellcheck="false" value="*/15 9-17 * * 1-5"
+            class="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-base text-slate-800 focus:border-purple-400 focus:outline-none" />
+
+          <!-- Field legend -->
+          <div class="mt-2 grid grid-cols-5 gap-1 text-center text-[0.65rem] uppercase tracking-wider text-slate-400">
+            <span>min</span><span>hour</span><span>day</span><span>month</span><span>weekday</span>
+          </div>
+
+          <!-- Presets -->
+          <div class="mt-4">
+            <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Common schedules</h2>
+            <div class="flex flex-wrap gap-2">
+              {CRON_PRESETS.map((p) => (
+                <button
+                  data-expr={p.expression}
+                  class="cron-preset rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-purple-300 hover:text-purple-600"
+                >{p.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <p id="cronError" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></p>
+
+          <div id="cronResult" class="mt-6 hidden flex-col gap-5">
+
+            <!-- English gloss -->
+            <div class="rounded-md border border-slate-200 bg-accent-weak px-4 py-4">
+              <h2 class="mb-1 text-xs font-semibold uppercase tracking-widest text-accent-ink opacity-70">In plain English</h2>
+              <p id="cronExplain" class="text-base font-medium text-accent-ink"></p>
+            </div>
+
+            <!-- The OR warning, shown only when it applies -->
+            <div id="cronUnionWarning" class="hidden rounded-md border border-amber-200 bg-amber-50 p-4">
+              <p class="text-sm font-medium text-amber-900">Both day fields are set, so this is an OR.</p>
+              <p class="mt-1 text-sm leading-relaxed text-amber-800">
+                When day-of-month and day-of-week are both restricted, cron fires when <strong>either</strong> matches —
+                not when both do. This expression therefore runs more often than a "day X that is also weekday Y" reading
+                suggests. The run times below show what actually happens.
+              </p>
+            </div>
+
+            <!-- Next runs -->
+            <div>
+              <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400">Next runs (UTC)</h2>
+                <span id="cronFrequency" class="text-xs text-slate-500"></span>
+              </div>
+              <ol id="cronRuns" class="flex flex-col gap-1.5"></ol>
+              <p id="cronNoRuns" class="hidden rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></p>
+            </div>
+
+            <!-- Field breakdown -->
+            <div>
+              <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">Field breakdown</h2>
+              <div class="overflow-x-auto rounded-md border border-slate-200">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th scope="col" class="px-3 py-2 font-medium">Field</th>
+                      <th scope="col" class="px-3 py-2 font-medium">Matches</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cronFieldsBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <aside class="lg:col-span-4">
+        <div class="sticky top-8">
+          <QuickTips tips={tips} />
+        </div>
+      </aside>
+
+    </div>
+
+    <ToolSEO
+      heading="About the Cron Parser"
+      faq={faq}
+      related={`<a href="/tools/timestamp-converter" class="text-purple-500 hover:underline">Timestamp Converter</a> · <a href="/tools/regex-tester" class="text-purple-500 hover:underline">Regex Tester</a> · <a href="/tools/json-formatter" class="text-purple-500 hover:underline">JSON Formatter</a>`}
+      keywords="cron parser, crontab, cron expression explained, cron next run, cron schedule, cron generator"
+    >
+      <p slot="description" class="mb-8 text-sm leading-relaxed text-slate-600">Paste a cron expression to get a plain-English reading of it alongside the next times it will actually fire, in UTC. Both halves matter: a sentence can read convincingly and still be a misreading, so the run times are the evidence. The parser also names the rule that catches most people — when the day-of-month and day-of-week fields are <em>both</em> restricted, cron fires when either matches, so <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">0 0 13 * 5</code> means "the 13th, and every Friday" rather than "Friday the 13th". Standard five-field syntax is supported along with an optional seconds field, names for months and weekdays, and the <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">@daily</code>-style macros. The Quartz-only <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">L</code>, <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">W</code> and <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs">#</code> extensions are refused rather than guessed at, since most schedulers reject them and a silent acceptance here would mean a failure where it runs.</p>
+    </ToolSEO>
+
+  </div>
+</MainLayout>
+
+<script>
+  import { parseCron, nextRuns, explainCron, runsPerYear, type ParsedCron } from '@/lib/text/cron';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  const input    = $<HTMLInputElement>('cronInput');
+  const errorEl  = $('cronError');
+  const resultEl = $('cronResult');
+  const explainEl = $('cronExplain');
+  const runsEl   = $<HTMLOListElement>('cronRuns');
+  const noRunsEl = $('cronNoRuns');
+  const freqEl   = $('cronFrequency');
+  const fieldsBody = $<HTMLTableSectionElement>('cronFieldsBody');
+  const unionWarning = $('cronUnionWarning');
+
+  /** Condense a value list for display: a full range reads better as "every". */
+  function describeList(values: number[], min: number, max: number, render = String): string {
+    if (values.length === max - min + 1) return 'every';
+    if (values.length > 12) return `${values.length} values`;
+    return values.map(render).join(', ');
+  }
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function renderFields(c: ParsedCron) {
+    const rows: [string, string][] = [
+      ...(c.hasSeconds ? [['Second', describeList(c.seconds, 0, 59)] as [string, string]] : []),
+      ['Minute',       describeList(c.minutes, 0, 59)],
+      ['Hour',         describeList(c.hours, 0, 23)],
+      ['Day of month', describeList(c.daysOfMonth, 1, 31)],
+      ['Month',        describeList(c.months, 1, 12, (m) => MONTH_NAMES[Number(m) - 1])],
+      ['Day of week',  describeList(c.daysOfWeek, 0, 6, (d) => DAY_NAMES[Number(d)])],
+    ];
+
+    fieldsBody.replaceChildren(...rows.map(([label, value]) => {
+      const tr = document.createElement('tr');
+      const tdLabel = document.createElement('td');
+      tdLabel.className = 'px-3 py-2 text-xs font-medium text-slate-600';
+      tdLabel.textContent = label;
+      const tdValue = document.createElement('td');
+      tdValue.className = 'px-3 py-2 font-mono text-xs text-slate-700';
+      tdValue.textContent = value;
+      tr.append(tdLabel, tdValue);
+      return tr;
+    }));
+  }
+
+  function formatRun(d: Date, now: number): string {
+    const iso = d.toISOString().replace('.000Z', 'Z');
+    const diffMs = d.getTime() - now;
+    const mins = Math.round(diffMs / 60000);
+    let rel: string;
+    if (mins < 60) rel = `in ${mins} min`;
+    else if (mins < 1440) rel = `in ${Math.round(mins / 60)} h`;
+    else rel = `in ${Math.round(mins / 1440)} d`;
+    return `${iso}  ·  ${d.toUTCString().slice(0, 3)}  ·  ${rel}`;
+  }
+
+  function evaluate() {
+    const expr = input.value;
+    if (!expr.trim()) {
+      errorEl.classList.add('hidden');
+      resultEl.classList.add('hidden');
+      resultEl.classList.remove('flex');
+      return;
+    }
+
+    let parsed: ParsedCron;
+    try {
+      parsed = parseCron(expr);
+    } catch (e) {
+      errorEl.textContent = e instanceof Error ? e.message : 'That is not a valid cron expression.';
+      errorEl.classList.remove('hidden');
+      resultEl.classList.add('hidden');
+      resultEl.classList.remove('flex');
+      return;
+    }
+
+    errorEl.classList.add('hidden');
+    explainEl.textContent = explainCron(parsed);
+    unionWarning.classList.toggle('hidden', !parsed.dayUnion);
+
+    const now = Date.now();
+    const runs = nextRuns(parsed, now, 8);
+
+    if (runs.length === 0) {
+      // A parseable expression can still be unreachable — 30 February, say.
+      runsEl.replaceChildren();
+      noRunsEl.textContent = 'This expression never fires. It parses, but no date matches it — for example the 30th of February.';
+      noRunsEl.classList.remove('hidden');
+      freqEl.textContent = '';
+    } else {
+      noRunsEl.classList.add('hidden');
+      runsEl.replaceChildren(...runs.map((d) => {
+        const li = document.createElement('li');
+        li.className = 'rounded-md border border-slate-200 bg-surface px-3 py-2 font-mono text-xs text-slate-700';
+        li.textContent = formatRun(d, now);
+        return li;
+      }));
+
+      const perYear = runsPerYear(parsed);
+      freqEl.textContent = perYear >= 1000
+        ? `≈ ${perYear.toLocaleString()} runs/year`
+        : `${perYear.toLocaleString()} ${perYear === 1 ? 'run' : 'runs'}/year`;
+    }
+
+    renderFields(parsed);
+    resultEl.classList.remove('hidden');
+    resultEl.classList.add('flex');
+  }
+
+  input.addEventListener('input', evaluate);
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.cron-preset')) {
+    btn.addEventListener('click', () => {
+      input.value = btn.dataset.expr!;
+      evaluate();
+    });
+  }
+
+  evaluate();
+</script>

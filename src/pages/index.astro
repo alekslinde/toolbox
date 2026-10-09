@@ -6,11 +6,13 @@ import { tools } from '@/data/tools';
 const images     = tools.filter((t) => t.category === 'images');
 const typography = tools.filter((t) => t.category === 'typography');
 const code       = tools.filter((t) => t.category === 'code');
+const text       = tools.filter((t) => t.category === 'text');
 
 const categories = [
   { id: 'images',     label: 'Images & Documents', tools: images },
   { id: 'typography', label: 'Typography & Color',  tools: typography },
   { id: 'code',       label: 'Code & Web',          tools: code },
+  { id: 'text',       label: 'Text & Data',         tools: text },
 ];
 
 // Search dataset, derived from the registry so it can never drift out of sync.

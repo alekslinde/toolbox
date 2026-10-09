@@ -120,4 +120,5 @@ export const CATEGORY_LABELS: Record<Tool['category'], string> = {
   images: 'Images & Documents',
   typography: 'Typography & Color',
   code: 'Code & Web',
+  text: 'Text & Data',
 };

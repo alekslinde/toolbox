@@ -31,6 +31,14 @@ export function getStaticPaths() {
     'color-extractor',
     'color-namer',
     'token-saver',
+    'json-formatter',
+    'base64-encode',
+    'jwt-decoder',
+    'hash-generator',
+    'uuid-generator',
+    'regex-tester',
+    'cron-parser',
+    'timestamp-converter',
   ]);
   return tools
     .filter((t) => !implemented.has(t.slug))
@@ -43,6 +51,7 @@ const categoryLabel: Record<string, string> = {
   images:     'Images & Documents',
   typography: 'Typography & Color',
   code:       'Code & Web',
+  text:       'Text & Data',
 };
 ---
 

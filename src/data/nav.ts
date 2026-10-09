@@ -20,4 +20,12 @@ export const navCategories: NavCategory[] = [
     href: '/#code',
     matches: ['/tools/code', '/tools/scss', '/tools/semantic', '/tools/brand', '/tools/xd', '/tools/token', '/tools/svg'],
   },
+  {
+    label: 'Text & Data',
+    href: '/#text',
+    matches: [
+      '/tools/json', '/tools/base64', '/tools/jwt', '/tools/hash',
+      '/tools/uuid', '/tools/regex', '/tools/cron', '/tools/timestamp',
+    ],
+  },
 ];
