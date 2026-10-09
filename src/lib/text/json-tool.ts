@@ -146,6 +146,48 @@ function offsetFromParseError(msg: string, src: string): number | null {
   return null;
 }
 
+/**
+ * Reduce an engine parse error to the part worth showing.
+ *
+ * The engine appends a quoted excerpt of the source: `Unexpected token ',',
+ * ..."1,\n  "b": ,\n}" is not valid JSON`. That excerpt has to go — it repeats
+ * input already on screen, and it arrives with literal `\n` escapes in it.
+ *
+ * It cannot be matched as a quoted string, which is the trap: a JSON excerpt
+ * contains unescaped interior quotes almost by definition, so a
+ * `"(?:[^"\\]|\\.)*"` pattern stops at the first interior quote and strips
+ * only a trailing sliver, leaving a half-quoted fragment behind. The excerpt
+ * instead starts at the first quote after the token and runs to the end of
+ * the message, so cutting from there is both simpler and correct.
+ */
+function cleanParseMessage(raw: string): string {
+  let msg = raw;
+
+  // V8's "Unexpected token 'x', <excerpt> is not valid JSON". The token is
+  // single-quoted and may itself be a comma, so the quotes are matched
+  // explicitly rather than lazily up to the first comma — which would cut the
+  // message to "Unexpected token '" whenever the offending token was a comma,
+  // the single most common malformed-JSON case.
+  const tokenForm = /^(Unexpected token '(?:[^']|'')*'|Unexpected token .)/.exec(msg);
+  if (tokenForm && /is not valid JSON\s*$/i.test(msg)) {
+    msg = tokenForm[1];
+  } else if (/is not valid JSON\s*$/i.test(msg)) {
+    // No token named — the whole message is `"<excerpt>" is not valid JSON`,
+    // which says nothing a reader cannot see. Replace it rather than emit a
+    // quoted copy of their own input.
+    msg = 'Not valid JSON';
+  }
+
+  return (
+    msg
+      .replace(/\s*at position \d+.*$/i, '')
+      .replace(/\s*at line \d+ column \d+.*$/i, '')
+      .replace(/\s*in JSON$/i, '')
+      .replace(/[\s,]+$/, '')
+      .trim() || 'Invalid JSON'
+  );
+}
+
 export function parseJson(src: string): JsonResult {
   try {
     return { ok: true, value: JSON.parse(src) };
@@ -160,13 +202,7 @@ export function parseJson(src: string): JsonResult {
         // Strip the engine's own position and source excerpt: we render our
         // own position, and two disagreeing positions in one message reads as
         // a bug. The excerpt also repeats input already on screen.
-        message:
-          raw
-            .replace(/\s*at position \d+.*$/i, '')
-            .replace(/\s*at line \d+ column \d+.*$/i, '')
-            .replace(/,?\s*"(?:[^"\\]|\\.)*"\s+is not valid JSON$/i, '')
-            .replace(/\s*in JSON$/i, '')
-            .trim() || 'Invalid JSON',
+        message: cleanParseMessage(raw),
         line: pos?.line ?? null,
         column: pos?.column ?? null,
         offset,

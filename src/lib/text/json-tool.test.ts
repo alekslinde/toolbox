@@ -113,6 +113,52 @@ describe('parseJson', () => {
     }
   });
 
+  // The excerpt V8 appends contains unescaped interior quotes, so it cannot
+  // be matched as a quoted string — a `"(?:[^"\\]|\\.)*"` pattern stops at the
+  // first interior quote and strips only a trailing sliver, leaving a
+  // half-quoted fragment with a raw newline in the error panel.
+  it('never leaks a fragment of the source into the message', () => {
+    const sources = [
+      '{\n  "a": 1,\n  "b": ,\n}',
+      '[\n 1,\n 2,,\n 3\n]',
+      '{\n "a": 1,\n "bee": oops\n}',
+      '{\n  "a": NaN\n}',
+      '{\n  "a": "oops\n}',
+      "{\n 'a': 1\n}",
+      '{"a" "b"}',
+      '[1,2',
+      'undefined',
+      '@',
+      '',
+    ];
+    for (const src of sources) {
+      const r = parseJson(src);
+      expect(r.ok, src).toBe(false);
+      if (r.ok) continue;
+      const msg = r.error.message;
+      expect(msg, src).not.toMatch(/"/);               // no quoted excerpt
+      expect(msg, src).not.toMatch(/\n/);              // no raw newline
+      expect(msg, src).not.toMatch(/is not valid JSON/);
+      expect(msg, src).not.toMatch(/[,\s]$/);          // no dangling separator
+      expect(msg.length, src).toBeGreaterThan(0);
+    }
+  });
+
+  // A comma is both the most common offending token and the character the
+  // excerpt-stripping regex used to split on, which truncated the message to
+  // `Unexpected token '`.
+  it('keeps the named token when that token is a comma', () => {
+    const r = parseJson('[\n 1,\n 2,,\n 3\n]');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toBe("Unexpected token ','");
+  });
+
+  it('replaces a message that is nothing but a quoted copy of the input', () => {
+    const r = parseJson('undefined');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toBe('Not valid JSON');
+  });
+
   it('strips the engine position from the message so only one position shows', () => {
     const r = parseJson('{');
     expect(r.ok).toBe(false);
