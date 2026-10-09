@@ -170,6 +170,36 @@ describe('parseQuery', () => {
   it('returns nothing for an empty query', () => {
     expect(parseQuery('https://x.test/')).toEqual([]);
     expect(parseQuery('')).toEqual([]);
+    expect(parseQuery('   ')).toEqual([]);
+  });
+
+  // Everything after "#" never reaches the server, so a "?" inside a fragment
+  // does not begin a query. Reporting one describes a parameter that is never
+  // sent.
+  it('ignores a "?" that appears inside the fragment', () => {
+    expect(parseQuery('https://x.test/p#frag?a=1')).toEqual([]);
+    expect(parseQuery('https://x.test/p?a=1&b=2#sec?c=3')).toEqual([
+      { key: 'a', value: '1' },
+      { key: 'b', value: '2' },
+    ]);
+  });
+
+  it('strips a fragment from a bare query string', () => {
+    expect(parseQuery('a=1#frag')).toEqual([{ key: 'a', value: '1' }]);
+  });
+
+  // Prose has no "=" and contains whitespace, so it is not a query. Turning
+  // "hello world" into a single key named after the whole sentence looks like
+  // a successful parse of something that was never a query at all.
+  it('does not treat plain text as a one-key query', () => {
+    expect(parseQuery('hello world')).toEqual([]);
+    expect(parseQuery('plain-word')).toEqual([]);
+    expect(parseQuery('#just-a-fragment')).toEqual([]);
+    expect(parseQuery('a sentence with several words')).toEqual([]);
+  });
+
+  it('accepts a scheme without a double slash', () => {
+    expect(parseQuery('mailto:x@y.test?subject=hi')).toEqual([{ key: 'subject', value: 'hi' }]);
   });
 });
 

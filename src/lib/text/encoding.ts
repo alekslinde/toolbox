@@ -170,18 +170,33 @@ export interface QueryParam {
  * (`?tag=a&tag=b`) and an object would silently drop one.
  */
 export function parseQuery(input: string): QueryParam[] {
-  const qIndex = input.indexOf('?');
-  const hashIndex = input.indexOf('#');
+  const trimmed = input.trim();
+  if (!trimmed) return [];
 
+  // The fragment is cut first, and unconditionally. Everything after "#" is
+  // never sent to the server, so a "?" inside it does not start a query —
+  // `https://x.test/p#frag?a=1` has no parameters at all, and reporting one
+  // would describe something the server never receives.
+  const hashIndex = trimmed.indexOf('#');
+  const beforeHash = hashIndex >= 0 ? trimmed.slice(0, hashIndex) : trimmed;
+
+  const qIndex = beforeHash.indexOf('?');
   let query: string;
+
   if (qIndex >= 0) {
-    query = hashIndex > qIndex ? input.slice(qIndex + 1, hashIndex) : input.slice(qIndex + 1);
-  } else if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input) || input.includes('/')) {
-    // A URL with no "?" has no query at all. Without this check the whole URL
+    query = beforeHash.slice(qIndex + 1);
+  } else if (/^[a-z][a-z0-9+.-]*:/i.test(beforeHash) || beforeHash.includes('/')) {
+    // A URL with no "?" has no query at all. Without this the whole URL
     // becomes one key, which looks like a parse rather than a no-op.
     return [];
+  } else if (!/\s/.test(beforeHash) && beforeHash.includes('=')) {
+    // A bare query string pasted without its "?". Required shape: no
+    // whitespace, and at least one "=" — `a=1&b=2` and `flag&t=1` qualify.
+    // Prose like "hello world" does not, and turning a sentence into a single
+    // key named after itself is a confident misreading of plain text.
+    query = beforeHash;
   } else {
-    query = input; // a bare query string, pasted without its "?"
+    return [];
   }
 
   query = query.replace(/^[?&]+/, '');
