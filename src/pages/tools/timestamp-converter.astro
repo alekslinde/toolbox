@@ -209,9 +209,19 @@ const faq = [
     errorEl.classList.add('hidden');
 
     // Say when the unit was a guess, so a wrong reading is correctable rather
-    // than silently believed.
+    // than silently believed — and say when the number was too large for the
+    // browser to hold exactly, because the result then looks precise to the
+    // nanosecond while only being right to the millisecond.
+    const notes: string[] = [];
     if (parsed.inferred) {
-      inferredEl.textContent = `Read as ${parsed.unit} based on magnitude. If that is wrong, pick the unit above.`;
+      notes.push(`Read as ${parsed.unit} based on magnitude. If that is wrong, pick the unit above.`);
+    }
+    if (parsed.imprecise) {
+      notes.push('This number is larger than JavaScript can hold exactly, so the sub-millisecond digits below are approximate.');
+    }
+
+    if (notes.length) {
+      inferredEl.textContent = notes.join(' ');
       inferredEl.classList.remove('hidden');
     } else {
       inferredEl.classList.add('hidden');

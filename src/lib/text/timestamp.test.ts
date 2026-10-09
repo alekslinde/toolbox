@@ -92,6 +92,26 @@ describe('parseInstant', () => {
     expect(() => parseInstant('99999999999999', 'seconds')).toThrow(/outside the range/);
   });
 
+  // A 19-digit nanosecond timestamp is valid input and already past
+  // Number.MAX_SAFE_INTEGER, so the low digits are gone before any conversion
+  // happens. Rejecting it would be wrong; presenting a nanosecond-precise
+  // answer silently would be worse.
+  it('flags a number too large to hold exactly', () => {
+    expect(parseInstant('1700000000000000000').imprecise).toBe(true);
+    expect(parseInstant('99999999999999999999').imprecise).toBe(true);
+  });
+
+  it('does not flag a value that round-trips exactly', () => {
+    expect(parseInstant('1700000000').imprecise).toBe(false);
+    expect(parseInstant('1700000000000').imprecise).toBe(false);
+    expect(parseInstant('now').imprecise).toBe(false);
+    expect(parseInstant('2026-01-01T00:00:00Z').imprecise).toBe(false);
+  });
+
+  it('does not flag a fractional value, where the decimal is intended', () => {
+    expect(parseInstant('1700000000.5').imprecise).toBe(false);
+  });
+
   it('infers a huge bare number as nanoseconds, which divides back into range', () => {
     // The magnitude rule is what saves this: read as seconds it would
     // overflow, and a tool that threw on a pasted nanosecond timestamp would

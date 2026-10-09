@@ -17,6 +17,16 @@ export interface ParsedInstant {
   unit: Unit | 'date-string';
   /** True when the unit was inferred from magnitude rather than stated. */
   inferred: boolean;
+  /**
+   * True when the input exceeded `Number.MAX_SAFE_INTEGER` and the low digits
+   * were lost converting it to a float. Microsecond and nanosecond epoch
+   * values are routinely past that limit — a 19-digit nanosecond timestamp is
+   * perfectly valid input — so this is a precision note, not an error. The
+   * instant is right to the millisecond and wrong below it, and the caller is
+   * expected to say so rather than present a sub-millisecond figure it cannot
+   * stand behind.
+   */
+  imprecise: boolean;
   source: string;
 }
 
@@ -74,7 +84,7 @@ export function parseInstant(input: string, forceUnit?: Unit, now = Date.now()):
   if (!s) throw new TimestampError('Enter a timestamp or a date.');
 
   if (/^now$/i.test(s)) {
-    return { ms: now, unit: 'milliseconds', inferred: false, source: s };
+    return { ms: now, unit: 'milliseconds', inferred: false, imprecise: false, source: s };
   }
 
   // A bare number, with optional sign and a decimal part (fractional epoch
@@ -87,14 +97,18 @@ export function parseInstant(input: string, forceUnit?: Unit, now = Date.now()):
     if (!isRenderable(ms)) {
       throw new TimestampError('That value is outside the range of dates a browser can represent.');
     }
-    return { ms, unit, inferred: !forceUnit, source: s };
+    // Past 2^53 the float cannot hold every integer, so the low digits are
+    // already gone. Detected by round-tripping rather than by digit count,
+    // which is what actually distinguishes a lossy value from a long one.
+    const imprecise = !s.includes('.') && !Number.isSafeInteger(n);
+    return { ms, unit, inferred: !forceUnit, imprecise, source: s };
   }
 
   const parsed = Date.parse(s);
   if (Number.isNaN(parsed)) {
     throw new TimestampError('Not a recognised timestamp or date. Try an epoch number or an ISO 8601 string.');
   }
-  return { ms: parsed, unit: 'date-string', inferred: false, source: s };
+  return { ms: parsed, unit: 'date-string', inferred: false, imprecise: false, source: s };
 }
 
 /** Whether a millisecond value is inside the ECMAScript Date range (±8.64e15). */

@@ -178,8 +178,11 @@ const faq = [
       });
       output.value = quotedEl.checked ? shaped.join(',\n') : shaped.join('\n');
 
-      if (ids.length !== Math.floor(requested)) {
-        showStatus(`Generated ${ids.length} — the count is capped at 1,000 per run.`, 'info');
+      // Only a downward clamp is worth reporting. Clearing the field clamps
+      // *up* to 1, and "capped at 1,000" is a confusing thing to read when
+      // you asked for nothing.
+      if (Number.isFinite(requested) && Math.floor(requested) > ids.length) {
+        showStatus(`Generated ${ids.length.toLocaleString()} — the count is capped at 1,000 per run.`, 'info');
       } else if (upperEl.checked && kind === 'nanoid') {
         showStatus('Nano ID is case-sensitive, so uppercase is not applied — it would produce a different identifier.', 'info');
       } else {
@@ -206,7 +209,9 @@ const faq = [
     }
 
     const rows: [string, string][] = [
-      ['Version', info.version === 0 ? '0 (nil UUID)' : String(info.version)],
+      // The nil and max UUIDs are named in the variant, which inspectUuid
+      // sets for them, so the version needs no special case here.
+      ['Version', String(info.version)],
       ['Variant', info.variant ?? '—'],
       ['Created', info.timestamp ?? 'not encoded in this version'],
     ];

@@ -296,10 +296,28 @@ describe('inspectUuid', () => {
     expect(inspectUuid('c232ab00-9414-11ec-b3c8-9f6bdeced84').valid).toBe(false);
   });
 
-  it('names the nil UUID variant without claiming RFC 9562', () => {
+  // Nil and max are defined values, not version/variant-bearing UUIDs.
+  // Reading their nibbles yields "NCS (legacy)" and "reserved" — real
+  // historical schemes, and neither describes what the reader is holding.
+  it('names the nil UUID as the special value it is', () => {
     const info = inspectUuid('00000000-0000-0000-0000-000000000000');
     expect(info.valid).toBe(true);
     expect(info.version).toBe(0);
+    expect(info.variant).toMatch(/nil UUID/);
+    expect(info.variant).not.toMatch(/NCS/);
+  });
+
+  it('names the max UUID as the special value it is', () => {
+    const info = inspectUuid('ffffffff-ffff-ffff-ffff-ffffffffffff');
+    expect(info.valid).toBe(true);
+    expect(info.variant).toMatch(/max UUID/);
+    expect(info.variant).not.toMatch(/reserved/);
+  });
+
+  it('still reads the variant of an ordinary low-nibble UUID', () => {
+    // Not nil, but with a variant nibble in the NCS range — this one really
+    // is the legacy scheme and must keep saying so.
+    const info = inspectUuid('c232ab00-9414-11ec-13c8-9f6bdeced846');
     expect(info.variant).toBe('NCS (legacy)');
   });
 });

@@ -377,6 +377,19 @@ export function inspectUuid(s: string): UuidInfo {
   if (!UUID_RE.test(t)) return { valid: false };
 
   const h = t.replace(/-/g, '').toLowerCase();
+
+  // The nil and max UUIDs are special-cased by RFC 9562 §5.9–5.10: they are
+  // defined values rather than UUIDs carrying a version and variant. Reading
+  // their nibbles gives "version 0, NCS (legacy)" for nil and "version 15,
+  // reserved" for max — both real historical schemes, and neither is what the
+  // reader is holding.
+  if (/^0{32}$/.test(h)) {
+    return { valid: true, version: 0, variant: 'nil UUID (RFC 9562 §5.9)' };
+  }
+  if (/^f{32}$/.test(h)) {
+    return { valid: true, version: 15, variant: 'max UUID (RFC 9562 §5.10)' };
+  }
+
   const version = parseInt(h[12], 16);
   const variantNibble = parseInt(h[16], 16);
   const variant =
