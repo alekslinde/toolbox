@@ -139,6 +139,8 @@ const faq = [
     hexToRgb, rgbToHex, rgbToHsl, hslToRgb, isValidHex,
     contrastRatio as contrast,
   } from '@/lib/color';
+  import { toCssVars, toTailwindTheme, toJson, type ColorToken } from '@/lib/color-tokens';
+  import { copyWithFeedback } from '@/lib/utils';
 
   function wcagLevel(r: number) { return r>=7?'AAA':r>=4.5?'AA':r>=3?'AA+':'Fail'; }
   function wcagCls(r: number)   { return r>=4.5?'pal-pass':r>=3?'pal-large':'pal-fail'; }
@@ -189,10 +191,8 @@ const faq = [
     document.getElementById('paletteExportRow')!.classList.remove('hidden');
   }
 
-  function flashBtn(btn: HTMLButtonElement, label: string) {
-    const orig = btn.textContent!;
-    btn.textContent = label; btn.classList.add('text-emerald-600');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('text-emerald-600'); }, 1500);
+  function tokensOf(): ColorToken[] {
+    return currentPalette.map((s) => ({ name: s.name, hex: s.hex }));
   }
 
   function setup() {
@@ -206,22 +206,20 @@ const faq = [
     });
     document.getElementById('paletteGenBtn')!.addEventListener('click', generate);
 
+    function groupName() {
+      return (document.getElementById('paletteName') as HTMLInputElement).value.trim() || 'color';
+    }
+
     document.getElementById('paletteCopyCSSBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
-      const name = (document.getElementById('paletteName') as HTMLInputElement).value.trim() || 'color';
-      const out = `:root {\n${currentPalette.map(s => `  --${name}-${s.name}: ${s.hex.toUpperCase()};`).join('\n')}\n}`;
-      navigator.clipboard.writeText(out).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, toCssVars(tokensOf(), groupName()));
     });
 
     document.getElementById('paletteCopyTailwindBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
-      const name = (document.getElementById('paletteName') as HTMLInputElement).value.trim() || 'color';
-      const inner = currentPalette.map(s => `    ${s.name}: '${s.hex.toUpperCase()}',`).join('\n');
-      navigator.clipboard.writeText(`'${name}': {\n${inner}\n},`).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, toTailwindTheme(tokensOf(), groupName()));
     });
 
     document.getElementById('paletteCopyJSONBtn')!.addEventListener('click', function (this: HTMLButtonElement) {
-      const obj: Record<string, string> = {};
-      currentPalette.forEach(s => { obj[s.name] = s.hex.toUpperCase(); });
-      navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, toJson(tokensOf()));
     });
 
     generate();

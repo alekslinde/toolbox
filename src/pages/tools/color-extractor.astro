@@ -128,7 +128,8 @@ const faq = [
   let currentFmt: 'HEX' | 'RGB' | 'HSL' = 'HEX';
   /* ── Color conversions (tuple wrappers over shared @/lib/color) ── */
   import { rgbToHex as rgbToHexFn, isLight as isLightFn } from '@/lib/color';
-  import { extOf } from '@/lib/utils';
+  import { extOf, copyWithFeedback } from '@/lib/utils';
+  import { toCssVars, toJson, type ColorToken } from '@/lib/color-tokens';
   import { wireDropZone } from '@/lib/file-dropzone';
   function rgbToHex([r, g, b]: RGB): string {
     return rgbToHexFn(r, g, b);
@@ -355,31 +356,28 @@ const faq = [
   });
 
   /* ── Export buttons ── */
-  function flashBtn(id: string, label: string) {
-    const btn = document.getElementById(id)!;
-    const orig = btn.textContent;
-    btn.textContent = label;
-    btn.classList.add('border-purple-300', 'text-purple-700');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('border-purple-300', 'text-purple-700'); }, 1500);
+  /** `name` is a plain index for toCssVars (it adds the "color-" prefix
+   *  itself) but needs that prefix baked in for toJson, which doesn't take
+   *  a group name — hence the two shapes over the same colours. */
+  function tokensOf(): ColorToken[] {
+    return currentColors.map((c, i) => ({ name: String(i + 1), hex: rgbToHex(c) }));
   }
 
-  document.getElementById('copyCSSBtn')!.addEventListener('click', () => {
+  document.getElementById('copyCSSBtn')!.addEventListener('click', (e) => {
     if (!currentColors.length) return;
-    const vars = currentColors.map((c, i) => `  --color-${i + 1}: ${rgbToHex(c)};`).join('\n');
-    navigator.clipboard.writeText(`:root {\n${vars}\n}`).then(() => flashBtn('copyCSSBtn', 'Copied!'));
+    void copyWithFeedback(e.currentTarget as HTMLElement, toCssVars(tokensOf(), 'color'), 'Copied!');
   });
 
-  document.getElementById('copyJSONBtn')!.addEventListener('click', () => {
+  document.getElementById('copyJSONBtn')!.addEventListener('click', (e) => {
     if (!currentColors.length) return;
-    const obj: Record<string, string> = {};
-    currentColors.forEach((c, i) => { obj[`color-${i + 1}`] = rgbToHex(c); });
-    navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn('copyJSONBtn', 'Copied!'));
+    const prefixed = currentColors.map((c, i) => ({ name: `color-${i + 1}`, hex: rgbToHex(c) }));
+    void copyWithFeedback(e.currentTarget as HTMLElement, toJson(prefixed), 'Copied!');
   });
 
-  document.getElementById('copyAllBtn')!.addEventListener('click', () => {
+  document.getElementById('copyAllBtn')!.addEventListener('click', (e) => {
     if (!currentColors.length) return;
     const vals = currentColors.map(c => colorValue(c, currentFmt)).join('\n');
-    navigator.clipboard.writeText(vals).then(() => flashBtn('copyAllBtn', 'Copied!'));
+    void copyWithFeedback(e.currentTarget as HTMLElement, vals, 'Copied!');
   });
 
 </script>
