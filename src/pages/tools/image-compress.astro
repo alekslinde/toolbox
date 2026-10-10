@@ -103,6 +103,22 @@ const faq = [
           <!-- Controls -->
           <div id="ic-controls" hidden class="flex flex-col gap-5">
 
+            <!-- Presets & share -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                id="ic-preset-select"
+                class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+              >
+                <option value="">Load preset…</option>
+              </select>
+              <button id="ic-preset-save" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Save preset
+              </button>
+              <button id="ic-preset-copy" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Copy link
+              </button>
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
                 <label class="mb-1.5 block text-xs font-medium text-slate-600" for="ic-format">Output format</label>
@@ -245,7 +261,8 @@ const faq = [
   import { wireMultiDropZone } from '@/lib/file-dropzone';
   import { imageCompressOp } from '@/lib/ops/image-compress';
   import { wireBatchUi } from '@/lib/ops/batch-ui';
-  import { defaultParams } from '@/lib/ops/types';
+  import { wirePresetBar } from '@/lib/ops/param-sync';
+  import { defaultParams, type ParamValues } from '@/lib/ops/types';
   import { fmtBytes } from '@/lib/utils';
   import { installGlobalHandlers } from '@/lib/telemetry';
 
@@ -313,17 +330,37 @@ const faq = [
       } catch { /* inspection is best-effort — never block the tool */ }
     }
 
-    const ui = wireBatchUi('ic', {
-      op: imageCompressOp as never,
-
-      getParams: () => ({
+    function getParams(): ParamValues {
+      return {
         ...defaultParams(imageCompressOp.params),
         format: fmtEl.value,
         quality: parseInt(qEl.value, 10),
         maxDim: maxDimEl.value ? parseInt(maxDimEl.value, 10) : null,
         pngReduce: pngReduce.checked,
         pngColors: parseInt(pngColors.value, 10),
-      }),
+      };
+    }
+
+    // The inverse of getParams: pushes a preset or a shared link's values
+    // back into these same controls.
+    function applyParams(values: ParamValues) {
+      if (typeof values.format === 'string') fmtEl.value = values.format;
+      if (typeof values.quality === 'number') {
+        qEl.value = String(values.quality);
+        qValEl.textContent = `${qEl.value}%`;
+      }
+      maxDimEl.value = typeof values.maxDim === 'number' ? String(values.maxDim) : '';
+      if (typeof values.pngReduce === 'boolean') pngReduce.checked = values.pngReduce;
+      if (typeof values.pngColors === 'number') {
+        pngColors.value = String(values.pngColors);
+        pngColorsVal.textContent = pngColors.value;
+      }
+      syncFormatControls();
+    }
+
+    const ui = wireBatchUi('ic', {
+      op: imageCompressOp as never,
+      getParams,
 
       onFilesChanged: (next) => {
         files = next;
@@ -349,6 +386,8 @@ const faq = [
     });
 
     wireMultiDropZone('ic-drop', { onFiles: (f) => ui.add(f) });
+
+    wirePresetBar('ic-preset', { op: imageCompressOp, getParams, applyParams });
   }
 
   document.addEventListener('astro:page-load', setup);

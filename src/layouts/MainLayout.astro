@@ -410,6 +410,14 @@ const schemas = tool
 
       document.addEventListener('astro:page-load', setup);
 
+      // Offline support: registered once, outside astro:page-load, since a
+      // client-side nav does not need to re-register an already-active worker.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function () {
+          // Offline is a nice-to-have, never a requirement to use the site.
+        });
+      }
+
       // Escape: close mobile menu or changelog (registered once, queries fresh each time).
       document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;

@@ -86,6 +86,22 @@ const faq = [
           <!-- Controls -->
           <div id="imgcvtControls" hidden class="flex flex-col gap-4">
 
+            <!-- Presets & share -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                id="imgcvt-preset-select"
+                class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+              >
+                <option value="">Load preset…</option>
+              </select>
+              <button id="imgcvt-preset-save" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Save preset
+              </button>
+              <button id="imgcvt-preset-copy" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Copy link
+              </button>
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
                 <label class="mb-1.5 block text-xs font-medium text-slate-600">Output format</label>
@@ -154,7 +170,8 @@ const faq = [
   import { imageConvertOp } from '@/lib/ops/image-convert';
   import { canEncode, MIME_BY_FORMAT } from '@/lib/ops/image-core';
   import { wireBatchUi } from '@/lib/ops/batch-ui';
-  import { defaultParams } from '@/lib/ops/types';
+  import { wirePresetBar } from '@/lib/ops/param-sync';
+  import { defaultParams, type ParamValues } from '@/lib/ops/types';
   import { fmtBytes } from '@/lib/utils';
   import { installGlobalHandlers } from '@/lib/telemetry';
 
@@ -194,7 +211,12 @@ const faq = [
     // all, and a silent fallback to PNG would hand back a mislabelled file —
     // so the option is struck out before anyone selects it, rather than a
     // whole batch failing at the end.
-    void (async () => {
+    //
+    // Awaited (not fired-and-forgotten) because a preset or shared link is
+    // applied right after this resolves — applying it earlier would let a
+    // link naming an unsupported format (e.g. AVIF on Safari) get silently
+    // overwritten back to PNG the moment this loop catches up.
+    async function disableUnsupportedFormats() {
       for (const opt of Array.from(fmtEl.options)) {
         const mime = MIME_BY_FORMAT[opt.value];
         // BMP and ICO are written by hand, not by the canvas encoder.
@@ -207,16 +229,30 @@ const faq = [
           syncQualityVisibility();
         }
       }
-    })();
+    }
 
-    const ui = wireBatchUi('imgcvt', {
-      op: imageConvertOp as never,
-
-      getParams: () => ({
+    function getParams(): ParamValues {
+      return {
         ...defaultParams(imageConvertOp.params),
         format: fmtEl.value,
         quality: parseInt(qEl.value, 10),
-      }),
+      };
+    }
+
+    function applyParams(values: ParamValues) {
+      if (typeof values.format === 'string' && !fmtEl.querySelector(`option[value="${values.format}"]`)?.hasAttribute('disabled')) {
+        fmtEl.value = values.format;
+      }
+      if (typeof values.quality === 'number') {
+        qEl.value = String(values.quality);
+        qValEl.textContent = `${qEl.value}%`;
+      }
+      syncQualityVisibility();
+    }
+
+    const ui = wireBatchUi('imgcvt', {
+      op: imageConvertOp as never,
+      getParams,
 
       onFilesChanged: (files) => {
         const has = files.length > 0;
@@ -240,6 +276,13 @@ const faq = [
     });
 
     wireMultiDropZone('imgcvtDropZone', { onFiles: (files) => ui.add(files) });
+
+    // Applying a preset or shared link waits for capability detection so an
+    // unsupported format named in the link can't be clobbered back to PNG
+    // after the fact.
+    void disableUnsupportedFormats().then(() => {
+      wirePresetBar('imgcvt-preset', { op: imageConvertOp, getParams, applyParams });
+    });
   }
 
   document.addEventListener('astro:page-load', setup);
