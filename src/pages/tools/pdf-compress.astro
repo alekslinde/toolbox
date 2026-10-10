@@ -87,6 +87,22 @@ const levels = [
               </div>
             </div>
 
+            <!-- Presets & share -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                id="pdf-preset-select"
+                class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+              >
+                <option value="">Load preset…</option>
+              </select>
+              <button id="pdf-preset-save" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Save preset
+              </button>
+              <button id="pdf-preset-copy" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Copy link
+              </button>
+            </div>
+
             <!-- Level selector -->
             <div>
               <p class="mb-2 text-xs font-medium text-slate-600">Compression level</p>
@@ -156,6 +172,8 @@ const levels = [
   import { pdfCompressOp } from '@/lib/ops/pdf-compress';
   import { estimateLevelSize, PDF_LEVELS } from '@/lib/ops/pdf-core';
   import { wireBatchUi } from '@/lib/ops/batch-ui';
+  import { wirePresetBar } from '@/lib/ops/param-sync';
+  import type { ParamValues } from '@/lib/ops/types';
   import { fmtBytes } from '@/lib/utils';
   import { installGlobalHandlers } from '@/lib/telemetry';
 
@@ -177,6 +195,15 @@ const levels = [
 
     const levelOf = () =>
       (document.querySelector('input[name="pdfLevel"]:checked') as HTMLInputElement)?.value ?? 'ebook';
+
+    function applyParams(values: ParamValues) {
+      if (typeof values.level !== 'string') return;
+      const radio = document.querySelector(`input[name="pdfLevel"][value="${values.level}"]`) as HTMLInputElement | null;
+      if (radio) {
+        radio.checked = true;
+        syncSelectedEstimate();
+      }
+    }
 
     let files: File[] = [];
     let firstBytes: Uint8Array | null = null;
@@ -243,6 +270,8 @@ const levels = [
     });
 
     wireMultiDropZone('pdfDropZone', { onFiles: (f) => ui.add(f) });
+
+    wirePresetBar('pdf-preset', { op: pdfCompressOp, getParams: () => ({ level: levelOf() }), applyParams });
   }
 
   document.addEventListener('astro:page-load', setup);

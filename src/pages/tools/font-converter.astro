@@ -58,6 +58,22 @@ const faq = [
 
           <div id="fontControls" class="hidden flex-col gap-4">
 
+            <!-- Presets & share -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                id="font-preset-select"
+                class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-purple-400 focus:outline-none"
+              >
+                <option value="">Load preset…</option>
+              </select>
+              <button id="font-preset-save" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Save preset
+              </button>
+              <button id="font-preset-copy" type="button" class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:border-purple-300">
+                Copy link
+              </button>
+            </div>
+
             <!-- Format checkboxes -->
             <div>
               <div class="mb-2 flex items-center justify-between">
@@ -179,6 +195,8 @@ const faq = [
   // @ts-ignore
   import wawoff2Decompress from 'wawoff2/decompress';
   import { wireBatchUi } from '@/lib/ops/batch-ui';
+  import { wirePresetBar } from '@/lib/ops/param-sync';
+  import type { ParamValues } from '@/lib/ops/types';
   import { installGlobalHandlers } from '@/lib/telemetry';
 
   // Conversion lives in src/lib/ops/font-convert.ts over the helpers in
@@ -231,10 +249,20 @@ const faq = [
     });
     sync();
 
+    function getParams(): ParamValues {
+      return Object.fromEntries(boxes.map((b) => [b.value, b.checked]));
+    }
+
+    function applyParams(values: ParamValues) {
+      for (const box of boxes) {
+        if (typeof values[box.value] === 'boolean') box.checked = values[box.value] as boolean;
+      }
+      sync();
+    }
+
     const ui = wireBatchUi('font', {
       op: fontConvertOp as never,
-      getParams: () =>
-        Object.fromEntries(boxes.map((b) => [b.value, b.checked])),
+      getParams,
       onFilesChanged: (files) => {
         const has = files.length > 0;
         controls.classList.toggle('hidden', !has);
@@ -243,6 +271,8 @@ const faq = [
     });
 
     wireMultiDropZone('fontDropZone', { onFiles: (f) => ui.add(f) });
+
+    wirePresetBar('font-preset', { op: fontConvertOp, getParams, applyParams });
   }
 
   document.addEventListener('astro:page-load', setup);
