@@ -121,6 +121,8 @@ const faq = [
 
 <script>
   import { isValidHex, mixColors } from '@/lib/color';
+  import { toCssVars, type ColorToken } from '@/lib/color-tokens';
+  import { copyWithFeedback } from '@/lib/utils';
 
   let tintsData: string[] = [], shadesData: string[] = [];
   let tooltipTimer: ReturnType<typeof setTimeout>;
@@ -191,10 +193,8 @@ const faq = [
     renderStrip('shadesStrip', 'shadesLabels', shadesData, 0);
   }
 
-  function flashBtn(btn: HTMLButtonElement, label: string) {
-    const orig = btn.textContent!;
-    btn.textContent = label; btn.classList.add('text-emerald-600');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('text-emerald-600'); }, 1500);
+  function tokensOf(data: string[]): ColorToken[] {
+    return data.map((hex, i) => ({ name: String(i), hex }));
   }
 
   function setup() {
@@ -220,19 +220,17 @@ const faq = [
     });
 
     (document.getElementById('tintsCopyCSSBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
-      const out = tintsData.map((hex, i) => `  --tint-${i}: ${hex.toUpperCase()};`).join('\n');
-      navigator.clipboard.writeText(`:root {\n${out}\n}`).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, toCssVars(tokensOf(tintsData), 'tint'));
     });
     (document.getElementById('shadesCopyCSSBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
-      const out = shadesData.map((hex, i) => `  --shade-${i}: ${hex.toUpperCase()};`).join('\n');
-      navigator.clipboard.writeText(`:root {\n${out}\n}`).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, toCssVars(tokensOf(shadesData), 'shade'));
     });
     (document.getElementById('tintsJSONBtn') as HTMLButtonElement).addEventListener('click', function (this: HTMLButtonElement) {
       const obj = {
         tints:  tintsData.map(h  => h.toUpperCase()),
         shades: shadesData.map(h => h.toUpperCase()),
       };
-      navigator.clipboard.writeText(JSON.stringify(obj, null, 2)).then(() => flashBtn(this, '✓ Copied'));
+      void copyWithFeedback(this, JSON.stringify(obj, null, 2));
     });
 
     render();
